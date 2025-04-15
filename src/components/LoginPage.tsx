@@ -1,35 +1,13 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Container, Form, Button, Alert } from 'react-bootstrap';
 import { useAuth } from '../contexts/AuthContext';
 
 const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { login, validateLogin, isAuthenticated } = useAuth();
-  const validationAttempted = useRef(false);
-
-  useEffect(() => {
-    const token = searchParams.get('token');
-    console.log('LoginPage useEffect triggered', {
-      token,
-      isAuthenticated,
-      hasToken: !!token,
-      shouldValidate: token && !isAuthenticated,
-      validationAttempted: validationAttempted.current
-    });
-    
-    if (token && !isAuthenticated && !validationAttempted.current) {
-      console.log('Starting login validation');
-      validationAttempted.current = true;
-      validateLogin(token).catch((error) => {
-        setMessage({ type: 'error', text: error.message });
-        validationAttempted.current = false; // Reset on error
-      });
-    }
-  }, [searchParams, validateLogin, isAuthenticated]);
+  const { login } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

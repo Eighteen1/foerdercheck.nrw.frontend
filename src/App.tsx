@@ -11,6 +11,7 @@ import LoginPage from './components/LoginPage';
 import VerifyEmail from './components/VerifyEmail';
 import DocumentCheck from './components/DocumentCheck';
 import Layout from './components/Layout';
+import AuthCallback from './components/AuthCallback';
 
 function App() {
   return (
@@ -25,6 +26,7 @@ function App() {
             <Route path="/personal-space" element={<PersonalSpace />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/verify/:token" element={<VerifyEmail />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/document-check" element={<DocumentCheck />} />
           </Routes>
         </Layout>
