@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { API_ENDPOINTS } from '../config';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -25,7 +26,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     if (storedEmail && storedToken) {
       // Verify the token is still valid
-      fetch('http://localhost:8000/api/auth/validate', {
+      fetch(API_ENDPOINTS.AUTH.VALIDATE, {
         headers: {
           'Authorization': `Bearer ${storedToken}`
         }
@@ -55,7 +56,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const register = async (email: string) => {
     console.log('Attempting registration for email:', email);
     try {
-      const response = await fetch('http://localhost:8000/api/auth/register', {
+      const response = await fetch(API_ENDPOINTS.AUTH.REGISTER, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -82,7 +83,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string) => {
     console.log('Attempting login for email:', email);
     try {
-      const response = await fetch('http://localhost:8000/api/auth/login', {
+      const response = await fetch(API_ENDPOINTS.AUTH.LOGIN, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -108,7 +109,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const verifyEmail = async (token: string) => {
     try {
-      const response = await fetch(`http://localhost:8000/api/auth/verify/${token}`);
+      const response = await fetch(API_ENDPOINTS.AUTH.VERIFY(token));
       if (!response.ok) {
         const data = await response.json();
         throw new Error(data.detail || 'Failed to verify email');
@@ -138,7 +139,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
 
-      const response = await fetch(`http://localhost:8000/api/auth/login/${token}`);
+      const response = await fetch(API_ENDPOINTS.AUTH.LOGIN_WITH_TOKEN(token));
       const data = await response.json();
       
       if (!response.ok) {
