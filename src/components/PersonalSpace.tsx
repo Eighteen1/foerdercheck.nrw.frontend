@@ -35,7 +35,7 @@ const PersonalSpace: React.FC = () => {
     e.preventDefault();
     try {
       // Create user through backend
-      const createUserResponse = await fetch('https://foerdercheck-backend.onrender.com/user/create', {
+      const createUserResponse = await fetch('https://foerdercheck-backend.onrender.com/api/user/create', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
