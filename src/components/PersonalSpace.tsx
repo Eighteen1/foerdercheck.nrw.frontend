@@ -51,7 +51,7 @@ const PersonalSpace: React.FC = () => {
       
       if (user?.id && eligibilityData) {
         // Store eligibility data through backend
-        const storeDataResponse = await fetch('https://foerdercheck-backend.onrender.com/user/store-eligibility', {
+        const storeDataResponse = await fetch('https://foerdercheck-backend.onrender.com/api/user/store-eligibility', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -63,16 +63,21 @@ const PersonalSpace: React.FC = () => {
         });
 
         if (!storeDataResponse.ok) {
-          throw new Error('Failed to store eligibility data');
+          const errorData = await storeDataResponse.json();
+          throw new Error(errorData.message || 'Failed to store eligibility data');
         }
 
         // Send magic link for login
-        await supabase.auth.signInWithOtp({
+        const { error: signInError } = await supabase.auth.signInWithOtp({
           email: emailInput,
           options: {
             emailRedirectTo: `${window.location.origin}/auth/callback`,
           },
         });
+
+        if (signInError) {
+          throw new Error('Failed to send magic link: ' + signInError.message);
+        }
         
         setMessage({
           type: 'success',
