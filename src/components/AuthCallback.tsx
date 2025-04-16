@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import { supabase, storeEligibilityData } from '../lib/supabase';
 
 const AuthCallback: React.FC = () => {
   const navigate = useNavigate();
@@ -16,7 +16,17 @@ const AuthCallback: React.FC = () => {
           return;
         }
 
-        if (session) {
+        if (session?.user) {
+          // Get pending eligibility data from localStorage
+          const pendingData = localStorage.getItem('pendingEligibilityData');
+          
+          if (pendingData) {
+            // Store the data in the database
+            await storeEligibilityData(session.user.id, JSON.parse(pendingData));
+            // Clear the temporary storage
+            localStorage.removeItem('pendingEligibilityData');
+          }
+          
           navigate('/personal-space');
         } else {
           navigate('/login');

@@ -34,27 +34,50 @@ const PersonalSpace: React.FC = () => {
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      // First, create the user in Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: emailInput,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+      // Create user through backend
+      const createUserResponse = await fetch('https://foerdercheck-backend.onrender.com/api/user/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
+        body: JSON.stringify({ email: emailInput }),
       });
 
-      if (authError) throw authError;
+      if (!createUserResponse.ok) {
+        throw new Error('Failed to create user');
+      }
 
-      if (authData.user && eligibilityData) {
-        // Store the eligibility data in the database
-        await storeEligibilityData(authData.user.id, eligibilityData);
+      const { user } = await createUserResponse.json();
+      
+      if (user?.id && eligibilityData) {
+        // Store eligibility data through backend
+        const storeDataResponse = await fetch('https://foerdercheck-backend.onrender.com/api/user/store-eligibility', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId: user.id,
+            eligibilityData: eligibilityData
+          }),
+        });
+
+        if (!storeDataResponse.ok) {
+          throw new Error('Failed to store eligibility data');
+        }
+
+        // Send magic link for login
+        await supabase.auth.signInWithOtp({
+          email: emailInput,
+          options: {
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
+          },
+        });
         
         setMessage({
           type: 'success',
           text: 'Ein Login-Link wurde an Ihre E-Mail-Adresse gesendet. Bitte überprüfen Sie Ihren Posteingang.'
         });
-        
-        // Clear the temporary storage
-        localStorage.removeItem('pendingEligibilityData');
       }
     } catch (error) {
       console.error('Error during registration:', error);
