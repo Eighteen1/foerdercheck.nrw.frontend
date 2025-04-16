@@ -1,13 +1,75 @@
-import React from "react";
-import { useNavigate } from "react-router-dom";
-import { Container, Row, Col, Button } from "react-bootstrap";
+import React, { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { Container, Row, Col, Button, Modal, Form } from "react-bootstrap";
 import { useAuth } from "../contexts/AuthContext";
+import { supabase, storeEligibilityData } from "../lib/supabase";
 
 const PersonalSpace: React.FC = () => {
   const navigate = useNavigate();
-  const { isAuthenticated, email, logout } = useAuth();
+  const location = useLocation();
+  const { isAuthenticated, email, logout, login } = useAuth();
+  const [showRegistrationModal, setShowRegistrationModal] = useState(false);
+  const [emailInput, setEmailInput] = useState('');
+  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [eligibilityData, setEligibilityData] = useState<any>(null);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      // Check if we have eligibility data from the result page
+      const data = location.state?.eligibilityData;
+      if (data) {
+        setEligibilityData(data);
+        setShowRegistrationModal(true);
+      } else {
+        // Check localStorage for pending data
+        const pendingData = localStorage.getItem('pendingEligibilityData');
+        if (pendingData) {
+          setEligibilityData(JSON.parse(pendingData));
+          setShowRegistrationModal(true);
+        }
+      }
+    }
+  }, [isAuthenticated, location.state]);
+
+  const handleEmailSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      // First, create the user in Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: emailInput,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+
+      if (authError) throw authError;
+
+      if (authData.user && eligibilityData) {
+        // Store the eligibility data in the database
+        await storeEligibilityData(authData.user.id, eligibilityData);
+        
+        setMessage({
+          type: 'success',
+          text: 'Ein Login-Link wurde an Ihre E-Mail-Adresse gesendet. Bitte überprüfen Sie Ihren Posteingang.'
+        });
+        
+        // Clear the temporary storage
+        localStorage.removeItem('pendingEligibilityData');
+      }
+    } catch (error) {
+      console.error('Error during registration:', error);
+      setMessage({
+        type: 'error',
+        text: error instanceof Error ? error.message : 'Ein Fehler ist aufgetreten.'
+      });
+    }
+  };
 
   const handleDocumentUpload = () => {
+    if (!isAuthenticated) {
+      setShowRegistrationModal(true);
+      return;
+    }
     navigate('/document-check');
   };
 
@@ -99,6 +161,34 @@ const PersonalSpace: React.FC = () => {
           </Button>
         </div>
       </Container>
+
+      <Modal show={showRegistrationModal} onHide={() => setShowRegistrationModal(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Konto erstellen</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {message && (
+            <div className={`alert alert-${message.type === 'success' ? 'success' : 'danger'} mb-3`}>
+              {message.text}
+            </div>
+          )}
+          <p>Um fortzufahren, geben Sie bitte Ihre E-Mail-Adresse ein, um ein Konto zu erstellen.</p>
+          <Form onSubmit={handleEmailSubmit}>
+            <Form.Group className="mb-3">
+              <Form.Control
+                type="email"
+                placeholder="E-Mail-Adresse"
+                value={emailInput}
+                onChange={(e) => setEmailInput(e.target.value)}
+                required
+              />
+            </Form.Group>
+            <Button type="submit" className="w-100" style={{ backgroundColor: '#064497', border: 'none' }}>
+              Konto erstellen
+            </Button>
+          </Form>
+        </Modal.Body>
+      </Modal>
     </div>
   );
 };

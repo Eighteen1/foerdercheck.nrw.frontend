@@ -66,7 +66,7 @@ const ResultPage: React.FC = () => {
 
         console.log('Sending request to backend:', requestData);
 
-        const response = await fetch('http://localhost:8000/api/check-eligibility', {
+        const response = await fetch('https://foerdercheck-backend.onrender.com/api/check-eligibility', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -199,7 +199,7 @@ const ResultPage: React.FC = () => {
 
         <div className="flex flex-col gap-3">
           <Button 
-            onClick={() => navigate('/personal-space')}
+            onClick={() => navigate('/personal-space', { state: { eligibilityData: eligibilityResult } })}
             className={`w-full py-2 rounded focus:outline-none focus:ring-0 focus:ring-offset-0 shadow-md ${
               eligibilityResult.eligible 
                 ? 'bg-[#064497] hover:bg-[#0B66E6] text-white' 
