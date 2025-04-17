@@ -66,23 +66,17 @@ const PersonalSpace: React.FC = () => {
           const errorData = await storeDataResponse.json();
           throw new Error(errorData.message || 'Failed to store eligibility data');
         }
-
-        // Send magic link for login
-        const { error: signInError } = await supabase.auth.signInWithOtp({
-          email: emailInput,
-          options: {
-            emailRedirectTo: `${window.location.origin}/auth/callback`,
-          },
-        });
-
-        if (signInError) {
-          throw new Error('Failed to send magic link: ' + signInError.message);
-        }
         
         setMessage({
           type: 'success',
-          text: 'Ein Login-Link wurde an Ihre E-Mail-Adresse gesendet. Bitte überprüfen Sie Ihren Posteingang.'
+          text: 'Eine Bestätigungs-E-Mail wurde an Ihre E-Mail-Adresse gesendet. Bitte überprüfen Sie Ihren Posteingang und bestätigen Sie Ihre E-Mail-Adresse.'
         });
+        
+        // Store eligibility data temporarily in localStorage
+        localStorage.setItem('pendingEligibilityData', JSON.stringify(eligibilityData));
+        
+        // Close the modal but stay on the current page
+        setShowRegistrationModal(false);
       }
     } catch (error) {
       console.error('Error during registration:', error);
