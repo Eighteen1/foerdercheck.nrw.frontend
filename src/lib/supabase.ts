@@ -29,7 +29,7 @@ export const signOut = async () => {
 export const storeEligibilityData = async (userId: string, eligibilityData: any) => {
   try {
     const { data, error } = await supabase
-      .from('users')
+      .from('user_data')
       .update({
         adult_count: eligibilityData.adultCount,
         child_count: eligibilityData.childCount,
