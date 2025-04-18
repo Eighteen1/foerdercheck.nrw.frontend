@@ -17,6 +17,7 @@ const AuthCallback: React.FC = () => {
         }
 
         if (session?.user) {
+          console.error('User is authenticated, redirect to personal space');
           // Get pending eligibility data from localStorage
           const pendingData = localStorage.getItem('pendingEligibilityData');
           
@@ -29,6 +30,7 @@ const AuthCallback: React.FC = () => {
           
           navigate('/personal-space');
         } else {
+          console.error('User is not authenticated, redirect to login');
           navigate('/login');
         }
       } catch (error) {
