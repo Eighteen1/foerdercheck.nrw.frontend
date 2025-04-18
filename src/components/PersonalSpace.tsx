@@ -50,15 +50,15 @@ const PersonalSpace: React.FC = () => {
       const { user } = await createUserResponse.json();
       
       if (user?.id && location.state?.eligibilityData) {
-        // Store only the user's input values
+        // Ensure all required fields are present and properly typed
         const eligibilityData = {
-          adultCount: location.state.eligibilityData.adultCount,
-          childCount: location.state.eligibilityData.childCount,
-          isDisabled: location.state.eligibilityData.isDisabled,
-          isMarried: location.state.eligibilityData.isMarried,
-          isRetired: location.state.eligibilityData.isRetired,
-          grossIncome: location.state.eligibilityData.grossIncome,
-          netIncome: location.state.eligibilityData.netIncome
+          adultCount: parseInt(location.state.eligibilityData.adultCount),
+          childCount: parseInt(location.state.eligibilityData.childCount),
+          isDisabled: Boolean(location.state.eligibilityData.isDisabled),
+          isMarried: Boolean(location.state.eligibilityData.isMarried),
+          isRetired: Boolean(location.state.eligibilityData.isRetired),
+          grossIncome: parseFloat(location.state.eligibilityData.grossIncome),
+          netIncome: parseFloat(location.state.eligibilityData.netIncome)
         };
 
         // Store eligibility data through backend
