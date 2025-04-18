@@ -49,7 +49,18 @@ const PersonalSpace: React.FC = () => {
 
       const { user } = await createUserResponse.json();
       
-      if (user?.id && eligibilityData) {
+      if (user?.id && location.state?.eligibilityData) {
+        // Store only the user's input values
+        const eligibilityData = {
+          adultCount: location.state.eligibilityData.adultCount,
+          childCount: location.state.eligibilityData.childCount,
+          isDisabled: location.state.eligibilityData.isDisabled,
+          isMarried: location.state.eligibilityData.isMarried,
+          isRetired: location.state.eligibilityData.isRetired,
+          grossIncome: location.state.eligibilityData.grossIncome,
+          netIncome: location.state.eligibilityData.netIncome
+        };
+
         // Store eligibility data through backend
         const storeDataResponse = await fetch('https://foerdercheck-backend.onrender.com/api/user/store-eligibility', {
           method: 'POST',
