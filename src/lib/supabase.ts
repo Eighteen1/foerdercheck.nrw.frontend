@@ -29,15 +29,18 @@ export const signOut = async () => {
 export const storeEligibilityData = async (userId: string, eligibilityData: any) => {
   try {
     const { data, error } = await supabase
-      .from('user_data')
-      .insert([
-        {
-          id: userId,
-          eligibility_data: eligibilityData,
-          created_at: new Date().toISOString(),
-          application_status: 'pending'
-        }
-      ]);
+      .from('users')
+      .update({
+        adult_count: eligibilityData.adultCount,
+        child_count: eligibilityData.childCount,
+        is_disabled: eligibilityData.isDisabled,
+        is_married: eligibilityData.isMarried,
+        is_retired: eligibilityData.isRetired,
+        gross_income: eligibilityData.grossIncome,
+        net_income: eligibilityData.netIncome,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', userId);
 
     if (error) throw error;
     return data;
