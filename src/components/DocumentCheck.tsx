@@ -132,14 +132,7 @@ const DocumentCheck: React.FC = () => {
     }));
   };
 
-  const handleCheck = async () => {
-    // Save the form before proceeding with the check
-    await handleSave();
-    // Additional check logic here
-    console.log('Form checked:', { propertyType, answers });
-  };
-
-  const handleSave = async () => {
+  const handleSave = async (shouldNavigate: boolean = false) => {
     if (!user?.id) {
       console.error('No user ID found');
       return;
@@ -160,9 +153,21 @@ const DocumentCheck: React.FC = () => {
         answers
       });
       setHasUnsavedChanges(false);
+      
+      // Only navigate if explicitly requested
+      if (shouldNavigate) {
+        navigate('/personal-space');
+      }
     } catch (error) {
       console.error('Error saving form:', error);
     }
+  };
+
+  const handleCheck = async () => {
+    // Save the form before proceeding with the check, but don't navigate
+    await handleSave(false);
+    // Additional check logic here
+    console.log('Form checked:', { propertyType, answers });
   };
 
   const renderTooltip = (text: string) => (
@@ -370,7 +375,7 @@ const DocumentCheck: React.FC = () => {
           <div className="mb-5 pb-4">
             <Button
               variant="link"
-              onClick={handleSave}
+              onClick={() => handleSave(true)}
               className="text-decoration-underline"
               style={{ color: 'black' }}
             >
