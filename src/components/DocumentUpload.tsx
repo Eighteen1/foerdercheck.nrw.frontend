@@ -124,6 +124,15 @@ const DocumentUpload: React.FC = () => {
         });
       }
 
+      if (userData?.propertytype === 'neubau') {
+        conditionalDocuments.push({
+          id: 'neubau_kaufvertrag',
+          title: 'Grundstückskaufvertrag/Entwurf des Kaufvertrags',
+          description: 'Bei Neubau: Grundstückskaufvertrag/Entwurf des Kaufvertrags.',
+          isRequired: true
+        });
+      }
+
       // Add uploaded file information from document_status
       const allDocuments = [...baseDocuments, ...conditionalDocuments].map(doc => {
         const uploadedDoc = userData?.document_status?.[doc.id];
