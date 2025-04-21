@@ -26,7 +26,7 @@ const AuthCallback: React.FC = () => {
               // Check if user already has eligibility data
               const { data: existingData, error: fetchError } = await supabase
                 .from('user_data')
-                .select('eligibility_data')
+                .select('adult_count, child_count, is_disabled, is_married, is_retired, gross_income, net_income')
                 .eq('id', session.user.id)
                 .single();
 
@@ -35,7 +35,7 @@ const AuthCallback: React.FC = () => {
               }
 
               // Only store if no existing data
-              if (!existingData?.eligibility_data) {
+              if (!existingData?.adult_count) {
                 await storeEligibilityData(session.user.id, JSON.parse(pendingData));
               }
               
@@ -53,7 +53,7 @@ const AuthCallback: React.FC = () => {
           navigate('/login');
         }
       } catch (error) {
-        console.error('Error handling auth callback:', error);
+        console.error('Error in auth callback:', error);
         navigate('/login');
       }
     };
