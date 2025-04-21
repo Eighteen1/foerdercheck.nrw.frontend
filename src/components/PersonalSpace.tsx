@@ -2,12 +2,12 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Container, Row, Col, Button, Modal, Form } from "react-bootstrap";
 import { useAuth } from "../contexts/AuthContext";
-import { supabase, storeEligibilityData } from "../lib/supabase";
+import { supabase, storeEligibilityData, checkDocumentCheckStatus } from "../lib/supabase";
 
 const PersonalSpace: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { isAuthenticated, email, logout, login } = useAuth();
+  const { isAuthenticated, email, logout, login, user } = useAuth();
   const [showRegistrationModal, setShowRegistrationModal] = useState(false);
   const [emailInput, setEmailInput] = useState('');
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -98,12 +98,30 @@ const PersonalSpace: React.FC = () => {
     }
   };
 
-  const handleDocumentUpload = () => {
+  const handleDocumentUpload = async () => {
     if (!isAuthenticated) {
       setShowRegistrationModal(true);
       return;
     }
-    navigate('/document-check');
+
+    if (!user?.id) {
+      console.error('No user ID found');
+      navigate('/document-check');
+      return;
+    }
+
+    try {
+      const isDocumentCheckCompleted = await checkDocumentCheckStatus(user.id);
+      if (isDocumentCheckCompleted) {
+        navigate('/document-upload');
+      } else {
+        navigate('/document-check');
+      }
+    } catch (error) {
+      console.error('Error checking document check status:', error);
+      // Default to document-check if there's an error
+      navigate('/document-check');
+    }
   };
 
   const formSections = [

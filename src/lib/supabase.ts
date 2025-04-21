@@ -223,4 +223,20 @@ export const removeDocument = async (userId: string, documentId: string, fileNam
     console.error('Error removing document:', error);
     throw error;
   }
+};
+
+export const checkDocumentCheckStatus = async (userId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('user_data')
+      .select('completeddoccheck')
+      .eq('id', userId)
+      .single();
+
+    if (error) throw error;
+    return data?.completeddoccheck || false;
+  } catch (error) {
+    console.error('Error checking document check status:', error);
+    return false;
+  }
 }; 
