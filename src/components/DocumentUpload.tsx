@@ -106,6 +106,24 @@ const DocumentUpload: React.FC = () => {
         });
       }
 
+      if (userData?.haswoodconstructionloan) {
+        conditionalDocuments.push({
+          id: 'bauenmitholz_cert',
+          title: 'Nachweis: Zusatzdarlehen für Bauen mit Holz',
+          description: 'Nachweis: Zusatzdarlehen für Bauen mit Holz',
+          isRequired: true
+        });
+      }
+
+      if (userData?.hasbegstandardloan) {
+        conditionalDocuments.push({
+          id: 'beg40standard_cert',
+          title: 'Nachweis: Zusatzdarlehen für BEG Effizienzstandard 40',
+          description: 'Nachweis: Zusatzdarlehen für BEG Effizienzstandard 40',
+          isRequired: true
+        });
+      }
+
       // Add uploaded file information from document_status
       const allDocuments = [...baseDocuments, ...conditionalDocuments].map(doc => {
         const uploadedDoc = userData?.document_status?.[doc.id];
