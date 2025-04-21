@@ -27,8 +27,8 @@ const DocumentUpload: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   const formSections: FormSection[] = [
-    { title: "BeWohnNutzFl", progress: 0 },
-    { title: "BeBruttoRaumInhalt", progress: 0 }
+    { title: "Berechnung der Wohn- und Nutzfläche nach WoFIV", progress: 0 },
+    { title: "Berechnung des Brutto-Rauminhalts des Gebäudes nach DIN 277", progress: 0 }
   ];
 
   useEffect(() => {
@@ -271,35 +271,43 @@ const DocumentUpload: React.FC = () => {
       <Container className="pt-16">
         <div className="text-center mb-5">
           <h2 className="text-[#064497] text-3xl mb-4">Dokument Übersicht</h2>
-          <p>
+          <p className="text-lg">
             Klicken Sie auf die Pfeile, um die jeweiligen Dokumente hochzuladen,
             oder ziehen Sie sie in die entsprechenden Bereiche.
           </p>
         </div>
 
-        {/* Form sections at the top */}
-        <Row className="mb-5">
-          <Col>
-            {formSections.map((section, index) => (
-              <div key={index} className="d-flex align-items-center mb-4">
-                <Button
-                  className="py-3 me-3"
-                  style={{ 
-                    backgroundColor: '#064497', 
-                    border: 'none',
-                    width: 'calc(100% - 45px - 1rem)' // 100% - progress width - margin
-                  }}
-                >
-                  {section.title}
-                </Button>
-                <div className="border rounded-circle p-2 d-flex align-items-center justify-content-center" 
-                     style={{ width: '45px', height: '45px' }}>
-                  {section.progress}%
+        <div>
+          {/* Form sections at the top */}
+          <Row className="mb-5">
+            <Col>
+              <h3 className="mb-4 text-[#000000] font-semibold italic">
+                Verpflichtende Dokumente zum ausfüllen
+              </h3>
+              <p className="mb-4">
+                Bitte füllen Sie die folgenden zwei Formulare aus, damit wir diese digital prüfen können.
+              </p>
+              {formSections.map((section, index) => (
+                <div key={index} className="d-flex align-items-center mb-4">
+                  <Button
+                    className="py-3 me-3"
+                    style={{ 
+                      backgroundColor: '#064497', 
+                      border: 'none',
+                      width: 'calc(100% - 45px - 1rem)' // 100% - progress width - margin
+                    }}
+                  >
+                    {section.title}
+                  </Button>
+                  <div className="border rounded-circle p-2 d-flex align-items-center justify-content-center" 
+                       style={{ width: '45px', height: '45px' }}>
+                    {section.progress}%
+                  </div>
                 </div>
-              </div>
-            ))}
-          </Col>
-        </Row>
+              ))}
+            </Col>
+          </Row>
+        </div>
 
         {/* Document upload section */}
         <div className="mb-5">
@@ -310,7 +318,7 @@ const DocumentUpload: React.FC = () => {
           {documents.map((doc) => (
             <OverlayTrigger
               key={doc.id}
-              placement="right"
+              placement="bottom"
               overlay={renderTooltip(doc.description)}
             >
               <div 

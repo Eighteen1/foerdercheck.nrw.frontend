@@ -27,24 +27,30 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
             <p className="mb-0 small">© 2024 Alle Rechte vorbehalten</p>
           </div>
           <div className="d-flex gap-4">
-            <button 
-              onClick={() => handleNavigation('/impressum')}
-              className="text-white text-decoration-none bg-transparent border-0"
+            <a 
+              href="https://www.fördercheck-nrw.com/impressum/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-white text-decoration-none"
             >
               Impressum
-            </button>
-            <button 
-              onClick={() => handleNavigation('/datenschutz')}
-              className="text-white text-decoration-none bg-transparent border-0"
+            </a>
+            <a 
+              href="https://www.fördercheck-nrw.com/datenschutzerklarung/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-white text-decoration-none"
             >
               Datenschutz
-            </button>
-            <button 
-              onClick={() => handleNavigation('/kontakt')}
-              className="text-white text-decoration-none bg-transparent border-0"
+            </a>
+            <a 
+              href="https://www.fördercheck-nrw.com/kontakt/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-white text-decoration-none"
             >
               Kontakt
-            </button>
+            </a>
           </div>
         </div>
       </Container>
