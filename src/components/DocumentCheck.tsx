@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Container, Row, Col, Form, Button, OverlayTrigger, Tooltip, Modal } from "react-bootstrap";
 import { useNavigate, useBeforeUnload } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { supabase, getDocumentCheckData, storeDocumentCheckData } from '../lib/supabase';
 
 interface DocumentCheckState {
   propertyType: string;
@@ -19,12 +20,13 @@ interface DocumentCheckState {
 
 const DocumentCheck: React.FC = () => {
   const navigate = useNavigate();
-  const { email } = useAuth();
+  const { user } = useAuth();
   const [propertyType, setPropertyType] = useState('');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [showLeaveConfirmation, setShowLeaveConfirmation] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
   const [initialState, setInitialState] = useState<DocumentCheckState | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   // State for yes/no questions
   const [answers, setAnswers] = useState({
@@ -41,46 +43,33 @@ const DocumentCheck: React.FC = () => {
   // Load saved state on component mount
   useEffect(() => {
     const loadSavedState = async () => {
-      const token = localStorage.getItem('token');
-      console.log('Attempting to load saved state:', {
-        email,
-        hasToken: !!token
-      });
-
-      if (!token || !email) {
-        console.error('No authentication token or email found');
+      if (!user?.id) {
+        console.error('No user ID found');
+        setIsLoading(false);
         return;
       }
 
       try {
-        const response = await fetch('http://localhost:8000/api/document-check/load', {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          }
-        });
+        const savedState = await getDocumentCheckData(user.id);
+        console.log('Successfully loaded saved state:', savedState);
         
-        if (response.ok) {
-          const savedState = await response.json();
-          console.log('Successfully loaded saved state:', savedState);
+        if (savedState) {
           setPropertyType(savedState.propertyType);
           setAnswers(savedState.answers);
           setInitialState({
             propertyType: savedState.propertyType,
             answers: savedState.answers
           });
-        } else {
-          const errorData = await response.json();
-          console.error('Error loading saved state:', errorData);
         }
       } catch (error) {
         console.error('Error loading saved state:', error);
+      } finally {
+        setIsLoading(false);
       }
     };
 
     loadSavedState();
-  }, [email]); // Only reload when email changes
+  }, [user?.id]);
 
   // Track changes by comparing current state with initial state
   useEffect(() => {
@@ -151,44 +140,26 @@ const DocumentCheck: React.FC = () => {
   };
 
   const handleSave = async () => {
-    const token = localStorage.getItem('token');
-    console.log('Attempting to save document check state:', {
-      email,
-      hasToken: !!token,
-      propertyType,
-      answers
-    });
-
-    if (!token) {
-      console.error('No authentication token found');
+    if (!user?.id) {
+      console.error('No user ID found');
       return;
     }
 
     try {
-      const response = await fetch('http://localhost:8000/api/document-check/save', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          propertyType,
-          answers
-        })
-      });
+      const documentCheckData = {
+        propertyType,
+        answers
+      };
 
-      if (response.ok) {
-        console.log('Successfully saved document check state');
-        // Update initial state to match current state
-        setInitialState({
-          propertyType,
-          answers
-        });
-        setHasUnsavedChanges(false);
-      } else {
-        const errorData = await response.json();
-        console.error('Error saving form:', errorData);
-      }
+      await storeDocumentCheckData(user.id, documentCheckData);
+      console.log('Successfully saved document check state');
+      
+      // Update initial state to match current state
+      setInitialState({
+        propertyType,
+        answers
+      });
+      setHasUnsavedChanges(false);
     } catch (error) {
       console.error('Error saving form:', error);
     }

@@ -48,4 +48,69 @@ export const storeEligibilityData = async (userId: string, eligibilityData: any)
     console.error('Error storing eligibility data:', error);
     throw error;
   }
+};
+
+export const storeDocumentCheckData = async (userId: string, documentCheckData: any) => {
+  try {
+    const { data, error } = await supabase
+      .from('user_data')
+      .update({
+        propertytype: documentCheckData.propertyType,
+        hasinheritanceright: documentCheckData.answers.hasInheritanceRight,
+        haslocationcostloan: documentCheckData.answers.hasLocationCostLoan,
+        haswoodconstructionloan: documentCheckData.answers.hasWoodConstructionLoan,
+        hasbegstandardloan: documentCheckData.answers.hasBEGStandardLoan,
+        ispregnant: documentCheckData.answers.isPregnant,
+        hasauthorizedperson: documentCheckData.answers.hasAuthorizedPerson,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', userId);
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error storing document check data:', error);
+    throw error;
+  }
+};
+
+export const getDocumentCheckData = async (userId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('user_data')
+      .select(`
+        propertytype,
+        hasinheritanceright,
+        haslocationcostloan,
+        haswoodconstructionloan,
+        hasbegstandardloan,
+        ispregnant,
+        hasauthorizedperson,
+        is_married,
+        is_disabled
+      `)
+      .eq('id', userId)
+      .single();
+
+    if (error) throw error;
+    
+    if (!data) return null;
+
+    return {
+      propertyType: data.propertytype,
+      answers: {
+        hasInheritanceRight: data.hasinheritanceright,
+        hasLocationCostLoan: data.haslocationcostloan,
+        hasWoodConstructionLoan: data.haswoodconstructionloan,
+        hasBEGStandardLoan: data.hasbegstandardloan,
+        isPregnant: data.ispregnant,
+        hasAuthorizedPerson: data.hasauthorizedperson,
+        isMarried: data.is_married,
+        isDisabled: data.is_disabled
+      }
+    };
+  } catch (error) {
+    console.error('Error getting document check data:', error);
+    throw error;
+  }
 }; 
