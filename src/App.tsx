@@ -10,6 +10,7 @@ import PersonalSpace from './components/PersonalSpace';
 import LoginPage from './components/LoginPage';
 import VerifyEmail from './components/VerifyEmail';
 import DocumentCheck from './components/DocumentCheck';
+import DocumentUpload from './components/DocumentUpload';
 import Layout from './components/Layout';
 import AuthCallback from './components/AuthCallback';
 
@@ -28,6 +29,7 @@ function App() {
             <Route path="/verify/:token" element={<VerifyEmail />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/document-check" element={<DocumentCheck />} />
+            <Route path="/document-upload" element={<DocumentUpload />} />
           </Routes>
         </Layout>
       </FormProvider>
