@@ -62,6 +62,8 @@ export const storeDocumentCheckData = async (userId: string, documentCheckData: 
         hasbegstandardloan: documentCheckData.answers.hasBEGStandardLoan,
         ispregnant: documentCheckData.answers.isPregnant,
         hasauthorizedperson: documentCheckData.answers.hasAuthorizedPerson,
+        is_married: documentCheckData.answers.isMarried,
+        is_disabled: documentCheckData.answers.isDisabled,
         updated_at: new Date().toISOString()
       })
       .eq('id', userId);
