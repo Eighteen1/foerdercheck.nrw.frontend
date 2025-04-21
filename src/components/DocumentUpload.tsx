@@ -1,0 +1,335 @@
+import React, { useState, useEffect } from 'react';
+import { Container, Row, Col, Button, OverlayTrigger, Tooltip } from "react-bootstrap";
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
+
+interface DocumentItem {
+  id: string;
+  title: string;
+  description: string;
+  isRequired: boolean;
+  uploadedFile?: {
+    name: string;
+    url: string;
+  };
+}
+
+interface FormSection {
+  title: string;
+  progress: number;
+}
+
+const DocumentUpload: React.FC = () => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const [documents, setDocuments] = useState<DocumentItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const formSections: FormSection[] = [
+    { title: "EINKOMMENSERKLÄRUNG", progress: 0 },
+    { title: "SELBSTAUSKUNFT", progress: 0 }
+  ];
+
+  useEffect(() => {
+    loadDocumentRequirements();
+  }, [user?.id]);
+
+  const loadDocumentRequirements = async () => {
+    if (!user?.id) {
+      console.error('No user ID found');
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      // Get the user's document check data
+      const { data: checkData, error: checkError } = await supabase
+        .from('document_checks')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+      if (checkError) throw checkError;
+
+      // Define base documents that are always required
+      const baseDocuments: DocumentItem[] = [
+        {
+          id: 'bauzeichnung',
+          title: 'Bauzeichnung',
+          description: 'Bauzeichnung (im Maßstab 1:100 mit eingezeichneter Möbelstellung)',
+          isRequired: true
+        },
+        {
+          id: 'lageplan',
+          title: 'Lageplan',
+          description: 'Lageplan nach den Vorschriften BauO NRW (2018)',
+          isRequired: true
+        },
+        {
+          id: 'grundbuchblatt',
+          title: 'Grundbuchblattkopie',
+          description: 'Grundbuchblattkopie nach neustem Stand',
+          isRequired: true
+        }
+      ];
+
+      // Add conditional documents based on document check answers
+      const conditionalDocuments: DocumentItem[] = [];
+
+      if (checkData?.answers?.isMarried) {
+        conditionalDocuments.push({
+          id: 'marriage_cert',
+          title: 'Heiratsurkunde',
+          description: 'Aktuelle Heiratsurkunde oder Lebenspartnerschaftsurkunde',
+          isRequired: true
+        });
+      }
+
+      if (checkData?.answers?.isDisabled) {
+        conditionalDocuments.push({
+          id: 'disability_cert',
+          title: 'Schwerbehindertenausweis',
+          description: 'Kopie des gültigen Schwerbehindertenausweises',
+          isRequired: true
+        });
+      }
+
+      // Combine and set all documents
+      setDocuments([...baseDocuments, ...conditionalDocuments]);
+    } catch (error) {
+      console.error('Error loading document requirements:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleFileUpload = async (documentId: string, file: File) => {
+    if (!user?.id) return;
+
+    try {
+      // Create a unique file path for the user's document
+      const filePath = `${user.id}/${documentId}/${file.name}`;
+
+      // Upload file to Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from('documents')
+        .upload(filePath, file, {
+          upsert: true
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Get the public URL for the uploaded file
+      const { data: { publicUrl } } = supabase.storage
+        .from('documents')
+        .getPublicUrl(filePath);
+
+      // Get current document_status
+      const { data: userData, error: fetchError } = await supabase
+        .from('user_data')
+        .select('document_status')
+        .eq('id', user.id)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Update document status in user_data
+      const documentStatus = {
+        ...(userData?.document_status || {}),
+        [documentId]: {
+          uploaded: true,
+          fileName: file.name,
+          filePath: filePath,
+          uploadedAt: new Date().toISOString()
+        }
+      };
+
+      const { error: updateError } = await supabase
+        .from('user_data')
+        .update({
+          document_status: documentStatus,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user.id);
+
+      if (updateError) throw updateError;
+
+      // Update documents state
+      setDocuments(prevDocs => prevDocs.map(doc => 
+        doc.id === documentId
+          ? {
+              ...doc,
+              uploadedFile: {
+                name: file.name,
+                url: publicUrl
+              }
+            }
+          : doc
+      ));
+    } catch (error) {
+      console.error('Error uploading document:', error);
+      // Handle error (show user feedback)
+    }
+  };
+
+  const handleRemoveFile = async (documentId: string) => {
+    if (!user?.id) return;
+
+    try {
+      const doc = documents.find(d => d.id === documentId);
+      if (!doc?.uploadedFile) return;
+
+      // Delete file from storage
+      const { error: deleteError } = await supabase.storage
+        .from('documents')
+        .remove([`${user.id}/${documentId}/${doc.uploadedFile.name}`]);
+
+      if (deleteError) throw deleteError;
+
+      // Get current document_status
+      const { data: userData, error: fetchError } = await supabase
+        .from('user_data')
+        .select('document_status')
+        .eq('id', user.id)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Update document status in user_data
+      const documentStatus = { ...userData?.document_status };
+      delete documentStatus[documentId];
+
+      const { error: updateError } = await supabase
+        .from('user_data')
+        .update({
+          document_status: documentStatus,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user.id);
+
+      if (updateError) throw updateError;
+
+      // Update state
+      setDocuments(prevDocs => prevDocs.map(doc => 
+        doc.id === documentId
+          ? { ...doc, uploadedFile: undefined }
+          : doc
+      ));
+    } catch (error) {
+      console.error('Error removing document:', error);
+      // Handle error (show user feedback)
+    }
+  };
+
+  const handleDocumentClick = (documentId: string) => {
+    // Trigger file input click
+    const fileInput = document.getElementById(`file-input-${documentId}`);
+    if (fileInput) fileInput.click();
+  };
+
+  const renderTooltip = (text: string) => (
+    <Tooltip id="document-tooltip">
+      {text}
+    </Tooltip>
+  );
+
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
+
+  return (
+    <div className="relative min-h-screen bg-white">
+      <Container className="pt-16">
+        <div className="text-center mb-5">
+          <h2 className="text-[#064497] text-3xl mb-4">Dokument Übersicht</h2>
+          <p>
+            Klicken Sie auf die Pfeile, um die jeweiligen Dokumente hochzuladen,
+            oder ziehen Sie sie in die entsprechenden Bereiche.
+          </p>
+        </div>
+
+        {/* Form sections at the top */}
+        <Row className="mb-5">
+          {formSections.map((section, index) => (
+            <Col md={6} key={index}>
+              <div className="d-flex align-items-center mb-4">
+                <Button
+                  className="flex-grow-1 py-3 me-3"
+                  style={{ backgroundColor: '#064497', border: 'none' }}
+                >
+                  {section.title}
+                </Button>
+                <div className="border rounded-circle p-2 d-flex align-items-center justify-content-center" 
+                     style={{ width: '45px', height: '45px' }}>
+                  {section.progress}%
+                </div>
+              </div>
+            </Col>
+          ))}
+        </Row>
+
+        {/* Document upload section */}
+        <div className="mb-5">
+          <h3 className="mb-4 text-[#000000] font-semibold italic">
+            Verpflichtende Dokumente zum Hochladen
+          </h3>
+          
+          {documents.map((doc) => (
+            <OverlayTrigger
+              key={doc.id}
+              placement="right"
+              overlay={renderTooltip(doc.description)}
+            >
+              <div 
+                className={`mb-4 p-3 border rounded cursor-pointer transition-all
+                  ${doc.uploadedFile ? 'bg-green-50 border-green-500' : 'hover:bg-gray-50'}`}
+                onClick={() => !doc.uploadedFile && handleDocumentClick(doc.id)}
+              >
+                <div className="d-flex justify-content-between align-items-center">
+                  <span>{doc.uploadedFile?.name || doc.title}</span>
+                  {doc.uploadedFile ? (
+                    <Button
+                      variant="link"
+                      className="text-danger"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRemoveFile(doc.id);
+                      }}
+                    >
+                      <i className="bi bi-x-lg" style={{ fontSize: '24px' }}></i>
+                    </Button>
+                  ) : (
+                    <i className="bi bi-upload" style={{ fontSize: '24px', color: '#064497' }}></i>
+                  )}
+                </div>
+                <input
+                  id={`file-input-${doc.id}`}
+                  type="file"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleFileUpload(doc.id, file);
+                  }}
+                  style={{ display: 'none' }}
+                />
+              </div>
+            </OverlayTrigger>
+          ))}
+        </div>
+
+        <div className="text-center">
+          <Button
+            onClick={() => navigate('/personal-space')}
+            className="px-5 py-2"
+            style={{ backgroundColor: '#064497', border: 'none' }}
+          >
+            ZURÜCK
+          </Button>
+        </div>
+      </Container>
+    </div>
+  );
+};
+
+export default DocumentUpload; 
