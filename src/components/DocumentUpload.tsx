@@ -27,8 +27,8 @@ const DocumentUpload: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   const formSections: FormSection[] = [
-    { title: "EINKOMMENSERKLÄRUNG", progress: 0 },
-    { title: "SELBSTAUSKUNFT", progress: 0 }
+    { title: "BeWohnNutzFl", progress: 0 },
+    { title: "BeBruttoRaumInhalt", progress: 0 }
   ];
 
   useEffect(() => {
@@ -279,12 +279,16 @@ const DocumentUpload: React.FC = () => {
 
         {/* Form sections at the top */}
         <Row className="mb-5">
-          {formSections.map((section, index) => (
-            <Col md={6} key={index}>
-              <div className="d-flex align-items-center mb-4">
+          <Col>
+            {formSections.map((section, index) => (
+              <div key={index} className="d-flex align-items-center mb-4">
                 <Button
-                  className="flex-grow-1 py-3 me-3"
-                  style={{ backgroundColor: '#064497', border: 'none' }}
+                  className="py-3 me-3"
+                  style={{ 
+                    backgroundColor: '#064497', 
+                    border: 'none',
+                    width: 'calc(100% - 45px - 1rem)' // 100% - progress width - margin
+                  }}
                 >
                   {section.title}
                 </Button>
@@ -293,8 +297,8 @@ const DocumentUpload: React.FC = () => {
                   {section.progress}%
                 </div>
               </div>
-            </Col>
-          ))}
+            ))}
+          </Col>
         </Row>
 
         {/* Document upload section */}
@@ -346,7 +350,7 @@ const DocumentUpload: React.FC = () => {
           ))}
         </div>
 
-        <div className="text-center">
+        <div className="text-center mb-5">
           <Button
             onClick={() => navigate('/personal-space')}
             className="px-5 py-2"
