@@ -43,11 +43,22 @@ const DocumentUpload: React.FC = () => {
     }
 
     try {
-      // Get the user's document check data
-      const { data: checkData, error: checkError } = await supabase
-        .from('document_checks')
-        .select('*')
-        .eq('user_id', user.id)
+      // Get the user's document check data from user_data table
+      const { data: userData, error: checkError } = await supabase
+        .from('user_data')
+        .select(`
+          propertytype,
+          hasinheritanceright,
+          haslocationcostloan,
+          haswoodconstructionloan,
+          hasbegstandardloan,
+          ispregnant,
+          hasauthorizedperson,
+          is_married,
+          is_disabled,
+          document_status
+        `)
+        .eq('id', user.id)
         .single();
 
       if (checkError) throw checkError;
@@ -77,7 +88,7 @@ const DocumentUpload: React.FC = () => {
       // Add conditional documents based on document check answers
       const conditionalDocuments: DocumentItem[] = [];
 
-      if (checkData?.answers?.isMarried) {
+      if (userData?.is_married) {
         conditionalDocuments.push({
           id: 'marriage_cert',
           title: 'Heiratsurkunde',
@@ -86,7 +97,7 @@ const DocumentUpload: React.FC = () => {
         });
       }
 
-      if (checkData?.answers?.isDisabled) {
+      if (userData?.is_disabled) {
         conditionalDocuments.push({
           id: 'disability_cert',
           title: 'Schwerbehindertenausweis',
@@ -95,8 +106,25 @@ const DocumentUpload: React.FC = () => {
         });
       }
 
-      // Combine and set all documents
-      setDocuments([...baseDocuments, ...conditionalDocuments]);
+      // Add uploaded file information from document_status
+      const allDocuments = [...baseDocuments, ...conditionalDocuments].map(doc => {
+        const uploadedDoc = userData?.document_status?.[doc.id];
+        if (uploadedDoc?.uploaded) {
+          return {
+            ...doc,
+            uploadedFile: {
+              name: uploadedDoc.fileName,
+              url: supabase.storage
+                .from('documents')
+                .getPublicUrl(`${user.id}/${doc.id}/${uploadedDoc.fileName}`).data.publicUrl
+            }
+          };
+        }
+        return doc;
+      });
+
+      // Set all documents
+      setDocuments(allDocuments);
     } catch (error) {
       console.error('Error loading document requirements:', error);
     } finally {
