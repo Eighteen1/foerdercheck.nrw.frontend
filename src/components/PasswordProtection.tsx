@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Container, Form, Button, Alert } from 'react-bootstrap';
-import { supabase } from '../lib/supabase';
 
 const PasswordProtection: React.FC = () => {
   const [password, setPassword] = useState('');
@@ -13,14 +12,14 @@ const PasswordProtection: React.FC = () => {
     setError(null);
 
     try {
-      const { data, error } = await supabase
-        .from('admin_settings')
-        .select('admin_password')
-        .single();
+      // Get the admin password from environment variables
+      const adminPassword = process.env.REACT_APP_ADMIN_PASSWORD;
 
-      if (error) throw error;
+      if (!adminPassword) {
+        throw new Error('Admin password not configured');
+      }
 
-      if (data.admin_password === password) {
+      if (adminPassword === password) {
         // Store the authentication in localStorage
         localStorage.setItem('isAdminAuthenticated', 'true');
         window.location.href = '/';
@@ -28,6 +27,7 @@ const PasswordProtection: React.FC = () => {
         setError('Ungültiges Passwort');
       }
     } catch (error) {
+      console.error('Error:', error);
       setError('Ein Fehler ist aufgetreten. Bitte versuchen Sie es später erneut.');
     } finally {
       setIsLoading(false);
