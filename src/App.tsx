@@ -13,25 +13,30 @@ import DocumentCheck from './components/DocumentCheck';
 import DocumentUpload from './components/DocumentUpload';
 import Layout from './components/Layout';
 import AuthCallback from './components/AuthCallback';
+import PasswordProtection from './components/PasswordProtection';
+import PasswordProtectionMiddleware from './components/PasswordProtectionMiddleware';
 
 function App() {
   return (
     <AuthProvider>
       <FormProvider>
-        <Layout>
-          <Routes>
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/application-types" element={<ApplicationTypesPage />} />
-            <Route path="/initial-check" element={<InitialCheckPage />} />
-            <Route path="/ic-results" element={<ResultPage />} />
-            <Route path="/personal-space" element={<PersonalSpace />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/verify/:token" element={<VerifyEmail />} />
-            <Route path="/auth/callback" element={<AuthCallback />} />
-            <Route path="/document-check" element={<DocumentCheck />} />
-            <Route path="/document-upload" element={<DocumentUpload />} />
-          </Routes>
-        </Layout>
+        <PasswordProtectionMiddleware>
+          <Layout>
+            <Routes>
+              <Route path="/password-protection" element={<PasswordProtection />} />
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/application-types" element={<ApplicationTypesPage />} />
+              <Route path="/initial-check" element={<InitialCheckPage />} />
+              <Route path="/ic-results" element={<ResultPage />} />
+              <Route path="/personal-space" element={<PersonalSpace />} />
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/verify/:token" element={<VerifyEmail />} />
+              <Route path="/auth/callback" element={<AuthCallback />} />
+              <Route path="/document-check" element={<DocumentCheck />} />
+              <Route path="/document-upload" element={<DocumentUpload />} />
+            </Routes>
+          </Layout>
+        </PasswordProtectionMiddleware>
       </FormProvider>
     </AuthProvider>
   );

@@ -385,13 +385,20 @@ const DocumentUpload: React.FC = () => {
           ))}
         </div>
 
-        <div className="text-center mb-5">
+        <div className="text-center mb-5 d-flex justify-content-center gap-3">
           <Button
             onClick={() => navigate('/personal-space')}
-            className="px-5 py-2"
+            className="px-5 py-2 w-100"
             style={{ backgroundColor: '#064497', border: 'none' }}
           >
             ZURÜCK
+          </Button>
+          <Button
+            onClick={() => navigate('/document-check')}
+            className="px-5 py-2 w-100"
+            style={{ backgroundColor: '#D7DAEA', border: 'none', color: 'black' }}
+          >
+            DOKUMENTE NEU ERMITTELN
           </Button>
         </div>
       </Container>
