@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Row, Col, Button, OverlayTrigger, Tooltip } from "react-bootstrap";
+import { Container, Row, Col, Button, OverlayTrigger, Tooltip, Modal } from "react-bootstrap";
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -25,6 +25,7 @@ const DocumentUpload: React.FC = () => {
   const { user } = useAuth();
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [showResetConfirmation, setShowResetConfirmation] = useState(false);
 
   const formSections: FormSection[] = [
     { title: "Berechnung der Wohn- und Nutzfläche nach WoFIV", progress: 0 },
@@ -289,12 +290,49 @@ const DocumentUpload: React.FC = () => {
     </Tooltip>
   );
 
+  const handleResetDocumentCheck = async () => {
+    if (!user?.id) return;
+
+    try {
+      // Update completeddoccheck to false in user_data table
+      const { error } = await supabase
+        .from('user_data')
+        .update({ completeddoccheck: false })
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      // Close the modal and navigate to document check
+      setShowResetConfirmation(false);
+      navigate('/document-check');
+    } catch (error) {
+      console.error('Error resetting document check:', error);
+    }
+  };
+
   if (isLoading) {
     return <div>Loading...</div>;
   }
 
   return (
     <div className="relative min-h-screen bg-white">
+      <Modal show={showResetConfirmation} onHide={() => setShowResetConfirmation(false)}>
+        <Modal.Header closeButton>
+          <Modal.Title>Dokumente neu ermitteln</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          Möchten Sie die erforderlichenDokumente neu ermitteln? Ihre bisherig hochgeladenen Dokumente werden vorest beibehalten.
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowResetConfirmation(false)}>
+            Abbrechen
+          </Button>
+          <Button variant="primary" onClick={handleResetDocumentCheck}>
+            Bestätigen
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
       <Container className="pt-16">
         <div className="text-center mb-5">
           <h2 className="text-[#064497] text-3xl mb-4">Dokument Übersicht</h2>
@@ -394,7 +432,7 @@ const DocumentUpload: React.FC = () => {
             ZURÜCK
           </Button>
           <Button
-            onClick={() => navigate('/document-check')}
+            onClick={() => setShowResetConfirmation(true)}
             className="px-5 py-2 w-100"
             style={{ backgroundColor: '#D7DAEA', border: 'none', color: 'black' }}
           >
