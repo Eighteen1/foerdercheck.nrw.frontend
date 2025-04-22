@@ -28,16 +28,26 @@ const RoutingProtection: React.FC<RoutingProtectionProps> = ({
     return <Navigate to="/initial-check" replace state={{ from: location }} />;
   }
 
-  // If user is authenticated and trying to access result page directly, redirect to personal space
-  if (isAuthenticated && location.pathname === '/ic-results') {
-    return <Navigate to="/personal-space" replace />;
-  }
-
-  // If user is authenticated and trying to access document pages directly, redirect to personal space
-  if (isAuthenticated && (location.pathname === '/document-check' || location.pathname === '/document-upload')) {
-    // Check if the navigation is coming from a direct URL entry
+  // Handle document pages access
+  if (location.pathname === '/document-check' || location.pathname === '/document-upload') {
+    if (!isAuthenticated) {
+      return <Navigate to="/" replace state={{ from: location }} />;
+    }
+    // If authenticated and accessing directly (no state), redirect to personal space
     if (!location.state?.from) {
       return <Navigate to="/personal-space" replace />;
+    }
+  }
+
+  // Handle result page access
+  if (location.pathname === '/ic-results') {
+    // If authenticated and accessing directly (no state), redirect to personal space
+    if (isAuthenticated && !location.state?.from) {
+      return <Navigate to="/personal-space" replace />;
+    }
+    // If not authenticated and accessing directly (no state), redirect to initial check
+    if (!isAuthenticated && !location.state?.from) {
+      return <Navigate to="/initial-check" replace />;
     }
   }
 

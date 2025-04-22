@@ -24,19 +24,19 @@ const InitialCheckPage: React.FC = () => {
       return;
     }
 
-    // Navigate to next page with form data
-    navigate('/ic-results', { 
-      state: { 
-        adultCount, 
-        childCount, 
-        isDisabled,
-        isMarried,
-        isRetired,
-        grossIncome, 
-        netIncome,
-        from: 'initial-check'
-      } 
-    });
+    const formData = {
+      adultCount, 
+      childCount, 
+      isDisabled,
+      isMarried,
+      isRetired,
+      grossIncome, 
+      netIncome,
+      from: 'initial-check'
+    };
+
+    // Always navigate to ic-results first
+    navigate('/ic-results', { state: formData });
   };
 
   return (
