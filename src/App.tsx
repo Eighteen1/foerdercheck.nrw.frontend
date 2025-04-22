@@ -34,7 +34,7 @@ function App() {
                 </RoutingProtection>
               } />
               <Route path="/personal-space" element={
-                <RoutingProtection requireAuth>
+                <RoutingProtection>
                   <PersonalSpace />
                 </RoutingProtection>
               } />
