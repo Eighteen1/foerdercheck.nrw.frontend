@@ -15,6 +15,7 @@ import Layout from './components/Layout';
 import AuthCallback from './components/AuthCallback';
 import PasswordProtection from './components/PasswordProtection';
 import PasswordProtectionMiddleware from './components/PasswordProtectionMiddleware';
+import RoutingProtection from './components/RoutingProtection';
 
 function App() {
   return (
@@ -27,13 +28,29 @@ function App() {
               <Route path="/" element={<LandingPage />} />
               <Route path="/application-types" element={<ApplicationTypesPage />} />
               <Route path="/initial-check" element={<InitialCheckPage />} />
-              <Route path="/ic-results" element={<ResultPage />} />
-              <Route path="/personal-space" element={<PersonalSpace />} />
+              <Route path="/ic-results" element={
+                <RoutingProtection requireInitialCheck>
+                  <ResultPage />
+                </RoutingProtection>
+              } />
+              <Route path="/personal-space" element={
+                <RoutingProtection requireAuth>
+                  <PersonalSpace />
+                </RoutingProtection>
+              } />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/verify/:token" element={<VerifyEmail />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
-              <Route path="/document-check" element={<DocumentCheck />} />
-              <Route path="/document-upload" element={<DocumentUpload />} />
+              <Route path="/document-check" element={
+                <RoutingProtection requireAuth>
+                  <DocumentCheck />
+                </RoutingProtection>
+              } />
+              <Route path="/document-upload" element={
+                <RoutingProtection requireAuth>
+                  <DocumentUpload />
+                </RoutingProtection>
+              } />
             </Routes>
           </Layout>
         </PasswordProtectionMiddleware>
