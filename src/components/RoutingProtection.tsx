@@ -15,17 +15,30 @@ const RoutingProtection: React.FC<RoutingProtectionProps> = ({
   redirectTo = '/',
   requireInitialCheck = false
 }) => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
   const location = useLocation();
   const currentPath = location.pathname;
 
   console.log('RoutingProtection Debug:', {
     currentPath,
     isAuthenticated,
+    isLoading,
     locationState: location.state,
     requireAuth,
     redirectTo
   });
+
+  // Show loading state while auth is being initialized
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-[#064497] mb-4">Laden...</h2>
+          <p className="text-gray-600">Bitte warten Sie einen Moment.</p>
+        </div>
+      </div>
+    );
+  }
 
   // Helper function to check if navigation is coming from within the app
   const isDirectAccess = () => !location.state?.from;
