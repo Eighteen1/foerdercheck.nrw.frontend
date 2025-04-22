@@ -40,7 +40,7 @@ const RoutingProtection: React.FC<RoutingProtectionProps> = ({
       break;
 
     case '/personal-space':
-      if (!isAuthenticated) {
+      if (!isAuthenticated && location.state?.from !== 'ic-results') {
         return <Navigate to="/" replace state={{ from: currentPath }} />;
       }
       break;
