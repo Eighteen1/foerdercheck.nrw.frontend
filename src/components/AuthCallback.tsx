@@ -7,19 +7,27 @@ const AuthCallback: React.FC = () => {
 
   useEffect(() => {
     const handleCallback = async () => {
+      console.log('AuthCallback: Starting callback handling');
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
         
+        console.log('AuthCallback: Session check result:', {
+          hasSession: !!session,
+          error,
+          user: session?.user
+        });
+
         if (error) {
-          console.error('Error getting session:', error);
+          console.error('AuthCallback: Error getting session:', error);
           navigate('/login');
           return;
         }
 
         if (session?.user) {
-          console.log('User is authenticated, redirect to personal space');
+          console.log('AuthCallback: User is authenticated, redirect to personal space');
           // Get pending eligibility data from localStorage
           const pendingData = localStorage.getItem('pendingEligibilityData');
+          console.log('AuthCallback: Pending eligibility data:', pendingData);
           
           if (pendingData) {
             try {
@@ -30,30 +38,36 @@ const AuthCallback: React.FC = () => {
                 .eq('id', session.user.id)
                 .single();
 
+              console.log('AuthCallback: Existing data check result:', {
+                hasExistingData: !!existingData,
+                error: fetchError
+              });
+
               if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 is "no rows returned"
                 throw fetchError;
               }
 
               // Only store if no existing data
               if (!existingData?.adult_count) {
+                console.log('AuthCallback: Storing eligibility data');
                 await storeEligibilityData(session.user.id, JSON.parse(pendingData));
               }
               
               // Clear the temporary storage regardless
               localStorage.removeItem('pendingEligibilityData');
             } catch (error) {
-              console.error('Error handling eligibility data:', error);
+              console.error('AuthCallback: Error handling eligibility data:', error);
               // Continue to personal space even if there's an error with eligibility data
             }
           }
           
           navigate('/personal-space');
         } else {
-          console.error('User is not authenticated, redirect to login');
+          console.log('AuthCallback: User is not authenticated, redirect to login');
           navigate('/login');
         }
       } catch (error) {
-        console.error('Error in auth callback:', error);
+        console.error('AuthCallback: Error in auth callback:', error);
         navigate('/login');
       }
     };

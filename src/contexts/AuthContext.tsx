@@ -20,10 +20,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const navigate = useNavigate();
 
   useEffect(() => {
+    console.log('AuthProvider: Initializing auth state');
+    
     // Check for existing session
     const checkSession = async () => {
+      console.log('AuthProvider: Checking for existing session');
       const { data: { session }, error } = await supabase.auth.getSession();
+      
+      console.log('AuthProvider: Session check result:', {
+        hasSession: !!session,
+        error,
+        user: session?.user
+      });
+
       if (session) {
+        console.log('AuthProvider: Setting authenticated state');
         setIsAuthenticated(true);
         setEmail(session.user.email ?? null);
         setUser(session.user);
@@ -33,7 +44,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     checkSession();
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('AuthProvider: Auth state changed:', {
+        event,
+        hasSession: !!session,
+        user: session?.user
+      });
+      
       setIsAuthenticated(!!session);
       setEmail(session?.user.email ?? null);
       setUser(session?.user ?? null);
@@ -46,6 +63,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string) => {
     try {
+      console.log('AuthProvider: Attempting login for email:', email);
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
@@ -54,22 +72,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       if (error) throw error;
+      console.log('AuthProvider: Login OTP sent successfully');
     } catch (error) {
-      console.error('Login error:', error);
+      console.error('AuthProvider: Login error:', error);
       throw error;
     }
   };
 
   const logout = async () => {
     try {
+      console.log('AuthProvider: Attempting logout');
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
       setIsAuthenticated(false);
       setEmail(null);
       setUser(null);
       navigate('/');
+      console.log('AuthProvider: Logout successful');
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error('AuthProvider: Logout error:', error);
       throw error;
     }
   };
