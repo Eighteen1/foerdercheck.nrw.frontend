@@ -13,6 +13,7 @@ const InitialCheckPage: React.FC = () => {
   const [isRetired, setIsRetired] = useState<boolean>(false);
   const [grossIncome, setGrossIncome] = useState<string>('');
   const [netIncome, setNetIncome] = useState<string>('');
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
 
   // Handle form submission
   const handleCheck = (e: React.FormEvent) => {
@@ -35,8 +36,13 @@ const InitialCheckPage: React.FC = () => {
       from: 'initial-check'
     };
 
-    // Always navigate to ic-results first
-    navigate('/ic-results', { state: formData });
+    // If authenticated, go directly to personal space
+    if (isAuthenticated) {
+      navigate('/personal-space', { state: formData });
+    } else {
+      // If not authenticated, go to results page
+      navigate('/ic-results', { state: formData });
+    }
   };
 
   return (
