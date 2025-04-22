@@ -106,21 +106,21 @@ const PersonalSpace: React.FC = () => {
 
     if (!user?.id) {
       console.error('No user ID found');
-      navigate('/document-check');
+      navigate('/document-check', { state: { from: 'personal-space' } });
       return;
     }
 
     try {
       const isDocumentCheckCompleted = await checkDocumentCheckStatus(user.id);
       if (isDocumentCheckCompleted) {
-        navigate('/document-upload');
+        navigate('/document-upload', { state: { from: 'personal-space' } });
       } else {
-        navigate('/document-check');
+        navigate('/document-check', { state: { from: 'personal-space' } });
       }
     } catch (error) {
       console.error('Error checking document check status:', error);
       // Default to document-check if there's an error
-      navigate('/document-check');
+      navigate('/document-check', { state: { from: 'personal-space' } });
     }
   };
 

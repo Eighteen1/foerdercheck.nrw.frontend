@@ -33,7 +33,8 @@ const InitialCheckPage: React.FC = () => {
         isMarried,
         isRetired,
         grossIncome, 
-        netIncome 
+        netIncome,
+        from: 'initial-check'
       } 
     });
   };

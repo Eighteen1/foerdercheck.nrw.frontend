@@ -35,7 +35,10 @@ const RoutingProtection: React.FC<RoutingProtectionProps> = ({
 
   // If user is authenticated and trying to access document pages directly, redirect to personal space
   if (isAuthenticated && (location.pathname === '/document-check' || location.pathname === '/document-upload')) {
-    return <Navigate to="/personal-space" replace />;
+    // Check if the navigation is coming from a direct URL entry
+    if (!location.state?.from) {
+      return <Navigate to="/personal-space" replace />;
+    }
   }
 
   return <>{children}</>;
