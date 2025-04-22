@@ -61,7 +61,8 @@ const RoutingProtection: React.FC<RoutingProtectionProps> = ({
         console.log('Redirecting from document pages - not authenticated');
         return <Navigate to="/" replace state={{ from: currentPath }} />;
       }
-      if (isDirectAccess()) {
+      // Allow navigation between document pages
+      if (isDirectAccess() && !location.state?.from?.includes('document-')) {
         console.log('Redirecting from document pages - direct access');
         return <Navigate to="/personal-space" replace />;
       }
