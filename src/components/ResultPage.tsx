@@ -101,24 +101,20 @@ const ResultPage: React.FC = () => {
 
   const handleProceedToPersonalSpace = () => {
     // If we have eligibility data, pass it to personal space
-    if (eligibilityResult) {
-      navigate('/personal-space', { 
-        state: { 
-          from: 'ic-results',
-          eligibilityData: {
-            adultCount: location.state.adultCount,
-            childCount: location.state.childCount,
-            isDisabled: location.state.isDisabled,
-            isMarried: location.state.isMarried,
-            isRetired: location.state.isRetired,
-            grossIncome: location.state.grossIncome,
-            netIncome: location.state.netIncome
-          }
-        }
-      });
-    } else {
-      navigate('/personal-space', { state: { from: 'ic-results' } });
-    }
+    const state = {
+      from: 'ic-results',
+      eligibilityData: eligibilityResult ? {
+        adultCount: location.state.adultCount,
+        childCount: location.state.childCount,
+        isDisabled: location.state.isDisabled,
+        isMarried: location.state.isMarried,
+        isRetired: location.state.isRetired,
+        grossIncome: location.state.grossIncome,
+        netIncome: location.state.netIncome
+      } : undefined
+    };
+
+    navigate('/personal-space', { state });
   };
 
   if (loading) {
