@@ -324,12 +324,22 @@ const DocumentUpload: React.FC = () => {
           Möchten Sie die erforderlichenDokumente neu ermitteln? Ihre bisherig hochgeladenen Dokumente werden vorest beibehalten.
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowResetConfirmation(false)}>
-            Abbrechen
-          </Button>
-          <Button variant="primary" onClick={handleResetDocumentCheck}>
-            Bestätigen
-          </Button>
+          <div className="d-flex justify-content-between gap-3 px-3">
+            <Button
+              onClick={() => setShowResetConfirmation(false)}
+              className="flex-grow-1 py-2"
+              style={{ backgroundColor: '#064497', border: 'none' }}
+            >
+              Abbrechen
+            </Button>
+            <Button
+              onClick={handleResetDocumentCheck}
+              className="flex-grow-1 py-2"
+              style={{ backgroundColor: '#D7DAEA', border: 'none', color: 'black' }}
+            >
+              Bestätigen
+            </Button>
+          </div>
         </Modal.Footer>
       </Modal>
 
