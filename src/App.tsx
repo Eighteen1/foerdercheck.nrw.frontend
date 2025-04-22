@@ -29,7 +29,7 @@ function App() {
               <Route path="/application-types" element={<ApplicationTypesPage />} />
               <Route path="/initial-check" element={<InitialCheckPage />} />
               <Route path="/ic-results" element={
-                <RoutingProtection requireInitialCheck>
+                <RoutingProtection>
                   <ResultPage />
                 </RoutingProtection>
               } />
