@@ -99,6 +99,28 @@ const ResultPage: React.FC = () => {
     checkEligibility();
   }, [location.state]);
 
+  const handleProceedToPersonalSpace = () => {
+    // If we have eligibility data, pass it to personal space
+    if (eligibilityResult) {
+      navigate('/personal-space', { 
+        state: { 
+          from: 'ic-results',
+          eligibilityData: {
+            adultCount: location.state.adultCount,
+            childCount: location.state.childCount,
+            isDisabled: location.state.isDisabled,
+            isMarried: location.state.isMarried,
+            isRetired: location.state.isRetired,
+            grossIncome: location.state.grossIncome,
+            netIncome: location.state.netIncome
+          }
+        }
+      });
+    } else {
+      navigate('/personal-space', { state: { from: 'ic-results' } });
+    }
+  };
+
   if (loading) {
     return (
       <div className="relative min-h-screen bg-white">
@@ -199,19 +221,7 @@ const ResultPage: React.FC = () => {
 
         <div className="flex flex-col gap-3">
           <Button 
-            onClick={() => navigate('/personal-space', { 
-              state: { 
-                eligibilityData: {
-                  adultCount: location.state.adultCount,
-                  childCount: location.state.childCount,
-                  isDisabled: location.state.isDisabled,
-                  isMarried: location.state.isMarried,
-                  isRetired: location.state.isRetired,
-                  grossIncome: location.state.grossIncome,
-                  netIncome: location.state.netIncome
-                }
-              } 
-            })}
+            onClick={handleProceedToPersonalSpace}
             className={`w-full py-2 rounded focus:outline-none focus:ring-0 focus:ring-offset-0 shadow-md ${
               eligibilityResult.eligible 
                 ? 'bg-[#064497] hover:bg-[#0B66E6] text-white' 

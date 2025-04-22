@@ -18,11 +18,6 @@ const RoutingProtection: React.FC<RoutingProtectionProps> = ({
   const { isAuthenticated } = useAuth();
   const location = useLocation();
 
-  // If authentication is required and user is not authenticated, redirect to landing page
-  if (requireAuth && !isAuthenticated) {
-    return <Navigate to="/" replace state={{ from: location }} />;
-  }
-
   // Handle document pages access
   if (location.pathname === '/document-check' || location.pathname === '/document-upload') {
     if (!isAuthenticated) {
@@ -31,6 +26,13 @@ const RoutingProtection: React.FC<RoutingProtectionProps> = ({
     // If authenticated and accessing directly (no state), redirect to personal space
     if (!location.state?.from) {
       return <Navigate to="/personal-space" replace />;
+    }
+  }
+
+  // Handle personal space access
+  if (location.pathname === '/personal-space') {
+    if (!isAuthenticated) {
+      return <Navigate to="/" replace state={{ from: location }} />;
     }
   }
 
@@ -47,6 +49,11 @@ const RoutingProtection: React.FC<RoutingProtectionProps> = ({
     if (!location.state?.from) {
       return <Navigate to="/initial-check" replace />;
     }
+  }
+
+  // Handle authentication requirement for other protected routes
+  if (requireAuth && !isAuthenticated) {
+    return <Navigate to="/" replace state={{ from: location }} />;
   }
 
   return <>{children}</>;
