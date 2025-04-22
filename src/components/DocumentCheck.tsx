@@ -166,8 +166,8 @@ const DocumentCheck: React.FC = () => {
   const handleCheck = async () => {
     // Save the form before proceeding with the check
     await handleSave(false);
-    // Navigate to document upload page
-    navigate('/document-upload');
+    // Navigate to document upload page with from state
+    navigate('/document-upload', { state: { from: 'document-check' } });
   };
 
   const renderTooltip = (text: string) => (

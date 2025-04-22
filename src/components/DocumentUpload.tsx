@@ -304,7 +304,7 @@ const DocumentUpload: React.FC = () => {
 
       // Close the modal and navigate to document check
       setShowResetConfirmation(false);
-      navigate('/document-check');
+      navigate('/document-check', { state: { from: 'document-upload' } });
     } catch (error) {
       console.error('Error resetting document check:', error);
     }
@@ -425,7 +425,7 @@ const DocumentUpload: React.FC = () => {
 
         <div className="text-center mb-5 d-flex justify-content-center gap-3">
           <Button
-            onClick={() => navigate('/personal-space')}
+            onClick={() => navigate('/personal-space', { state: { from: 'document-upload' } })}
             className="px-5 py-2 w-100"
             style={{ backgroundColor: '#064497', border: 'none' }}
           >
