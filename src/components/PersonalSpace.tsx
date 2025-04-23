@@ -124,10 +124,30 @@ const PersonalSpace: React.FC = () => {
     }
   };
 
+  const handleHauptantrag = () => {
+    if (!isAuthenticated) {
+      setShowRegistrationModal(true);
+      return;
+    }
+    navigate('/hauptantrag', { state: { from: 'personal-space' } });
+  };
+
   const formSections = [
-    { title: "EINKOMMENSERKLÄRUNG", progress: 0 },
-    { title: "SELBSTAUSKUNFT", progress: 0 },
-    { title: "HAUPTANTRAG", progress: 0 },
+    { 
+      title: "HAUPTANTRAG", 
+      progress: 0,
+      onClick: handleHauptantrag
+    },
+    { 
+      title: "EINKOMMENSERKLÄRUNG", 
+      progress: 0,
+      onClick: () => {} // To be implemented
+    },
+    { 
+      title: "SELBSTAUSKUNFT", 
+      progress: 0,
+      onClick: () => {} // To be implemented
+    }
   ];
 
   return (
@@ -168,6 +188,7 @@ const PersonalSpace: React.FC = () => {
                 <Button
                   className="flex-grow-1 py-3 me-3"
                   style={{ backgroundColor: '#064497', border: 'none' }}
+                  onClick={section.onClick}
                 >
                   {section.title}
                 </Button>

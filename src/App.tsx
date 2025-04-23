@@ -16,6 +16,7 @@ import AuthCallback from './components/AuthCallback';
 import PasswordProtection from './components/PasswordProtection';
 import PasswordProtectionMiddleware from './components/PasswordProtectionMiddleware';
 import RoutingProtection from './components/RoutingProtection';
+import HauptantragContainer from './components/Hauptantrag/HauptantragContainer';
 
 function App() {
   return (
@@ -49,6 +50,11 @@ function App() {
               <Route path="/document-upload" element={
                 <RoutingProtection requireAuth>
                   <DocumentUpload />
+                </RoutingProtection>
+              } />
+              <Route path="/hauptantrag" element={
+                <RoutingProtection requireAuth>
+                  <HauptantragContainer />
                 </RoutingProtection>
               } />
             </Routes>

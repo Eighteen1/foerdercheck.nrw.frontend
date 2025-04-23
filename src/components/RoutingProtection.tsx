@@ -57,13 +57,14 @@ const RoutingProtection: React.FC<RoutingProtectionProps> = ({
   switch (currentPath) {
     case '/document-check':
     case '/document-upload':
+    case '/hauptantrag':
       if (!isAuthenticated) {
-        console.log('Redirecting from document pages - not authenticated');
+        console.log('Redirecting from protected pages - not authenticated');
         return <Navigate to="/" replace state={{ from: currentPath }} />;
       }
-      // Allow navigation between document pages
-      if (isDirectAccess() && !location.state?.from?.includes('document-')) {
-        console.log('Redirecting from document pages - direct access');
+      // Allow navigation between protected pages
+      if (isDirectAccess() && !location.state?.from?.includes('document-') && !location.state?.from?.includes('hauptantrag')) {
+        console.log('Redirecting from protected pages - direct access');
         return <Navigate to="/personal-space" replace />;
       }
       break;
