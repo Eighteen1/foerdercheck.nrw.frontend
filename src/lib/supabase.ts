@@ -76,6 +76,9 @@ export const storeDocumentCheckData = async (userId: string, documentCheckData: 
       .upsert({
         user_id: userId,
         foerderVariante: documentCheckData.foerderVariante
+      }, {
+        onConflict: 'user_id',
+        ignoreDuplicates: false
       })
       .select()
       .single();
