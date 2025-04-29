@@ -70,15 +70,12 @@ export const storeDocumentCheckData = async (userId: string, documentCheckData: 
 
     if (userError) throw userError;
 
-    // Then, update or insert the foerderVariante in object_data
+    // Update or insert the foerderVariante in object_data
     const { data: objectData, error: objectError } = await supabase
       .from('object_data')
       .upsert({
         user_id: userId,
         foerderVariante: documentCheckData.foerderVariante
-      }, {
-        onConflict: 'user_id',
-        ignoreDuplicates: false
       })
       .select()
       .single();
