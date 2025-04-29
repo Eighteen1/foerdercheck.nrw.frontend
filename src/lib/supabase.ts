@@ -75,8 +75,7 @@ export const storeDocumentCheckData = async (userId: string, documentCheckData: 
       .from('object_data')
       .upsert({
         user_id: userId,
-        foerderVariante: documentCheckData.foerderVariante,
-        updated_at: new Date().toISOString()
+        foerderVariante: documentCheckData.foerderVariante
       })
       .select()
       .single();
