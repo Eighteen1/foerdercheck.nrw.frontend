@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase, getDocumentCheckData, storeDocumentCheckData } from '../lib/supabase';
 
 interface DocumentCheckState {
-  propertyType: string;
+  foerderVariante: string;
   answers: {
     hasInheritanceRight: boolean;
     hasLocationCostLoan: boolean;
@@ -21,7 +21,7 @@ interface DocumentCheckState {
 const DocumentCheck: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [propertyType, setPropertyType] = useState('');
+  const [foerderVariante, setfoerderVariante] = useState('');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [showLeaveConfirmation, setShowLeaveConfirmation] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
@@ -54,10 +54,10 @@ const DocumentCheck: React.FC = () => {
         console.log('Successfully loaded saved state:', savedState);
         
         if (savedState) {
-          setPropertyType(savedState.propertyType);
+          setfoerderVariante(savedState.foerderVariante);
           setAnswers(savedState.answers);
           setInitialState({
-            propertyType: savedState.propertyType,
+            foerderVariante: savedState.foerderVariante,
             answers: savedState.answers
           });
         }
@@ -75,12 +75,12 @@ const DocumentCheck: React.FC = () => {
   useEffect(() => {
     if (initialState) {
       const currentState: DocumentCheckState = {
-        propertyType,
+        foerderVariante,
         answers
       };
 
       const hasChanges = 
-        propertyType !== initialState.propertyType ||
+        foerderVariante !== initialState.foerderVariante ||
         Object.keys(answers).some(key => 
           answers[key as keyof typeof answers] !== initialState.answers[key as keyof typeof answers]
         );
@@ -89,12 +89,12 @@ const DocumentCheck: React.FC = () => {
     } else {
       // If there's no initial state but we have some values, consider it as unsaved changes
       const hasValues = 
-        propertyType !== '' ||
+        foerderVariante !== '' ||
         Object.values(answers).some(value => value === true);
       
       setHasUnsavedChanges(hasValues);
     }
-  }, [propertyType, answers, initialState]);
+  }, [foerderVariante, answers, initialState]);
 
   // Browser navigation protection
   useBeforeUnload(
@@ -140,7 +140,7 @@ const DocumentCheck: React.FC = () => {
 
     try {
       const documentCheckData = {
-        propertyType,
+        foerderVariante,
         answers
       };
 
@@ -149,7 +149,7 @@ const DocumentCheck: React.FC = () => {
       
       // Update initial state to match current state
       setInitialState({
-        propertyType,
+        foerderVariante,
         answers
       });
       setHasUnsavedChanges(false);
@@ -258,8 +258,8 @@ const DocumentCheck: React.FC = () => {
                   type="checkbox"
                   id={option.id}
                   label={option.label}
-                  checked={propertyType === option.id}
-                  onChange={() => setPropertyType(option.id)}
+                  checked={foerderVariante === option.id}
+                  onChange={() => setfoerderVariante(option.id)}
                   className="custom-checkbox"
                 />
               </Col>

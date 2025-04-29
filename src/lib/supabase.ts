@@ -49,10 +49,10 @@ export const storeEligibilityData = async (userId: string, data: any) => {
 
 export const storeDocumentCheckData = async (userId: string, documentCheckData: any) => {
   try {
-    const { data, error } = await supabase
+    // First, update the user_data table with the answers
+    const { data: userData, error: userError } = await supabase
       .from('user_data')
       .update({
-        propertytype: documentCheckData.propertyType,
         hasinheritanceright: documentCheckData.answers.hasInheritanceRight,
         haslocationcostloan: documentCheckData.answers.hasLocationCostLoan,
         haswoodconstructionloan: documentCheckData.answers.hasWoodConstructionLoan,
@@ -64,10 +64,26 @@ export const storeDocumentCheckData = async (userId: string, documentCheckData: 
         completeddoccheck: true,
         updated_at: new Date().toISOString()
       })
-      .eq('id', userId);
+      .eq('id', userId)
+      .select()
+      .single();
 
-    if (error) throw error;
-    return data;
+    if (userError) throw userError;
+
+    // Then, update or insert the foerderVariante in object_data
+    const { data: objectData, error: objectError } = await supabase
+      .from('object_data')
+      .upsert({
+        user_id: userId,
+        foerderVariante: documentCheckData.foerderVariante,
+        updated_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (objectError) throw objectError;
+
+    return { userData, objectData };
   } catch (error) {
     console.error('Error storing document check data:', error);
     throw error;
@@ -76,10 +92,10 @@ export const storeDocumentCheckData = async (userId: string, documentCheckData: 
 
 export const getDocumentCheckData = async (userId: string) => {
   try {
-    const { data, error } = await supabase
+    // Get data from user_data table
+    const { data: userData, error: userError } = await supabase
       .from('user_data')
       .select(`
-        propertytype,
         hasinheritanceright,
         haslocationcostloan,
         haswoodconstructionloan,
@@ -93,23 +109,34 @@ export const getDocumentCheckData = async (userId: string) => {
       .eq('id', userId)
       .single();
 
-    if (error) throw error;
+    if (userError) throw userError;
     
-    if (!data) return null;
+    // Get foerderVariante from object_data table
+    const { data: objectData, error: objectError } = await supabase
+      .from('object_data')
+      .select('foerderVariante')
+      .eq('user_id', userId)
+      .single();
+
+    if (objectError && objectError.code !== 'PGRST116') { // PGRST116 is "no rows returned"
+      throw objectError;
+    }
+    
+    if (!userData) return null;
 
     return {
-      propertyType: data.propertytype,
+      foerderVariante: objectData?.foerderVariante || '',
       answers: {
-        hasInheritanceRight: data.hasinheritanceright,
-        hasLocationCostLoan: data.haslocationcostloan,
-        hasWoodConstructionLoan: data.haswoodconstructionloan,
-        hasBEGStandardLoan: data.hasbegstandardloan,
-        isPregnant: data.ispregnant,
-        hasAuthorizedPerson: data.hasauthorizedperson,
-        isMarried: data.is_married,
-        isDisabled: data.is_disabled
+        hasInheritanceRight: userData.hasinheritanceright,
+        hasLocationCostLoan: userData.haslocationcostloan,
+        hasWoodConstructionLoan: userData.haswoodconstructionloan,
+        hasBEGStandardLoan: userData.hasbegstandardloan,
+        isPregnant: userData.ispregnant,
+        hasAuthorizedPerson: userData.hasauthorizedperson,
+        isMarried: userData.is_married,
+        isDisabled: userData.is_disabled
       },
-      documentStatus: data.document_status || {}
+      documentStatus: userData.document_status || {}
     };
   } catch (error) {
     console.error('Error getting document check data:', error);

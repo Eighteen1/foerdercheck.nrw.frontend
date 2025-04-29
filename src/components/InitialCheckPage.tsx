@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from "react-router-dom";
 import { Container, Row, Col, Form, Button, OverlayTrigger, Tooltip } from "react-bootstrap";
+import CurrencyInput from './common/CurrencyInput';
 
 const InitialCheckPage: React.FC = () => {
   const navigate = useNavigate();
@@ -150,8 +151,8 @@ const InitialCheckPage: React.FC = () => {
             </Col>
           </Row>
           <div className="d-flex align-items-center gap-4">
-          <h3 className="pt-8 mb-4 text-[#000000] font-semibold italic">Angaben zu Ihrem Haushaltseinkommen</h3>
-          <OverlayTrigger
+            <h3 className="pt-8 mb-4 text-[#000000] font-semibold italic">Angaben zu Ihrem Haushaltseinkommen</h3>
+            <OverlayTrigger
               placement="right"
               overlay={
                 <Tooltip id="household-tooltip">
@@ -177,54 +178,20 @@ const InitialCheckPage: React.FC = () => {
           </div>
           <Row className="mb-3">
             <Col>
-              <Form.Floating>
-                <Form.Control 
-                  type="text"
-                  placeholder="Brutto-Jahreseinkommen in €"
-                  value={grossIncome}
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/[^0-9]/g, '');
-                    if (value === '') {
-                      setGrossIncome('');
-                      return;
-                    }
-                    const numberValue = Number(value);
-                    const formattedValue = new Intl.NumberFormat('de-DE', {
-                      style: 'currency',
-                      currency: 'EUR',
-                      minimumFractionDigits: 2
-                    }).format(numberValue/100);
-                    setGrossIncome(formattedValue);
-                  }}
-                  required
-                />
-                <label>Brutto-Jahreseinkommen in €</label>
-              </Form.Floating>
+              <CurrencyInput
+                value={grossIncome}
+                onChange={setGrossIncome}
+                placeholder="Brutto-Jahreseinkommen in €"
+                label="Brutto-Jahreseinkommen in €"
+              />
             </Col>
             <Col>
-              <Form.Floating>
-                <Form.Control 
-                  type="text" 
-                  placeholder="Netto-Jahreseinkommen in €" 
-                  value={netIncome}
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/[^0-9]/g, '');
-                    if (value === '') {
-                      setNetIncome('');
-                      return;
-                    }
-                    const numberValue = Number(value);
-                    const formattedValue = new Intl.NumberFormat('de-DE', {
-                      style: 'currency',
-                      currency: 'EUR',
-                      minimumFractionDigits: 2
-                    }).format(numberValue/100);
-                    setNetIncome(formattedValue);
-                  }}
-                  required 
-                />
-                <label>Netto-Jahreseinkommen in €</label>
-              </Form.Floating>
+              <CurrencyInput
+                value={netIncome}
+                onChange={setNetIncome}
+                placeholder="Netto-Jahreseinkommen in €"
+                label="Netto-Jahreseinkommen in €"
+              />
             </Col>
           </Row>
 

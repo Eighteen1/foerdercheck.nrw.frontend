@@ -48,7 +48,6 @@ const DocumentUpload: React.FC = () => {
       const { data: userData, error: checkError } = await supabase
         .from('user_data')
         .select(`
-          propertytype,
           hasinheritanceright,
           haslocationcostloan,
           haswoodconstructionloan,
@@ -63,6 +62,17 @@ const DocumentUpload: React.FC = () => {
         .single();
 
       if (checkError) throw checkError;
+
+      // Get foerderVariante from object_data table
+      const { data: objectData, error: objectError } = await supabase
+        .from('object_data')
+        .select('foerderVariante')
+        .eq('user_id', user.id)
+        .single();
+
+      if (objectError && objectError.code !== 'PGRST116') { // PGRST116 is "no rows returned"
+        throw objectError;
+      }
 
       // Define base documents that are always required
       const baseDocuments: DocumentItem[] = [
@@ -125,7 +135,7 @@ const DocumentUpload: React.FC = () => {
         });
       }
 
-      if (userData?.propertytype === 'neubau') {
+      if (objectData?.foerderVariante === 'neubau') {
         conditionalDocuments.push({
           id: 'neubau_kaufvertrag',
           title: 'Grundstückskaufvertrag/Entwurf des Kaufvertrags',

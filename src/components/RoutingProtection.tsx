@@ -19,13 +19,17 @@ const RoutingProtection: React.FC<RoutingProtectionProps> = ({
   const location = useLocation();
   const currentPath = location.pathname;
 
+  // Check if we're in development environment
+  const isDevelopment = process.env.NODE_ENV === 'development';
+
   console.log('RoutingProtection Debug:', {
     currentPath,
     isAuthenticated,
     isLoading,
     locationState: location.state,
     requireAuth,
-    redirectTo
+    redirectTo,
+    isDevelopment
   });
 
   // Show loading state while auth is being initialized
@@ -44,7 +48,7 @@ const RoutingProtection: React.FC<RoutingProtectionProps> = ({
   const isDirectAccess = () => !location.state?.from;
 
   // First, handle authentication requirements
-  if (requireAuth && !isAuthenticated) {
+  if (requireAuth && !isAuthenticated && !isDevelopment) {
     console.log('Redirecting due to auth requirement:', {
       requireAuth,
       isAuthenticated,
@@ -58,12 +62,12 @@ const RoutingProtection: React.FC<RoutingProtectionProps> = ({
     case '/document-check':
     case '/document-upload':
     case '/hauptantrag':
-      if (!isAuthenticated) {
+      if (!isAuthenticated && !isDevelopment) {
         console.log('Redirecting from protected pages - not authenticated');
         return <Navigate to="/" replace state={{ from: currentPath }} />;
       }
       // Allow navigation between protected pages
-      if (isDirectAccess() && !location.state?.from?.includes('document-') && !location.state?.from?.includes('hauptantrag')) {
+      if (isDirectAccess() && !location.state?.from?.includes('document-') && !location.state?.from?.includes('hauptantrag') && !isDevelopment) {
         console.log('Redirecting from protected pages - direct access');
         return <Navigate to="/personal-space" replace />;
       }
@@ -75,7 +79,7 @@ const RoutingProtection: React.FC<RoutingProtectionProps> = ({
         from: location.state?.from,
         isDirectAccess: isDirectAccess()
       });
-      if (!isAuthenticated && location.state?.from !== 'ic-results') {
+      if (!isAuthenticated && location.state?.from !== 'ic-results' && !isDevelopment) {
         console.log('Redirecting from personal space - not authenticated and not from results');
         return <Navigate to="/" replace state={{ from: currentPath }} />;
       }
@@ -99,7 +103,7 @@ const RoutingProtection: React.FC<RoutingProtectionProps> = ({
         }} />;
       } else {
         // If not authenticated and direct access, redirect to initial check
-        if (isDirectAccess()) {
+        if (isDirectAccess() && !isDevelopment) {
           console.log('Redirecting from IC Results to initial check - direct access');
           return <Navigate to="/initial-check" replace />;
         }

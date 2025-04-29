@@ -14,12 +14,26 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const handleNavigation = currentComponent.props?.handleNavigation;
 
   return (
-    <div className="min-h-screen d-flex flex-column">
-      <main className="flex-grow-1">
-        {children}
-      </main>
-      <Footer onNavigate={handleNavigation} />
-    </div>
+    <>
+      <style>
+        {`
+          html, body {
+            overscroll-behavior: none;
+            -webkit-overflow-scrolling: touch;
+          }
+          body {
+            overflow-y: auto;
+            width: 100%;
+          }
+        `}
+      </style>
+      <div className="min-h-screen d-flex flex-column">
+        <main className="flex-grow-1">
+          {children}
+        </main>
+        <Footer onNavigate={handleNavigation} />
+      </div>
+    </>
   );
 };
 
