@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Container, Button } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
+import { supabase } from '../../lib/supabase';
 import Step1_PersonalInfo from './Steps/Step1_PersonalInfo';
 import Step2_HouseholdInfo from './Steps/Step2_HouseholdInfo';
 import Step3_Objektdetails from './Steps/Step3_Objektdetails';
@@ -227,6 +229,7 @@ interface FormData {
 
 const HauptantragContainer: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<FormData>({
     step1: {
@@ -460,9 +463,85 @@ const HauptantragContainer: React.FC = () => {
     }
   };
 
-  const handleSave = () => {
-    // Save progress to local storage or database
-    localStorage.setItem('hauptantragFormData', JSON.stringify(formData));
+  const handleSave = async () => {
+    if (!user?.id) {
+      console.error('No user ID found');
+      return;
+    }
+
+    try {
+      // Get the first person's data (main applicant)
+      const mainApplicant = formData.step1.persons[0];
+      
+      // Save progress to Supabase user_data table
+      const { error } = await supabase
+        .from('user_data')
+        .update({
+          // Main applicant data
+          title: mainApplicant.title,
+          firstname: mainApplicant.firstName,
+          lastname: mainApplicant.lastName,
+          nationality: mainApplicant.nationality,
+          birthDate: mainApplicant.birthDate,
+          street: mainApplicant.street,
+          housenumber: mainApplicant.houseNumber,
+          postalcode: mainApplicant.postalCode,
+          city: mainApplicant.city,
+          phone: mainApplicant.phone,
+          email: mainApplicant.email,
+          employment: mainApplicant.employment.type,
+          branche: mainApplicant.employment.details,
+          
+          // Representative data
+          bevollmaechtigte: formData.step1.representative.hasRepresentative ? {
+            isCompany: formData.step1.representative.isCompany,
+            companyName: formData.step1.representative.companyName,
+            postboxPostcode: formData.step1.representative.postboxPostcode,
+            postboxCity: formData.step1.representative.postboxCity,
+            title: formData.step1.representative.title,
+            firstName: formData.step1.representative.firstName,
+            lastName: formData.step1.representative.lastName,
+            street: formData.step1.representative.street,
+            houseNumber: formData.step1.representative.houseNumber,
+            postalCode: formData.step1.representative.postalCode,
+            city: formData.step1.representative.city,
+            phone: formData.step1.representative.phone,
+            email: formData.step1.representative.email
+          } : null,
+          
+          // Additional applicants data
+          weitere_antragstellende_personen: formData.step1.persons.length > 1 ? 
+            formData.step1.persons.slice(1).map(person => ({
+              title: person.title,
+              firstName: person.firstName,
+              lastName: person.lastName,
+              nationality: person.nationality,
+              birthDate: person.birthDate,
+              street: person.street,
+              houseNumber: person.houseNumber,
+              postalCode: person.postalCode,
+              city: person.city,
+              phone: person.phone,
+              email: person.email,
+              employment: {
+                type: person.employment.type,
+                details: person.employment.details
+              }
+            })) : null,
+          
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      // Also save to local storage as backup
+      localStorage.setItem('hauptantragFormData', JSON.stringify(formData));
+    } catch (error) {
+      console.error('Error saving form data:', error);
+      // Fallback to local storage if Supabase save fails
+      localStorage.setItem('hauptantragFormData', JSON.stringify(formData));
+    }
   };
 
   const updateFormData = (stepKey: keyof FormData, data: any) => {
