@@ -491,6 +491,7 @@ const HauptantragContainer: React.FC = () => {
           email: mainApplicant.email,
           employment: mainApplicant.employment.type,
           branche: mainApplicant.employment.details,
+          hasauthorizedperson: formData.step1.representative.hasRepresentative,
           
           // Representative data
           bevollmaechtigte: formData.step1.representative.hasRepresentative ? {
