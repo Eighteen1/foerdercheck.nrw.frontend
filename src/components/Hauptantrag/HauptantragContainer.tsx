@@ -478,55 +478,55 @@ const HauptantragContainer: React.FC = () => {
         .from('user_data')
         .update({
           // Main applicant data
-          title: mainApplicant.title,
-          firstname: mainApplicant.firstName,
-          lastname: mainApplicant.lastName,
-          nationality: mainApplicant.nationality,
-          birthDate: mainApplicant.birthDate,
-          street: mainApplicant.street,
-          housenumber: mainApplicant.houseNumber,
-          postalcode: mainApplicant.postalCode,
-          city: mainApplicant.city,
-          phone: mainApplicant.phone,
-          email: mainApplicant.email,
-          employment: mainApplicant.employment.type,
-          branche: mainApplicant.employment.details,
+          title: mainApplicant.title || null,
+          firstname: mainApplicant.firstName || null,
+          lastname: mainApplicant.lastName || null,
+          nationality: mainApplicant.nationality || null,
+          birthDate: mainApplicant.birthDate || null,
+          street: mainApplicant.street || null,
+          housenumber: mainApplicant.houseNumber || null,
+          postalcode: mainApplicant.postalCode || null,
+          city: mainApplicant.city || null,
+          phone: mainApplicant.phone || null,
+          email: mainApplicant.email || null,
+          employment: mainApplicant.employment?.type || null,
+          branche: mainApplicant.employment?.details || null,
           hasauthorizedperson: formData.step1.representative.hasRepresentative,
           
           // Representative data
           bevollmaechtigte: formData.step1.representative.hasRepresentative ? {
             isCompany: formData.step1.representative.isCompany,
-            companyName: formData.step1.representative.companyName,
-            postboxPostcode: formData.step1.representative.postboxPostcode,
-            postboxCity: formData.step1.representative.postboxCity,
-            title: formData.step1.representative.title,
-            firstName: formData.step1.representative.firstName,
-            lastName: formData.step1.representative.lastName,
-            street: formData.step1.representative.street,
-            houseNumber: formData.step1.representative.houseNumber,
-            postalCode: formData.step1.representative.postalCode,
-            city: formData.step1.representative.city,
-            phone: formData.step1.representative.phone,
-            email: formData.step1.representative.email
+            companyName: formData.step1.representative.companyName || null,
+            postboxPostcode: formData.step1.representative.postboxPostcode || null,
+            postboxCity: formData.step1.representative.postboxCity || null,
+            title: formData.step1.representative.title || null,
+            firstName: formData.step1.representative.firstName || null,
+            lastName: formData.step1.representative.lastName || null,
+            street: formData.step1.representative.street || null,
+            houseNumber: formData.step1.representative.houseNumber || null,
+            postalCode: formData.step1.representative.postalCode || null,
+            city: formData.step1.representative.city || null,
+            phone: formData.step1.representative.phone || null,
+            email: formData.step1.representative.email || null
           } : null,
           
           // Additional applicants data
           weitere_antragstellende_personen: formData.step1.persons.length > 1 ? 
             formData.step1.persons.slice(1).map(person => ({
-              title: person.title,
-              firstName: person.firstName,
-              lastName: person.lastName,
-              nationality: person.nationality,
-              birthDate: person.birthDate,
-              street: person.street,
-              houseNumber: person.houseNumber,
-              postalCode: person.postalCode,
-              city: person.city,
-              phone: person.phone,
-              email: person.email,
+              title: person.title || null,
+              firstName: person.firstName || null,
+              lastName: person.lastName || null,
+              nationality: person.nationality || null,
+              birthDate: person.birthDate || null,
+              street: person.street || null,
+              houseNumber: person.houseNumber || null,
+              postalCode: person.postalCode || null,
+              city: person.city || null,
+              phone: person.phone || null,
+              email: person.email || null,
               employment: {
-                type: person.employment.type,
-                details: person.employment.details
+                type: person.employment?.type || null,
+                details: person.employment?.details || null
               }
             })) : null,
           
