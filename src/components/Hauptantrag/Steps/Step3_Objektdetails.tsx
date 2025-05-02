@@ -76,17 +76,28 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData })
 
   const handleNestedInputChange = (section: keyof Step3Data, nestedField: string, field: string, value: any) => {
     const sectionData = formData[section] as Record<string, any>;
-    const nestedData = sectionData[nestedField] as Record<string, any>;
-    updateFormData({
-      ...formData,
-      [section]: {
-        ...sectionData,
-        [nestedField]: {
-          ...nestedData,
+    
+    if (nestedField) {
+      const nestedData = sectionData[nestedField] as Record<string, any>;
+      updateFormData({
+        ...formData,
+        [section]: {
+          ...sectionData,
+          [nestedField]: {
+            ...nestedData,
+            [field]: value
+          }
+        }
+      });
+    } else {
+      updateFormData({
+        ...formData,
+        [section]: {
+          ...sectionData,
           [field]: value
         }
-      }
-    });
+      });
+    }
   };
 
   const handleRadioChange = (section: keyof Step3Data, field: string, value: boolean) => {

@@ -583,8 +583,8 @@ const HauptantragContainer: React.FC = () => {
               },
               ertraege: {
                 hasErtraege: objectData?.has_ertraege,
-                vermieteteWohnung: objectData?.has_ertraege ? objectData?.vermietete_wohnung || '' : '',
-                vermieteteGarage: objectData?.has_ertraege ? objectData?.vermietete_garage || '' : ''
+                vermieteteWohnung: objectData?.has_ertraege ? formatCurrencyForDisplay(objectData?.vermietete_wohnung) || '' : '',
+                vermieteteGarage: objectData?.has_ertraege ? formatCurrencyForDisplay(objectData?.vermietete_garage) || '' : ''
               },
               barrierefrei: objectData?.barrierefrei,
               begEffizienzhaus40Standard: objectData?.beg_effizienzhaus_40_standard
@@ -751,8 +751,8 @@ const HauptantragContainer: React.FC = () => {
           has_gewerbeflaeche: formData.step3.objektDetailsAllgemein.gewerbeflaeche.hasGewerbeflaeche,
           gewerbeflaeche: formData.step3.objektDetailsAllgemein.gewerbeflaeche.hasGewerbeflaeche ? formData.step3.objektDetailsAllgemein.gewerbeflaeche.flaeche || null : null,
           has_ertraege: formData.step3.objektDetailsAllgemein.ertraege.hasErtraege,
-          vermietete_wohnung: formData.step3.objektDetailsAllgemein.ertraege.hasErtraege ? formData.step3.objektDetailsAllgemein.ertraege.vermieteteWohnung || null : null,
-          vermietete_garage: formData.step3.objektDetailsAllgemein.ertraege.hasErtraege ? formData.step3.objektDetailsAllgemein.ertraege.vermieteteGarage || null : null,
+          vermietete_wohnung: formData.step3.objektDetailsAllgemein.ertraege.hasErtraege ? formatCurrencyForDatabase(formData.step3.objektDetailsAllgemein.ertraege.vermieteteWohnung) || null : null,
+          vermietete_garage: formData.step3.objektDetailsAllgemein.ertraege.hasErtraege ? formatCurrencyForDatabase(formData.step3.objektDetailsAllgemein.ertraege.vermieteteGarage) || null : null,
           barrierefrei: formData.step3.objektDetailsAllgemein.barrierefrei,
           beg_effizienzhaus_40_standard: formData.step3.objektDetailsAllgemein.begEffizienzhaus40Standard,
 
