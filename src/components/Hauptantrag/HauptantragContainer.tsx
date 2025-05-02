@@ -593,6 +593,15 @@ const HauptantragContainer: React.FC = () => {
       // Get the first person's data (main applicant)
       const mainApplicant = formData.step1.persons[0];
       
+      // Format subsidyAmount for Supabase
+      const formatSubsidyAmount = (amount: string) => {
+        if (!amount) return null;
+        // Remove Euro symbol and any whitespace
+        const cleanAmount = amount.replace(/[€\s]/g, '');
+        // Replace comma with dot for decimal separator
+        return cleanAmount.replace(',', '.');
+      };
+      
       // Save progress to Supabase user_data table
       const { error } = await supabase
         .from('user_data')
@@ -662,7 +671,7 @@ const HauptantragContainer: React.FC = () => {
           disabledchildrencount: formData.step2.isDisabled ? formData.step2.disabledChildrenCount || null : null,
           additionalassetsdetails: formData.step2.hasAdditionalAssets ? formData.step2.additionalAssetsDetails || null : null,
           hasrepaidsubsidy: formData.step2.hasDoubleSubsidy ? formData.step2.hasRepaidSubsidy : null,
-          subsidyamount: formData.step2.hasDoubleSubsidy ? formData.step2.subsidyAmount || null : null,
+          subsidyamount: formData.step2.hasDoubleSubsidy ? formatSubsidyAmount(formData.step2.subsidyAmount) : null,
           subsidyfilenumber: formData.step2.hasDoubleSubsidy ? formData.step2.subsidyFileNumber || null : null,
           subsidyauthority: formData.step2.hasDoubleSubsidy ? formData.step2.subsidyAuthority || null : null,
           hassupplementaryloan: formData.step2.hasSupplementaryLoan,
