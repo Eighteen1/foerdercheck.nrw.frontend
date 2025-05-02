@@ -598,8 +598,10 @@ const HauptantragContainer: React.FC = () => {
         if (!amount) return null;
         // Remove Euro symbol and any whitespace
         const cleanAmount = amount.replace(/[€\s]/g, '');
+        // Remove all dots (thousands separators)
+        const withoutThousands = cleanAmount.replace(/\./g, '');
         // Replace comma with dot for decimal separator
-        return cleanAmount.replace(',', '.');
+        return withoutThousands.replace(',', '.');
       };
       
       // Save progress to Supabase user_data table
