@@ -2,9 +2,8 @@ import React from 'react';
 import { Form, Button, OverlayTrigger, Tooltip } from 'react-bootstrap';
 
 interface Step4Data {
-  eigentumsverhaeltnis: string;
+  eigentumsverhaeltnis: boolean | null;
   kaufvertrag: {
-    wirdAbgeschlossen: boolean | null;
     wurdeAbgeschlossen: boolean | null;
     abschlussDatum: string;
   };
@@ -106,31 +105,30 @@ const Step4_Eigentumsverhaeltnisse: React.FC<Step4Props> = ({ formData, updateFo
             type="radio"
             id="eigentumsverhaeltnis-1"
             label="im Eigentum der antragstellenden Person(en)"
-            checked={formData.eigentumsverhaeltnis === 'imEigentum'}
-            onChange={() => handleInputChange('eigentumsverhaeltnis', 'imEigentum')}
+            checked={formData.eigentumsverhaeltnis === true}
+            onChange={() => handleInputChange('eigentumsverhaeltnis', true)}
             className="mb-2"
           />
           <Form.Check
             type="radio"
             id="eigentumsverhaeltnis-2"
             label="noch nicht im Eigentum der antragstellenden Person(en)"
-            checked={formData.eigentumsverhaeltnis === 'nochNichtImEigentum'}
-            onChange={() => handleInputChange('eigentumsverhaeltnis', 'nochNichtImEigentum')}
+            checked={formData.eigentumsverhaeltnis === false}
+            onChange={() => handleInputChange('eigentumsverhaeltnis', false)}
             className="mb-2"
           />
 
-          {formData.eigentumsverhaeltnis === 'nochNichtImEigentum' && (
+          {formData.eigentumsverhaeltnis === false && (
             <div className="ms-4 mt-3">
               <div className="d-flex flex-column gap-2">
                 <Form.Check
                   type="radio"
                   id="kaufvertrag-wird"
                   label="Kaufvertrag wird abgeschlossen"
-                  checked={formData.kaufvertrag.wirdAbgeschlossen === true}
+                  checked={formData.kaufvertrag.wurdeAbgeschlossen === false}
                   onChange={() => {
                     handleInputChange('kaufvertrag', {
                       ...formData.kaufvertrag,
-                      wirdAbgeschlossen: true,
                       wurdeAbgeschlossen: false,
                       abschlussDatum: ''
                     });
@@ -146,13 +144,12 @@ const Step4_Eigentumsverhaeltnisse: React.FC<Step4Props> = ({ formData, updateFo
                     onChange={() => {
                       handleInputChange('kaufvertrag', {
                         ...formData.kaufvertrag,
-                        wirdAbgeschlossen: false,
                         wurdeAbgeschlossen: true
                       });
                     }}
                     name="kaufvertrag-status"
                   />
-                  {formData.kaufvertrag.wurdeAbgeschlossen && (
+                  {formData.kaufvertrag.wurdeAbgeschlossen === true && (
                     <Form.Control
                       type="date"
                       value={formData.kaufvertrag.abschlussDatum}

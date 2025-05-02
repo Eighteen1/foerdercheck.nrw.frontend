@@ -118,9 +118,8 @@ interface FormData {
     };
   };
   step4: {
-    eigentumsverhaeltnis: string;
+    eigentumsverhaeltnis: boolean | null;
     kaufvertrag: {
-      wirdAbgeschlossen: boolean | null;
       wurdeAbgeschlossen: boolean | null;
       abschlussDatum: string;
     };
@@ -356,9 +355,8 @@ const HauptantragContainer: React.FC = () => {
       }
     },
     step4: {
-      eigentumsverhaeltnis: '',
+      eigentumsverhaeltnis: null,
       kaufvertrag: {
-        wirdAbgeschlossen: null,
         wurdeAbgeschlossen: null,
         abschlussDatum: '',
       },
@@ -615,6 +613,34 @@ const HauptantragContainer: React.FC = () => {
             objektDetailsBestandserwerb: {
               baujahr: (objectData?.foerderVariante === 'bestandserwerb-wohnung' || objectData?.foerderVariante === 'bestandserwerb-eigenheim') ? objectData?.bestandserwerb_baujahr || '' : ''
             }
+          },
+          step4: {
+            eigentumsverhaeltnis: objectData?.eigentumsverhaeltnis,
+            kaufvertrag: {
+              wurdeAbgeschlossen: objectData?.kaufvertrag_wurde_abgeschlossen,
+              abschlussDatum: objectData?.kaufvertrag_abschluss_datum || ''
+            },
+            erbbaurecht: objectData?.erbbaurecht,
+            restlaufzeitErbbaurecht: objectData?.restlaufzeit_erbbaurecht || '',
+            grundbuch: {
+              type: objectData?.grundbuch_type || '',
+              amtsgericht: objectData?.grundbuch_amtsgericht || '',
+              ortGrundbuch: objectData?.ort_grundbuch || '',
+              gemarkung: objectData?.grundbuch_gemarkung || '',
+              blatt: objectData?.grundbuch_blatt || '',
+              flur: objectData?.grundbuch_flur || '',
+              flurstueck: objectData?.grundbuch_flurstueck || '',
+              flurstueckNeu: objectData?.grundbuch_flurstueck_neu || '',
+              grundstuecksgroesse: objectData?.grundstuecksgroesse || ''
+            },
+            baulasten: {
+              vorhanden: objectData?.baulasten_vorhanden,
+              art: objectData?.baulasten_art || ''
+            },
+            altlasten: {
+              vorhanden: objectData?.altlasten_vorhanden,
+              art: objectData?.altlasten_art || ''
+            }
           }
         };
 
@@ -734,11 +760,12 @@ const HauptantragContainer: React.FC = () => {
 
       if (userError) throw userError;
 
-      // Save Step 3 data to object_data table
+      // Save Step 3 and 4 data to object_data table
       const { error: objectError } = await supabase
         .from('object_data')
         .upsert({
           user_id: user.id,
+          // Step 3 data
           obj_street: formData.step3.address.street || null,
           obj_house_number: formData.step3.address.houseNumber || null,
           obj_postal_code: formData.step3.address.postalCode || null,
@@ -775,7 +802,26 @@ const HauptantragContainer: React.FC = () => {
 
           // Conditional field for Bestandserwerb
           bestandserwerb_baujahr: (formData.step3.foerderVariante === 'bestandserwerb-wohnung' || formData.step3.foerderVariante === 'bestandserwerb-eigenheim') ? formData.step3.objektDetailsBestandserwerb.baujahr || null : null,
-          
+
+          // Step 4 data
+          eigentumsverhaeltnis: formData.step4.eigentumsverhaeltnis,
+          kaufvertrag_wurde_abgeschlossen: formData.step4.kaufvertrag.wurdeAbgeschlossen,
+          kaufvertrag_abschluss_datum: formData.step4.kaufvertrag.wurdeAbgeschlossen ? formData.step4.kaufvertrag.abschlussDatum : null,
+          erbbaurecht: formData.step4.erbbaurecht,
+          restlaufzeit_erbbaurecht: formData.step4.erbbaurecht ? formData.step4.restlaufzeitErbbaurecht : null,
+          grundbuch_type: formData.step4.grundbuch.type,
+          grundbuch_amtsgericht: formData.step4.grundbuch.amtsgericht,
+          ort_grundbuch: formData.step4.grundbuch.ortGrundbuch,
+          grundbuch_gemarkung: formData.step4.grundbuch.gemarkung,
+          grundbuch_blatt: formData.step4.grundbuch.blatt,
+          grundbuch_flur: formData.step4.grundbuch.flur,
+          grundbuch_flurstueck: formData.step4.grundbuch.flurstueck,
+          grundbuch_flurstueck_neu: formData.step4.grundbuch.flurstueckNeu,
+          grundstuecksgroesse: formData.step4.grundbuch.grundstuecksgroesse,
+          baulasten_vorhanden: formData.step4.baulasten.vorhanden,
+          baulasten_art: formData.step4.baulasten.vorhanden ? formData.step4.baulasten.art : null,
+          altlasten_vorhanden: formData.step4.altlasten.vorhanden,
+          altlasten_art: formData.step4.altlasten.vorhanden ? formData.step4.altlasten.art : null,
           updated_at: new Date().toISOString()
         })
         .eq('user_id', user.id);
