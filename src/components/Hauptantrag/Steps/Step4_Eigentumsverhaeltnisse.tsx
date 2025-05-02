@@ -408,7 +408,7 @@ const Step4_Eigentumsverhaeltnisse: React.FC<Step4Props> = ({ formData, updateFo
           <div className="col-md-6">
             <Form.Floating>
               <Form.Control
-                type="text"
+                type="number"
                 placeholder="Grundstücksgröße"
                 value={formData.grundbuch.grundstuecksgroesse}
                 onChange={(e) => handleInputChange('grundbuch.grundstuecksgroesse', e.target.value)}
