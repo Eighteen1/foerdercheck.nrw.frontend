@@ -537,6 +537,23 @@ const HauptantragContainer: React.FC = () => {
                 }
               }))
             ]
+          },
+          step2: {
+            adultCount: data.adult_count || '',
+            childCount: data.child_count || '',
+            isDisabled: data.is_disabled,
+            isMarried: data.is_married,
+            hasAdditionalAssets: data.hasadditionalassets,
+            hasDoubleSubsidy: data.hasdoublesubsidy,
+            childrenAges: data.childrenages || '',
+            disabledAdultsCount: data.disabledadultscount || '',
+            disabledChildrenCount: data.disabledchildrencount || '',
+            additionalAssetsDetails: data.additionalassetsdetails || '',
+            hasRepaidSubsidy: data.hasrepaidsubsidy,
+            subsidyAmount: data.subsidyamount || '',
+            subsidyFileNumber: data.subsidyfilenumber || '',
+            subsidyAuthority: data.subsidyauthority || '',
+            hasSupplementaryLoan: data.hassupplementaryloan
           }
         };
 
@@ -632,6 +649,23 @@ const HauptantragContainer: React.FC = () => {
                 details: person.employment?.details || null
               }
             })) : null,
+
+          // Step 2 data
+          adult_count: formData.step2.adultCount || null,
+          child_count: formData.step2.childCount || null,
+          is_disabled: formData.step2.isDisabled,
+          is_married: formData.step2.isMarried,
+          hasadditionalassets: formData.step2.hasAdditionalAssets,
+          hasdoublesubsidy: formData.step2.hasDoubleSubsidy,
+          childrenages: formData.step2.childrenAges || null,
+          disabledadultscount: formData.step2.isDisabled ? formData.step2.disabledAdultsCount || null : null,
+          disabledchildrencount: formData.step2.isDisabled ? formData.step2.disabledChildrenCount || null : null,
+          additionalassetsdetails: formData.step2.hasAdditionalAssets ? formData.step2.additionalAssetsDetails || null : null,
+          hasrepaidsubsidy: formData.step2.hasDoubleSubsidy ? formData.step2.hasRepaidSubsidy : null,
+          subsidyamount: formData.step2.hasDoubleSubsidy ? formData.step2.subsidyAmount || null : null,
+          subsidyfilenumber: formData.step2.hasDoubleSubsidy ? formData.step2.subsidyFileNumber || null : null,
+          subsidyauthority: formData.step2.hasDoubleSubsidy ? formData.step2.subsidyAuthority || null : null,
+          hassupplementaryloan: formData.step2.hasSupplementaryLoan,
           
           updated_at: new Date().toISOString()
         })
