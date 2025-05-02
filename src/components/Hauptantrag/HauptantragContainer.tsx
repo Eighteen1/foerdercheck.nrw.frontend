@@ -3,6 +3,7 @@ import { Container, Button } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
+import { formatCurrencyForDisplay, formatCurrencyForDatabase } from '../../utils/currencyUtils';
 import Step1_PersonalInfo from './Steps/Step1_PersonalInfo';
 import Step2_HouseholdInfo from './Steps/Step2_HouseholdInfo';
 import Step3_Objektdetails from './Steps/Step3_Objektdetails';
@@ -550,7 +551,7 @@ const HauptantragContainer: React.FC = () => {
             disabledChildrenCount: data.disabledchildrencount || '',
             additionalAssetsDetails: data.additionalassetsdetails || '',
             hasRepaidSubsidy: data.hasrepaidsubsidy,
-            subsidyAmount: data.subsidyamount || '',
+            subsidyAmount: formatCurrencyForDisplay(data.subsidyamount),
             subsidyFileNumber: data.subsidyfilenumber || '',
             subsidyAuthority: data.subsidyauthority || '',
             hasSupplementaryLoan: data.hassupplementaryloan
@@ -592,17 +593,6 @@ const HauptantragContainer: React.FC = () => {
     try {
       // Get the first person's data (main applicant)
       const mainApplicant = formData.step1.persons[0];
-      
-      // Format subsidyAmount for Supabase
-      const formatSubsidyAmount = (amount: string) => {
-        if (!amount) return null;
-        // Remove Euro symbol and any whitespace
-        const cleanAmount = amount.replace(/[€\s]/g, '');
-        // Remove all dots (thousands separators)
-        const withoutThousands = cleanAmount.replace(/\./g, '');
-        // Replace comma with dot for decimal separator
-        return withoutThousands.replace(',', '.');
-      };
       
       // Save progress to Supabase user_data table
       const { error } = await supabase
@@ -673,7 +663,7 @@ const HauptantragContainer: React.FC = () => {
           disabledchildrencount: formData.step2.isDisabled ? formData.step2.disabledChildrenCount || null : null,
           additionalassetsdetails: formData.step2.hasAdditionalAssets ? formData.step2.additionalAssetsDetails || null : null,
           hasrepaidsubsidy: formData.step2.hasDoubleSubsidy ? formData.step2.hasRepaidSubsidy : null,
-          subsidyamount: formData.step2.hasDoubleSubsidy ? formatSubsidyAmount(formData.step2.subsidyAmount) : null,
+          subsidyamount: formData.step2.hasDoubleSubsidy ? formatCurrencyForDatabase(formData.step2.subsidyAmount) : null,
           subsidyfilenumber: formData.step2.hasDoubleSubsidy ? formData.step2.subsidyFileNumber || null : null,
           subsidyauthority: formData.step2.hasDoubleSubsidy ? formData.step2.subsidyAuthority || null : null,
           hassupplementaryloan: formData.step2.hasSupplementaryLoan,
