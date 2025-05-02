@@ -36,13 +36,13 @@ interface Step3Data {
   objektDetailsNeubauErsterwerb: {
     baugenehmigungErforderlich: boolean | null;
     baugenehmigung: {
-      wurdeBeantragt: boolean | null;
       wurdeErteilt: boolean | null;
       erteilungsDatum: string;
       aktenzeichen: string;
       erteilungsBehoerde: string;
     };
     bauanzeige: {
+      wurdeEingereicht: boolean | null;
       einreichungsDatum: string;
     };
     bauarbeiten: {
@@ -600,22 +600,24 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData })
 
           {formData.objektDetailsNeubauErsterwerb.baugenehmigungErforderlich && (
             <>
-              <div className="mt-4">
+              <div className="mt-3 ms-4">
                 <Form.Check
-                  type="checkbox"
+                  type="radio"
                   label="wurde beantragt"
-                  checked={formData.objektDetailsNeubauErsterwerb.baugenehmigung.wurdeBeantragt === true}
-                  onChange={(e) => handleNestedInputChange('objektDetailsNeubauErsterwerb', 'baugenehmigung', 'wurdeBeantragt', e.target.checked)}
+                  name="baugenehmigungStatus"
+                  checked={formData.objektDetailsNeubauErsterwerb.baugenehmigung.wurdeErteilt === false}
+                  onChange={() => handleNestedInputChange('objektDetailsNeubauErsterwerb', 'baugenehmigung', 'wurdeErteilt', false)}
+                  className="custom-radio mb-2"
                 />
-              </div>
-
-              <div className="mt-3">
                 <Form.Check
-                  type="checkbox"
+                  type="radio"
                   label="wurde erteilt am"
+                  name="baugenehmigungStatus"
                   checked={formData.objektDetailsNeubauErsterwerb.baugenehmigung.wurdeErteilt === true}
-                  onChange={(e) => handleNestedInputChange('objektDetailsNeubauErsterwerb', 'baugenehmigung', 'wurdeErteilt', e.target.checked)}
+                  onChange={() => handleNestedInputChange('objektDetailsNeubauErsterwerb', 'baugenehmigung', 'wurdeErteilt', true)}
+                  className="custom-radio"
                 />
+
                 {formData.objektDetailsNeubauErsterwerb.baugenehmigung.wurdeErteilt && (
                   <div className="row g-3 mt-2">
                     <div className="col-md-4">
@@ -667,8 +669,8 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData })
                   type="radio"
                   label="Ja"
                   name="bauanzeigeEingereicht"
-                  checked={formData.objektDetailsNeubauErsterwerb.bauanzeige.einreichungsDatum !== ''}
-                  onChange={() => handleNestedInputChange('objektDetailsNeubauErsterwerb', 'bauanzeige', 'einreichungsDatum', new Date().toISOString().split('T')[0])}
+                  checked={formData.objektDetailsNeubauErsterwerb.bauanzeige.wurdeEingereicht === true}
+                  onChange={() => handleNestedInputChange('objektDetailsNeubauErsterwerb', 'bauanzeige', 'wurdeEingereicht', true)}
                   className="custom-radio"
                 />
                 <Form.Check
@@ -676,14 +678,14 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData })
                   type="radio"
                   label="Nein"
                   name="bauanzeigeEingereicht"
-                  checked={formData.objektDetailsNeubauErsterwerb.bauanzeige.einreichungsDatum === ''}
-                  onChange={() => handleNestedInputChange('objektDetailsNeubauErsterwerb', 'bauanzeige', 'einreichungsDatum', '')}
+                  checked={formData.objektDetailsNeubauErsterwerb.bauanzeige.wurdeEingereicht === false}
+                  onChange={() => handleNestedInputChange('objektDetailsNeubauErsterwerb', 'bauanzeige', 'wurdeEingereicht', false)}
                   className="custom-radio"
                 />
               </div>
             </div>
 
-            {formData.objektDetailsNeubauErsterwerb.bauanzeige.einreichungsDatum !== '' && (
+            {formData.objektDetailsNeubauErsterwerb.bauanzeige.wurdeEingereicht && (
               <div className="row g-3">
                 <div className="col-12">
                   <Form.Floating>

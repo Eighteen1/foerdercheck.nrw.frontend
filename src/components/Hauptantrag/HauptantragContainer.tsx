@@ -99,13 +99,13 @@ interface FormData {
     objektDetailsNeubauErsterwerb: {
       baugenehmigungErforderlich: boolean | null;
       baugenehmigung: {
-        wurdeBeantragt: boolean | null;
         wurdeErteilt: boolean | null;
         erteilungsDatum: string;
         aktenzeichen: string;
         erteilungsBehoerde: string;
       };
       bauanzeige: {
+        wurdeEingereicht: boolean | null;
         einreichungsDatum: string;
       };
       bauarbeiten: {
@@ -337,13 +337,13 @@ const HauptantragContainer: React.FC = () => {
       objektDetailsNeubauErsterwerb: {
         baugenehmigungErforderlich: null,
         baugenehmigung: {
-          wurdeBeantragt: null,
           wurdeErteilt: null,
           erteilungsDatum: '',
           aktenzeichen: '',
           erteilungsBehoerde: ''
         },
         bauanzeige: {
+          wurdeEingereicht: null,
           einreichungsDatum: ''
         },
         bauarbeiten: {
@@ -508,10 +508,10 @@ const HauptantragContainer: React.FC = () => {
                 lastName: data.lastname || '',
                 nationality: data.nationality || '',
                 birthDate: data.birthDate || '',
-                street: data.street || '',
-                houseNumber: data.housenumber || '',
-                postalCode: data.postalcode || '',
-                city: data.city || '',
+                street: data.person_street || '',
+                houseNumber: data.person_housenumber || '',
+                postalCode: data.person_postalcode || '',
+                city: data.person_city || '',
                 phone: data.phone || '',
                 email: data.email || '',
                 employment: {
@@ -555,6 +555,58 @@ const HauptantragContainer: React.FC = () => {
             subsidyFileNumber: data.subsidyfilenumber || '',
             subsidyAuthority: data.subsidyauthority || '',
             hasSupplementaryLoan: data.hassupplementaryloan
+          },
+          step3: {
+            address: {
+              street: data.obj_street || '',
+              houseNumber: data.obj_house_number || '',
+              postalCode: data.obj_postal_code || '',
+              city: data.obj_city || ''
+            },
+            foerderVariante: data.foerderVariante || '',
+            objektDetailsAllgemein: {
+              wohnflaecheSelbstgenutzt: data.wohnflaeche_selbstgenutzt || '',
+              gesamtWohnflaeche: data.gesamt_wohnflaeche || '',
+              anzahlZimmer: data.anzahl_zimmer || '',
+              anzahlGaragen: data.anzahl_garagen || '',
+              gewerbeflaeche: {
+                hasGewerbeflaeche: data.has_gewerbeflaeche,
+                flaeche: data.has_gewerbeflaeche ? data.gewerbeflaeche || '' : ''
+              },
+              ertraege: {
+                hasErtraege: data.has_ertraege,
+                vermieteteWohnung: data.has_ertraege ? data.vermietete_wohnung || '' : '',
+                vermieteteGarage: data.has_ertraege ? data.vermietete_garage || '' : ''
+              },
+              barrierefrei: data.barrierefrei,
+              begEffizienzhaus40Standard: data.beg_effizienzhaus_40_standard
+            },
+            objektDetailsEigentumswohnung: {
+              anzahlVollgeschosse: (data.foerderVariante === 'bestandserwerb-wohnung' || data.foerderVariante === 'ersterwerb-wohnung') ? data.anzahl_vollgeschosse || '' : '',
+              wohnungenAmHauseingang: (data.foerderVariante === 'bestandserwerb-wohnung' || data.foerderVariante === 'ersterwerb-wohnung') ? data.wohnungen_am_hauseingang || '' : '',
+              lageImGebaeude: (data.foerderVariante === 'bestandserwerb-wohnung' || data.foerderVariante === 'ersterwerb-wohnung') ? data.lage_im_gebaeude || '' : '',
+              lageImGeschoss: (data.foerderVariante === 'bestandserwerb-wohnung' || data.foerderVariante === 'ersterwerb-wohnung') ? data.lage_im_geschoss || '' : ''
+            },
+            objektDetailsNeubauErsterwerb: {
+              baugenehmigungErforderlich: (data.foerderVariante === 'neubau' || data.foerderVariante === 'ersterwerb-eigenheim' || data.foerderVariante === 'ersterwerb-wohnung') ? data.baugenehmigung_erforderlich : null,
+              baugenehmigung: {
+                wurdeErteilt: (data.foerderVariante === 'neubau' || data.foerderVariante === 'ersterwerb-eigenheim' || data.foerderVariante === 'ersterwerb-wohnung') ? data.baugenehmigung_wurde_erteilt : null,
+                erteilungsDatum: (data.foerderVariante === 'neubau' || data.foerderVariante === 'ersterwerb-eigenheim' || data.foerderVariante === 'ersterwerb-wohnung') && data.baugenehmigung_wurde_erteilt ? data.erteilungs_datum || '' : '',
+                aktenzeichen: (data.foerderVariante === 'neubau' || data.foerderVariante === 'ersterwerb-eigenheim' || data.foerderVariante === 'ersterwerb-wohnung') && data.baugenehmigung_wurde_erteilt ? data.aktenzeichen || '' : '',
+                erteilungsBehoerde: (data.foerderVariante === 'neubau' || data.foerderVariante === 'ersterwerb-eigenheim' || data.foerderVariante === 'ersterwerb-wohnung') && data.baugenehmigung_wurde_erteilt ? data.erteilungs_behoerde || '' : ''
+              },
+              bauanzeige: {
+                wurdeEingereicht: (data.foerderVariante === 'neubau' || data.foerderVariante === 'ersterwerb-eigenheim' || data.foerderVariante === 'ersterwerb-wohnung') ? data.bauanzeige_wurde_eingereicht : null,
+                einreichungsDatum: (data.foerderVariante === 'neubau' || data.foerderVariante === 'ersterwerb-eigenheim' || data.foerderVariante === 'ersterwerb-wohnung') && data.bauanzeige_wurde_eingereicht ? data.bauanzeige_einreichungs_datum || '' : ''
+              },
+              bauarbeiten: {
+                wurdeBegonnen: (data.foerderVariante === 'neubau' || data.foerderVariante === 'ersterwerb-eigenheim' || data.foerderVariante === 'ersterwerb-wohnung') ? data.bauarbeiten_wurde_begonnen : null,
+                beginnDatum: (data.foerderVariante === 'neubau' || data.foerderVariante === 'ersterwerb-eigenheim' || data.foerderVariante === 'ersterwerb-wohnung') && data.bauarbeiten_wurde_begonnen ? data.bauarbeiten_beginn_datum || '' : ''
+              }
+            },
+            objektDetailsBestandserwerb: {
+              baujahr: (data.foerderVariante === 'bestandserwerb-wohnung' || data.foerderVariante === 'bestandserwerb-eigenheim') ? data.bestandserwerb_baujahr || '' : ''
+            }
           }
         };
 
@@ -604,10 +656,10 @@ const HauptantragContainer: React.FC = () => {
           lastname: mainApplicant.lastName || null,
           nationality: mainApplicant.nationality || null,
           birthDate: mainApplicant.birthDate || null,
-          street: mainApplicant.street || null,
-          housenumber: mainApplicant.houseNumber || null,
-          postalcode: mainApplicant.postalCode || null,
-          city: mainApplicant.city || null,
+          person_street: mainApplicant.street || null,
+          person_housenumber: mainApplicant.houseNumber || null,
+          person_postalcode: mainApplicant.postalCode || null,
+          person_city: mainApplicant.city || null,
           phone: mainApplicant.phone || null,
           email: mainApplicant.email || null,
           employment: mainApplicant.employment?.type || null,
@@ -667,6 +719,44 @@ const HauptantragContainer: React.FC = () => {
           subsidyfilenumber: formData.step2.hasDoubleSubsidy ? formData.step2.subsidyFileNumber || null : null,
           subsidyauthority: formData.step2.hasDoubleSubsidy ? formData.step2.subsidyAuthority || null : null,
           hassupplementaryloan: formData.step2.hasSupplementaryLoan,
+
+          // Step 3 data
+          obj_street: formData.step3.address.street || null,
+          obj_house_number: formData.step3.address.houseNumber || null,
+          obj_postal_code: formData.step3.address.postalCode || null,
+          obj_city: formData.step3.address.city || null,
+          foerderVariante: formData.step3.foerderVariante || null,
+          wohnflaeche_selbstgenutzt: formData.step3.objektDetailsAllgemein.wohnflaecheSelbstgenutzt || null,
+          gesamt_wohnflaeche: formData.step3.objektDetailsAllgemein.gesamtWohnflaeche || null,
+          anzahl_zimmer: formData.step3.objektDetailsAllgemein.anzahlZimmer || null,
+          anzahl_garagen: formData.step3.objektDetailsAllgemein.anzahlGaragen || null,
+          has_gewerbeflaeche: formData.step3.objektDetailsAllgemein.gewerbeflaeche.hasGewerbeflaeche,
+          gewerbeflaeche: formData.step3.objektDetailsAllgemein.gewerbeflaeche.hasGewerbeflaeche ? formData.step3.objektDetailsAllgemein.gewerbeflaeche.flaeche || null : null,
+          has_ertraege: formData.step3.objektDetailsAllgemein.ertraege.hasErtraege,
+          vermietete_wohnung: formData.step3.objektDetailsAllgemein.ertraege.hasErtraege ? formData.step3.objektDetailsAllgemein.ertraege.vermieteteWohnung || null : null,
+          vermietete_garage: formData.step3.objektDetailsAllgemein.ertraege.hasErtraege ? formData.step3.objektDetailsAllgemein.ertraege.vermieteteGarage || null : null,
+          barrierefrei: formData.step3.objektDetailsAllgemein.barrierefrei,
+          beg_effizienzhaus_40_standard: formData.step3.objektDetailsAllgemein.begEffizienzhaus40Standard,
+
+          // Conditional fields based on foerderVariante
+          anzahl_vollgeschosse: (formData.step3.foerderVariante === 'bestandserwerb-wohnung' || formData.step3.foerderVariante === 'ersterwerb-wohnung') ? formData.step3.objektDetailsEigentumswohnung.anzahlVollgeschosse || null : null,
+          wohnungen_am_hauseingang: (formData.step3.foerderVariante === 'bestandserwerb-wohnung' || formData.step3.foerderVariante === 'ersterwerb-wohnung') ? formData.step3.objektDetailsEigentumswohnung.wohnungenAmHauseingang || null : null,
+          lage_im_gebaeude: (formData.step3.foerderVariante === 'bestandserwerb-wohnung' || formData.step3.foerderVariante === 'ersterwerb-wohnung') ? formData.step3.objektDetailsEigentumswohnung.lageImGebaeude || null : null,
+          lage_im_geschoss: (formData.step3.foerderVariante === 'bestandserwerb-wohnung' || formData.step3.foerderVariante === 'ersterwerb-wohnung') ? formData.step3.objektDetailsEigentumswohnung.lageImGeschoss || null : null,
+
+          // Conditional fields for Neubau/Ersterwerb
+          baugenehmigung_erforderlich: (formData.step3.foerderVariante === 'neubau' || formData.step3.foerderVariante === 'ersterwerb-eigenheim' || formData.step3.foerderVariante === 'ersterwerb-wohnung') ? formData.step3.objektDetailsNeubauErsterwerb.baugenehmigungErforderlich : null,
+          baugenehmigung_wurde_erteilt: (formData.step3.foerderVariante === 'neubau' || formData.step3.foerderVariante === 'ersterwerb-eigenheim' || formData.step3.foerderVariante === 'ersterwerb-wohnung') ? formData.step3.objektDetailsNeubauErsterwerb.baugenehmigung.wurdeErteilt : null,
+          erteilungs_datum: (formData.step3.foerderVariante === 'neubau' || formData.step3.foerderVariante === 'ersterwerb-eigenheim' || formData.step3.foerderVariante === 'ersterwerb-wohnung') && formData.step3.objektDetailsNeubauErsterwerb.baugenehmigung.wurdeErteilt ? formData.step3.objektDetailsNeubauErsterwerb.baugenehmigung.erteilungsDatum || null : null,
+          aktenzeichen: (formData.step3.foerderVariante === 'neubau' || formData.step3.foerderVariante === 'ersterwerb-eigenheim' || formData.step3.foerderVariante === 'ersterwerb-wohnung') && formData.step3.objektDetailsNeubauErsterwerb.baugenehmigung.wurdeErteilt ? formData.step3.objektDetailsNeubauErsterwerb.baugenehmigung.aktenzeichen || null : null,
+          erteilungs_behoerde: (formData.step3.foerderVariante === 'neubau' || formData.step3.foerderVariante === 'ersterwerb-eigenheim' || formData.step3.foerderVariante === 'ersterwerb-wohnung') && formData.step3.objektDetailsNeubauErsterwerb.baugenehmigung.wurdeErteilt ? formData.step3.objektDetailsNeubauErsterwerb.baugenehmigung.erteilungsBehoerde || null : null,
+          bauanzeige_wurde_eingereicht: (formData.step3.foerderVariante === 'neubau' || formData.step3.foerderVariante === 'ersterwerb-eigenheim' || formData.step3.foerderVariante === 'ersterwerb-wohnung') ? formData.step3.objektDetailsNeubauErsterwerb.bauanzeige.wurdeEingereicht : null,
+          bauanzeige_einreichungs_datum: (formData.step3.foerderVariante === 'neubau' || formData.step3.foerderVariante === 'ersterwerb-eigenheim' || formData.step3.foerderVariante === 'ersterwerb-wohnung') && formData.step3.objektDetailsNeubauErsterwerb.bauanzeige.wurdeEingereicht ? formData.step3.objektDetailsNeubauErsterwerb.bauanzeige.einreichungsDatum || null : null,
+          bauarbeiten_wurde_begonnen: (formData.step3.foerderVariante === 'neubau' || formData.step3.foerderVariante === 'ersterwerb-eigenheim' || formData.step3.foerderVariante === 'ersterwerb-wohnung') ? formData.step3.objektDetailsNeubauErsterwerb.bauarbeiten.wurdeBegonnen : null,
+          bauarbeiten_beginn_datum: (formData.step3.foerderVariante === 'neubau' || formData.step3.foerderVariante === 'ersterwerb-eigenheim' || formData.step3.foerderVariante === 'ersterwerb-wohnung') && formData.step3.objektDetailsNeubauErsterwerb.bauarbeiten.wurdeBegonnen ? formData.step3.objektDetailsNeubauErsterwerb.bauarbeiten.beginnDatum || null : null,
+
+          // Conditional field for Bestandserwerb
+          bestandserwerb_baujahr: (formData.step3.foerderVariante === 'bestandserwerb-wohnung' || formData.step3.foerderVariante === 'bestandserwerb-eigenheim') ? formData.step3.objektDetailsBestandserwerb.baujahr || null : null,
           
           updated_at: new Date().toISOString()
         })
@@ -935,3 +1025,4 @@ const HauptantragContainer: React.FC = () => {
 };
 
 export default HauptantragContainer; 
+
