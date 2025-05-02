@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Container, Button } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
@@ -227,6 +227,24 @@ interface FormData {
   // Add other step interfaces as we create them
 }
 
+interface AdditionalPerson {
+  title: string;
+  firstName: string;
+  lastName: string;
+  nationality: string;
+  birthDate: string;
+  street: string;
+  houseNumber: string;
+  postalCode: string;
+  city: string;
+  phone: string;
+  email: string;
+  employment: {
+    type: string;
+    details: string;
+  };
+}
+
 const HauptantragContainer: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -445,6 +463,91 @@ const HauptantragContainer: React.FC = () => {
       gesamtbetraege: ''
     }
   });
+
+  // Load saved data from Supabase
+  useEffect(() => {
+    const loadSavedData = async () => {
+      if (!user?.id) return;
+
+      try {
+        const { data, error } = await supabase
+          .from('user_data')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+
+        if (error) throw error;
+        if (!data) return;
+
+        // Reconstruct the form data from the database fields
+        const loadedFormData: FormData = {
+          ...formData,
+          step1: {
+            representative: {
+              hasRepresentative: data.hasauthorizedperson,
+              isCompany: data.bevollmaechtigte?.isCompany || null,
+              companyName: data.bevollmaechtigte?.companyName || '',
+              postboxPostcode: data.bevollmaechtigte?.postboxPostcode || '',
+              postboxCity: data.bevollmaechtigte?.postboxCity || '',
+              title: data.bevollmaechtigte?.title || '',
+              firstName: data.bevollmaechtigte?.firstName || '',
+              lastName: data.bevollmaechtigte?.lastName || '',
+              street: data.bevollmaechtigte?.street || '',
+              houseNumber: data.bevollmaechtigte?.houseNumber || '',
+              postalCode: data.bevollmaechtigte?.postalCode || '',
+              city: data.bevollmaechtigte?.city || '',
+              phone: data.bevollmaechtigte?.phone || '',
+              email: data.bevollmaechtigte?.email || ''
+            },
+            persons: [
+              // Main applicant
+              {
+                title: data.title || '',
+                firstName: data.firstname || '',
+                lastName: data.lastname || '',
+                nationality: data.nationality || '',
+                birthDate: data.birthDate || '',
+                street: data.street || '',
+                houseNumber: data.housenumber || '',
+                postalCode: data.postalcode || '',
+                city: data.city || '',
+                phone: data.phone || '',
+                email: data.email || '',
+                employment: {
+                  type: data.employment || '',
+                  details: data.branche || ''
+                }
+              },
+              // Additional applicants
+              ...(data.weitere_antragstellende_personen || []).map((person: AdditionalPerson) => ({
+                title: person.title || '',
+                firstName: person.firstName || '',
+                lastName: person.lastName || '',
+                nationality: person.nationality || '',
+                birthDate: person.birthDate || '',
+                street: person.street || '',
+                houseNumber: person.houseNumber || '',
+                postalCode: person.postalCode || '',
+                city: person.city || '',
+                phone: person.phone || '',
+                email: person.email || '',
+                employment: {
+                  type: person.employment?.type || '',
+                  details: person.employment?.details || ''
+                }
+              }))
+            ]
+          }
+        };
+
+        setFormData(loadedFormData);
+      } catch (error) {
+        console.error('Error loading saved data:', error);
+      }
+    };
+
+    loadSavedData();
+  }, [user?.id]); // Only run when user ID changes
 
   const totalSteps = 6;
 
