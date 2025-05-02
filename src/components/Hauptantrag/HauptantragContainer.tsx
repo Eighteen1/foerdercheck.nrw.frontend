@@ -471,56 +471,64 @@ const HauptantragContainer: React.FC = () => {
       if (!user?.id) return;
 
       try {
-        const { data, error } = await supabase
+        const { data: userData, error: userError } = await supabase
           .from('user_data')
           .select('*')
           .eq('id', user.id)
           .single();
 
-        if (error) throw error;
-        if (!data) return;
+        if (userError) throw userError;
+        if (!userData) return;
+
+        const { data: objectData, error: objectError } = await supabase
+          .from('object_data')
+          .select('*')
+          .eq('user_id', user.id)
+          .single();
+
+        if (objectError) throw objectError;
 
         // Reconstruct the form data from the database fields
         const loadedFormData: FormData = {
           ...formData,
           step1: {
             representative: {
-              hasRepresentative: data.hasauthorizedperson,
-              isCompany: data.hasauthorizedperson ? data.iscompany : null,
-              companyName: data.bevollmaechtigte?.companyName || '',
-              postboxPostcode: data.bevollmaechtigte?.postboxPostcode || '',
-              postboxCity: data.bevollmaechtigte?.postboxCity || '',
-              title: data.bevollmaechtigte?.title || '',
-              firstName: data.bevollmaechtigte?.firstName || '',
-              lastName: data.bevollmaechtigte?.lastName || '',
-              street: data.bevollmaechtigte?.street || '',
-              houseNumber: data.bevollmaechtigte?.houseNumber || '',
-              postalCode: data.bevollmaechtigte?.postalCode || '',
-              city: data.bevollmaechtigte?.city || '',
-              phone: data.bevollmaechtigte?.phone || '',
-              email: data.bevollmaechtigte?.email || ''
+              hasRepresentative: userData.hasauthorizedperson,
+              isCompany: userData.hasauthorizedperson ? userData.iscompany : null,
+              companyName: userData.bevollmaechtigte?.companyName || '',
+              postboxPostcode: userData.bevollmaechtigte?.postboxPostcode || '',
+              postboxCity: userData.bevollmaechtigte?.postboxCity || '',
+              title: userData.bevollmaechtigte?.title || '',
+              firstName: userData.bevollmaechtigte?.firstName || '',
+              lastName: userData.bevollmaechtigte?.lastName || '',
+              street: userData.bevollmaechtigte?.street || '',
+              houseNumber: userData.bevollmaechtigte?.houseNumber || '',
+              postalCode: userData.bevollmaechtigte?.postalCode || '',
+              city: userData.bevollmaechtigte?.city || '',
+              phone: userData.bevollmaechtigte?.phone || '',
+              email: userData.bevollmaechtigte?.email || ''
             },
             persons: [
               // Main applicant
               {
-                title: data.title || '',
-                firstName: data.firstname || '',
-                lastName: data.lastname || '',
-                nationality: data.nationality || '',
-                birthDate: data.birthDate || '',
-                street: data.person_street || '',
-                houseNumber: data.person_housenumber || '',
-                postalCode: data.person_postalcode || '',
-                city: data.person_city || '',
-                phone: data.phone || '',
-                email: data.email || '',
+                title: userData.title || '',
+                firstName: userData.firstname || '',
+                lastName: userData.lastname || '',
+                nationality: userData.nationality || '',
+                birthDate: userData.birthDate || '',
+                street: userData.person_street || '',
+                houseNumber: userData.person_housenumber || '',
+                postalCode: userData.person_postalcode || '',
+                city: userData.person_city || '',
+                phone: userData.phone || '',
+                email: userData.email || '',
                 employment: {
-                  type: data.employment || '',
-                  details: data.branche || ''
+                  type: userData.employment || '',
+                  details: userData.branche || ''
                 }
               },
               // Additional applicants
-              ...(data.weitere_antragstellende_personen || []).map((person: AdditionalPerson) => ({
+              ...(userData.weitere_antragstellende_personen || []).map((person: AdditionalPerson) => ({
                 title: person.title || '',
                 firstName: person.firstName || '',
                 lastName: person.lastName || '',
@@ -540,72 +548,72 @@ const HauptantragContainer: React.FC = () => {
             ]
           },
           step2: {
-            adultCount: data.adult_count || '',
-            childCount: data.child_count || '',
-            isDisabled: data.is_disabled,
-            isMarried: data.is_married,
-            hasAdditionalAssets: data.hasadditionalassets,
-            hasDoubleSubsidy: data.hasdoublesubsidy,
-            childrenAges: data.childrenages || '',
-            disabledAdultsCount: data.disabledadultscount || '',
-            disabledChildrenCount: data.disabledchildrencount || '',
-            additionalAssetsDetails: data.additionalassetsdetails || '',
-            hasRepaidSubsidy: data.hasrepaidsubsidy,
-            subsidyAmount: formatCurrencyForDisplay(data.subsidyamount),
-            subsidyFileNumber: data.subsidyfilenumber || '',
-            subsidyAuthority: data.subsidyauthority || '',
-            hasSupplementaryLoan: data.hassupplementaryloan
+            adultCount: userData.adult_count || '',
+            childCount: userData.child_count || '',
+            isDisabled: userData.is_disabled,
+            isMarried: userData.is_married,
+            hasAdditionalAssets: userData.hasadditionalassets,
+            hasDoubleSubsidy: userData.hasdoublesubsidy,
+            childrenAges: userData.childrenages || '',
+            disabledAdultsCount: userData.disabledadultscount || '',
+            disabledChildrenCount: userData.disabledchildrencount || '',
+            additionalAssetsDetails: userData.additionalassetsdetails || '',
+            hasRepaidSubsidy: userData.hasrepaidsubsidy,
+            subsidyAmount: formatCurrencyForDisplay(userData.subsidyamount),
+            subsidyFileNumber: userData.subsidyfilenumber || '',
+            subsidyAuthority: userData.subsidyauthority || '',
+            hasSupplementaryLoan: userData.hassupplementaryloan
           },
           step3: {
             address: {
-              street: data.obj_street || '',
-              houseNumber: data.obj_house_number || '',
-              postalCode: data.obj_postal_code || '',
-              city: data.obj_city || ''
+              street: objectData?.obj_street || '',
+              houseNumber: objectData?.obj_house_number || '',
+              postalCode: objectData?.obj_postal_code || '',
+              city: objectData?.obj_city || ''
             },
-            foerderVariante: data.foerderVariante || '',
+            foerderVariante: objectData?.foerderVariante || '',
             objektDetailsAllgemein: {
-              wohnflaecheSelbstgenutzt: data.wohnflaeche_selbstgenutzt || '',
-              gesamtWohnflaeche: data.gesamt_wohnflaeche || '',
-              anzahlZimmer: data.anzahl_zimmer || '',
-              anzahlGaragen: data.anzahl_garagen || '',
+              wohnflaecheSelbstgenutzt: objectData?.wohnflaeche_selbstgenutzt || '',
+              gesamtWohnflaeche: objectData?.gesamt_wohnflaeche || '',
+              anzahlZimmer: objectData?.anzahl_zimmer || '',
+              anzahlGaragen: objectData?.anzahl_garagen || '',
               gewerbeflaeche: {
-                hasGewerbeflaeche: data.has_gewerbeflaeche,
-                flaeche: data.has_gewerbeflaeche ? data.gewerbeflaeche || '' : ''
+                hasGewerbeflaeche: objectData?.has_gewerbeflaeche,
+                flaeche: objectData?.has_gewerbeflaeche ? objectData?.gewerbeflaeche || '' : ''
               },
               ertraege: {
-                hasErtraege: data.has_ertraege,
-                vermieteteWohnung: data.has_ertraege ? data.vermietete_wohnung || '' : '',
-                vermieteteGarage: data.has_ertraege ? data.vermietete_garage || '' : ''
+                hasErtraege: objectData?.has_ertraege,
+                vermieteteWohnung: objectData?.has_ertraege ? objectData?.vermietete_wohnung || '' : '',
+                vermieteteGarage: objectData?.has_ertraege ? objectData?.vermietete_garage || '' : ''
               },
-              barrierefrei: data.barrierefrei,
-              begEffizienzhaus40Standard: data.beg_effizienzhaus_40_standard
+              barrierefrei: objectData?.barrierefrei,
+              begEffizienzhaus40Standard: objectData?.beg_effizienzhaus_40_standard
             },
             objektDetailsEigentumswohnung: {
-              anzahlVollgeschosse: (data.foerderVariante === 'bestandserwerb-wohnung' || data.foerderVariante === 'ersterwerb-wohnung') ? data.anzahl_vollgeschosse || '' : '',
-              wohnungenAmHauseingang: (data.foerderVariante === 'bestandserwerb-wohnung' || data.foerderVariante === 'ersterwerb-wohnung') ? data.wohnungen_am_hauseingang || '' : '',
-              lageImGebaeude: (data.foerderVariante === 'bestandserwerb-wohnung' || data.foerderVariante === 'ersterwerb-wohnung') ? data.lage_im_gebaeude || '' : '',
-              lageImGeschoss: (data.foerderVariante === 'bestandserwerb-wohnung' || data.foerderVariante === 'ersterwerb-wohnung') ? data.lage_im_geschoss || '' : ''
+              anzahlVollgeschosse: (objectData?.foerderVariante === 'bestandserwerb-wohnung' || objectData?.foerderVariante === 'ersterwerb-wohnung') ? objectData?.anzahl_vollgeschosse || '' : '',
+              wohnungenAmHauseingang: (objectData?.foerderVariante === 'bestandserwerb-wohnung' || objectData?.foerderVariante === 'ersterwerb-wohnung') ? objectData?.wohnungen_am_hauseingang || '' : '',
+              lageImGebaeude: (objectData?.foerderVariante === 'bestandserwerb-wohnung' || objectData?.foerderVariante === 'ersterwerb-wohnung') ? objectData?.lage_im_gebaeude || '' : '',
+              lageImGeschoss: (objectData?.foerderVariante === 'bestandserwerb-wohnung' || objectData?.foerderVariante === 'ersterwerb-wohnung') ? objectData?.lage_im_geschoss || '' : ''
             },
             objektDetailsNeubauErsterwerb: {
-              baugenehmigungErforderlich: (data.foerderVariante === 'neubau' || data.foerderVariante === 'ersterwerb-eigenheim' || data.foerderVariante === 'ersterwerb-wohnung') ? data.baugenehmigung_erforderlich : null,
+              baugenehmigungErforderlich: (objectData?.foerderVariante === 'neubau' || objectData?.foerderVariante === 'ersterwerb-eigenheim' || objectData?.foerderVariante === 'ersterwerb-wohnung') ? objectData?.baugenehmigung_erforderlich : null,
               baugenehmigung: {
-                wurdeErteilt: (data.foerderVariante === 'neubau' || data.foerderVariante === 'ersterwerb-eigenheim' || data.foerderVariante === 'ersterwerb-wohnung') ? data.baugenehmigung_wurde_erteilt : null,
-                erteilungsDatum: (data.foerderVariante === 'neubau' || data.foerderVariante === 'ersterwerb-eigenheim' || data.foerderVariante === 'ersterwerb-wohnung') && data.baugenehmigung_wurde_erteilt ? data.erteilungs_datum || '' : '',
-                aktenzeichen: (data.foerderVariante === 'neubau' || data.foerderVariante === 'ersterwerb-eigenheim' || data.foerderVariante === 'ersterwerb-wohnung') && data.baugenehmigung_wurde_erteilt ? data.aktenzeichen || '' : '',
-                erteilungsBehoerde: (data.foerderVariante === 'neubau' || data.foerderVariante === 'ersterwerb-eigenheim' || data.foerderVariante === 'ersterwerb-wohnung') && data.baugenehmigung_wurde_erteilt ? data.erteilungs_behoerde || '' : ''
+                wurdeErteilt: (objectData?.foerderVariante === 'neubau' || objectData?.foerderVariante === 'ersterwerb-eigenheim' || objectData?.foerderVariante === 'ersterwerb-wohnung') ? objectData?.baugenehmigung_wurde_erteilt : null,
+                erteilungsDatum: (objectData?.foerderVariante === 'neubau' || objectData?.foerderVariante === 'ersterwerb-eigenheim' || objectData?.foerderVariante === 'ersterwerb-wohnung') && objectData?.baugenehmigung_wurde_erteilt ? objectData?.erteilungs_datum || '' : '',
+                aktenzeichen: (objectData?.foerderVariante === 'neubau' || objectData?.foerderVariante === 'ersterwerb-eigenheim' || objectData?.foerderVariante === 'ersterwerb-wohnung') && objectData?.baugenehmigung_wurde_erteilt ? objectData?.aktenzeichen || '' : '',
+                erteilungsBehoerde: (objectData?.foerderVariante === 'neubau' || objectData?.foerderVariante === 'ersterwerb-eigenheim' || objectData?.foerderVariante === 'ersterwerb-wohnung') && objectData?.baugenehmigung_wurde_erteilt ? objectData?.erteilungs_behoerde || '' : ''
               },
               bauanzeige: {
-                wurdeEingereicht: (data.foerderVariante === 'neubau' || data.foerderVariante === 'ersterwerb-eigenheim' || data.foerderVariante === 'ersterwerb-wohnung') ? data.bauanzeige_wurde_eingereicht : null,
-                einreichungsDatum: (data.foerderVariante === 'neubau' || data.foerderVariante === 'ersterwerb-eigenheim' || data.foerderVariante === 'ersterwerb-wohnung') && data.bauanzeige_wurde_eingereicht ? data.bauanzeige_einreichungs_datum || '' : ''
+                wurdeEingereicht: (objectData?.foerderVariante === 'neubau' || objectData?.foerderVariante === 'ersterwerb-eigenheim' || objectData?.foerderVariante === 'ersterwerb-wohnung') ? objectData?.bauanzeige_wurde_eingereicht : null,
+                einreichungsDatum: (objectData?.foerderVariante === 'neubau' || objectData?.foerderVariante === 'ersterwerb-eigenheim' || objectData?.foerderVariante === 'ersterwerb-wohnung') && objectData?.bauanzeige_wurde_eingereicht ? objectData?.bauanzeige_einreichungs_datum || '' : ''
               },
               bauarbeiten: {
-                wurdeBegonnen: (data.foerderVariante === 'neubau' || data.foerderVariante === 'ersterwerb-eigenheim' || data.foerderVariante === 'ersterwerb-wohnung') ? data.bauarbeiten_wurde_begonnen : null,
-                beginnDatum: (data.foerderVariante === 'neubau' || data.foerderVariante === 'ersterwerb-eigenheim' || data.foerderVariante === 'ersterwerb-wohnung') && data.bauarbeiten_wurde_begonnen ? data.bauarbeiten_beginn_datum || '' : ''
+                wurdeBegonnen: (objectData?.foerderVariante === 'neubau' || objectData?.foerderVariante === 'ersterwerb-eigenheim' || objectData?.foerderVariante === 'ersterwerb-wohnung') ? objectData?.bauarbeiten_wurde_begonnen : null,
+                beginnDatum: (objectData?.foerderVariante === 'neubau' || objectData?.foerderVariante === 'ersterwerb-eigenheim' || objectData?.foerderVariante === 'ersterwerb-wohnung') && objectData?.bauarbeiten_wurde_begonnen ? objectData?.bauarbeiten_beginn_datum || '' : ''
               }
             },
             objektDetailsBestandserwerb: {
-              baujahr: (data.foerderVariante === 'bestandserwerb-wohnung' || data.foerderVariante === 'bestandserwerb-eigenheim') ? data.bestandserwerb_baujahr || '' : ''
+              baujahr: (objectData?.foerderVariante === 'bestandserwerb-wohnung' || objectData?.foerderVariante === 'bestandserwerb-eigenheim') ? objectData?.bestandserwerb_baujahr || '' : ''
             }
           }
         };
@@ -647,7 +655,7 @@ const HauptantragContainer: React.FC = () => {
       const mainApplicant = formData.step1.persons[0];
       
       // Save progress to Supabase user_data table
-      const { error } = await supabase
+      const { error: userError } = await supabase
         .from('user_data')
         .update({
           // Main applicant data
@@ -719,8 +727,18 @@ const HauptantragContainer: React.FC = () => {
           subsidyfilenumber: formData.step2.hasDoubleSubsidy ? formData.step2.subsidyFileNumber || null : null,
           subsidyauthority: formData.step2.hasDoubleSubsidy ? formData.step2.subsidyAuthority || null : null,
           hassupplementaryloan: formData.step2.hasSupplementaryLoan,
+          
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user.id);
 
-          // Step 3 data
+      if (userError) throw userError;
+
+      // Save Step 3 data to object_data table
+      const { error: objectError } = await supabase
+        .from('object_data')
+        .upsert({
+          user_id: user.id,
           obj_street: formData.step3.address.street || null,
           obj_house_number: formData.step3.address.houseNumber || null,
           obj_postal_code: formData.step3.address.postalCode || null,
@@ -760,9 +778,9 @@ const HauptantragContainer: React.FC = () => {
           
           updated_at: new Date().toISOString()
         })
-        .eq('id', user.id);
+        .eq('user_id', user.id);
 
-      if (error) throw error;
+      if (objectError) throw objectError;
 
       // Also save to local storage as backup
       localStorage.setItem('hauptantragFormData', JSON.stringify(formData));
