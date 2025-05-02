@@ -485,7 +485,7 @@ const HauptantragContainer: React.FC = () => {
           step1: {
             representative: {
               hasRepresentative: data.hasauthorizedperson,
-              isCompany: data.bevollmaechtigte?.isCompany || null,
+              isCompany: data.hasauthorizedperson ? data.iscompany : null,
               companyName: data.bevollmaechtigte?.companyName || '',
               postboxPostcode: data.bevollmaechtigte?.postboxPostcode || '',
               postboxCity: data.bevollmaechtigte?.postboxCity || '',
@@ -595,10 +595,10 @@ const HauptantragContainer: React.FC = () => {
           employment: mainApplicant.employment?.type || null,
           branche: mainApplicant.employment?.details || null,
           hasauthorizedperson: formData.step1.representative.hasRepresentative,
+          iscompany: formData.step1.representative.hasRepresentative ? formData.step1.representative.isCompany : null,
           
           // Representative data
           bevollmaechtigte: formData.step1.representative.hasRepresentative ? {
-            isCompany: formData.step1.representative.isCompany,
             companyName: formData.step1.representative.companyName || null,
             postboxPostcode: formData.step1.representative.postboxPostcode || null,
             postboxCity: formData.step1.representative.postboxCity || null,

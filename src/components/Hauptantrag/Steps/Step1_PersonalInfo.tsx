@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Form, Button, OverlayTrigger, Tooltip } from 'react-bootstrap';
 
 // Add styles
@@ -273,7 +273,7 @@ interface Step1Props {
 }
 
 const Step1_PersonalInfo: React.FC<Step1Props> = ({ formData, updateFormData }) => {
-  const [expandedEmploymentSection, setExpandedEmploymentSection] = useState<string | null>(null);
+  const [expandedEmploymentSections, setExpandedEmploymentSections] = useState<Record<number, string | null>>({});
 
   // Initialize default representative state if not present
   const ensureRepresentativeState = (data: Step1Data): Step1Data => {
@@ -300,6 +300,26 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({ formData, updateFormData }) 
     }
     return data;
   };
+
+  // Set expanded employment sections based on loaded data
+  useEffect(() => {
+    const newExpandedSections: Record<number, string | null> = {};
+    
+    formData.persons.forEach((person, index) => {
+      if (person.employment.type) {
+        // Determine which section the employment type belongs to
+        if (['worker', 'employee', 'civil-servant', 'apprentice', 'retired', 'unemployed'].includes(person.employment.type)) {
+          newExpandedSections[index] = 'non-self-employed';
+        } else if (['sole-trader', 'business-owner', 'freelancer', 'farmer', 'private-income'].includes(person.employment.type)) {
+          newExpandedSections[index] = 'self-employed';
+        } else if (['student', 'pupil', 'homemaker', 'no-occupation'].includes(person.employment.type)) {
+          newExpandedSections[index] = 'other';
+        }
+      }
+    });
+
+    setExpandedEmploymentSections(newExpandedSections);
+  }, [formData.persons]);
 
   const handleRepresentativeChange = (field: keyof Representative, value: any) => {
     const updatedRepresentative = {
@@ -368,8 +388,11 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({ formData, updateFormData }) 
     }));
   };
 
-  const toggleEmploymentSection = (section: string) => {
-    setExpandedEmploymentSection(expandedEmploymentSection === section ? null : section);
+  const toggleEmploymentSection = (personIndex: number, section: string) => {
+    setExpandedEmploymentSections(prev => ({
+      ...prev,
+      [personIndex]: prev[personIndex] === section ? null : section
+    }));
   };
 
   const deletePerson = (index: number) => {
@@ -703,19 +726,19 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({ formData, updateFormData }) 
           {/* Non-self-employed section */}
           <div className="mb-3">
             <Button
-              onClick={() => toggleEmploymentSection('non-self-employed')}
+              onClick={() => toggleEmploymentSection(index, 'non-self-employed')}
               className="d-flex justify-content-between align-items-center w-100 text-start"
               style={{
-                backgroundColor: expandedEmploymentSection === 'non-self-employed' ? '#064497' : '#fff',
-                color: expandedEmploymentSection === 'non-self-employed' ? '#fff' : '#000',
+                backgroundColor: expandedEmploymentSections[index] === 'non-self-employed' ? '#064497' : '#fff',
+                color: expandedEmploymentSections[index] === 'non-self-employed' ? '#fff' : '#000',
                 border: '1px solid #dee2e6'
               }}
             >
               <span>Wirtschaftlich nicht selbständig</span>
-              <i className={`bi bi-chevron-${expandedEmploymentSection === 'non-self-employed' ? 'up' : 'down'}`}></i>
+              <i className={`bi bi-chevron-${expandedEmploymentSections[index] === 'non-self-employed' ? 'up' : 'down'}`}></i>
             </Button>
             
-            {expandedEmploymentSection === 'non-self-employed' && (
+            {expandedEmploymentSections[index] === 'non-self-employed' && (
               <div className="mt-3 ps-2">
                 <Form.Check
                   type="radio"
@@ -766,19 +789,19 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({ formData, updateFormData }) 
           {/* Self-employed section */}
           <div className="mb-3">
             <Button
-              onClick={() => toggleEmploymentSection('self-employed')}
+              onClick={() => toggleEmploymentSection(index, 'self-employed')}
               className="d-flex justify-content-between align-items-center w-100 text-start"
               style={{
-                backgroundColor: expandedEmploymentSection === 'self-employed' ? '#064497' : '#fff',
-                color: expandedEmploymentSection === 'self-employed' ? '#fff' : '#000',
+                backgroundColor: expandedEmploymentSections[index] === 'self-employed' ? '#064497' : '#fff',
+                color: expandedEmploymentSections[index] === 'self-employed' ? '#fff' : '#000',
                 border: '1px solid #dee2e6'
               }}
             >
               <span>Wirtschaftlich selbständige Privatperson</span>
-              <i className={`bi bi-chevron-${expandedEmploymentSection === 'self-employed' ? 'up' : 'down'}`}></i>
+              <i className={`bi bi-chevron-${expandedEmploymentSections[index] === 'self-employed' ? 'up' : 'down'}`}></i>
             </Button>
             
-            {expandedEmploymentSection === 'self-employed' && (
+            {expandedEmploymentSections[index] === 'self-employed' && (
               <div className="mt-3 ps-2">
                 <Form.Check
                   type="radio"
@@ -833,19 +856,19 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({ formData, updateFormData }) 
           {/* Other section */}
           <div className="mb-3">
             <Button
-              onClick={() => toggleEmploymentSection('other')}
+              onClick={() => toggleEmploymentSection(index, 'other')}
               className="d-flex justify-content-between align-items-center w-100 text-start"
               style={{
-                backgroundColor: expandedEmploymentSection === 'other' ? '#064497' : '#fff',
-                color: expandedEmploymentSection === 'other' ? '#fff' : '#000',
+                backgroundColor: expandedEmploymentSections[index] === 'other' ? '#064497' : '#fff',
+                color: expandedEmploymentSections[index] === 'other' ? '#fff' : '#000',
                 border: '1px solid #dee2e6'
               }}
             >
               <span>Sonstige Privatperson</span>
-              <i className={`bi bi-chevron-${expandedEmploymentSection === 'other' ? 'up' : 'down'}`}></i>
+              <i className={`bi bi-chevron-${expandedEmploymentSections[index] === 'other' ? 'up' : 'down'}`}></i>
             </Button>
             
-            {expandedEmploymentSection === 'other' && (
+            {expandedEmploymentSections[index] === 'other' && (
               <div className="mt-3 ps-2">
                 <Form.Check
                   type="radio"
@@ -983,175 +1006,175 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({ formData, updateFormData }) 
         </div>
       )}
 
-      {formData.representative.hasRepresentative && (
-        formData.representative.isCompany ? (
-          // Company fields
+      {formData.representative.hasRepresentative && formData.representative.isCompany === true && (
+        // Company fields
+        <div className="row g-3">
+          <div className="col-12">
+            <Form.Floating>
+              <Form.Control
+                type="text"
+                placeholder="Firma"
+                value={formData.representative.companyName}
+                onChange={(e) => handleRepresentativeChange('companyName', e.target.value)}
+              />
+              <label>Firma</label>
+            </Form.Floating>
+          </div>
+          <div className="col-md-6">
+            <Form.Floating>
+              <Form.Control
+                type="text"
+                placeholder="Postfach PLZ"
+                value={formData.representative.postboxPostcode}
+                onChange={(e) => handleRepresentativeChange('postboxPostcode', e.target.value)}
+              />
+              <label>Postfach PLZ</label>
+            </Form.Floating>
+          </div>
+          <div className="col-md-6">
+            <Form.Floating>
+              <Form.Control
+                type="text"
+                placeholder="Postfach Ort"
+                value={formData.representative.postboxCity}
+                onChange={(e) => handleRepresentativeChange('postboxCity', e.target.value)}
+              />
+              <label>Postfach Ort</label>
+            </Form.Floating>
+          </div>
+        </div>
+      )}
+
+      {formData.representative.hasRepresentative && formData.representative.isCompany === false && (
+        // Personal details fields
+        <>
+          <div className="mb-3">
+            <Form.Check
+              inline
+              type="radio"
+              label="Herr"
+              name="representative-title"
+              checked={formData.representative.title === 'Herr'}
+              onChange={() => handleRepresentativeChange('title', 'Herr')}
+            />
+            <Form.Check
+              inline
+              type="radio"
+              label="Frau"
+              name="representative-title"
+              checked={formData.representative.title === 'Frau'}
+              onChange={() => handleRepresentativeChange('title', 'Frau')}
+            />
+            <Form.Check
+              inline
+              type="radio"
+              label="ohne Anrede"
+              name="representative-title"
+              checked={formData.representative.title === 'ohne Anrede'}
+              onChange={() => handleRepresentativeChange('title', 'ohne Anrede')}
+            />
+          </div>
+
           <div className="row g-3">
-            <div className="col-12">
+            <div className="col-md-6">
               <Form.Floating>
                 <Form.Control
                   type="text"
-                  placeholder="Firma"
-                  value={formData.representative.companyName}
-                  onChange={(e) => handleRepresentativeChange('companyName', e.target.value)}
+                  placeholder="Vorname"
+                  value={formData.representative.firstName}
+                  onChange={(e) => handleRepresentativeChange('firstName', e.target.value)}
                 />
-                <label>Firma</label>
+                <label>Vorname</label>
               </Form.Floating>
             </div>
             <div className="col-md-6">
               <Form.Floating>
                 <Form.Control
                   type="text"
-                  placeholder="Postfach PLZ"
-                  value={formData.representative.postboxPostcode}
-                  onChange={(e) => handleRepresentativeChange('postboxPostcode', e.target.value)}
+                  placeholder="Name"
+                  value={formData.representative.lastName}
+                  onChange={(e) => handleRepresentativeChange('lastName', e.target.value)}
                 />
-                <label>Postfach PLZ</label>
-              </Form.Floating>
-            </div>
-            <div className="col-md-6">
-              <Form.Floating>
-                <Form.Control
-                  type="text"
-                  placeholder="Postfach Ort"
-                  value={formData.representative.postboxCity}
-                  onChange={(e) => handleRepresentativeChange('postboxCity', e.target.value)}
-                />
-                <label>Postfach Ort</label>
+                <label>Name</label>
               </Form.Floating>
             </div>
           </div>
-        ) : (
-          // Personal details fields
-          <>
-            <div className="mb-3">
-              <Form.Check
-                inline
-                type="radio"
-                label="Herr"
-                name="representative-title"
-                checked={formData.representative.title === 'Herr'}
-                onChange={() => handleRepresentativeChange('title', 'Herr')}
-              />
-              <Form.Check
-                inline
-                type="radio"
-                label="Frau"
-                name="representative-title"
-                checked={formData.representative.title === 'Frau'}
-                onChange={() => handleRepresentativeChange('title', 'Frau')}
-              />
-              <Form.Check
-                inline
-                type="radio"
-                label="ohne Anrede"
-                name="representative-title"
-                checked={formData.representative.title === 'ohne Anrede'}
-                onChange={() => handleRepresentativeChange('title', 'ohne Anrede')}
-              />
-            </div>
 
-            <div className="row g-3">
-              <div className="col-md-6">
-                <Form.Floating>
-                  <Form.Control
-                    type="text"
-                    placeholder="Vorname"
-                    value={formData.representative.firstName}
-                    onChange={(e) => handleRepresentativeChange('firstName', e.target.value)}
-                  />
-                  <label>Vorname</label>
-                </Form.Floating>
-              </div>
-              <div className="col-md-6">
-                <Form.Floating>
-                  <Form.Control
-                    type="text"
-                    placeholder="Name"
-                    value={formData.representative.lastName}
-                    onChange={(e) => handleRepresentativeChange('lastName', e.target.value)}
-                  />
-                  <label>Name</label>
-                </Form.Floating>
-              </div>
+          <div className="row g-3 mt-1">
+            <div className="col-md-8">
+              <Form.Floating>
+                <Form.Control
+                  type="text"
+                  placeholder="Straße"
+                  value={formData.representative.street}
+                  onChange={(e) => handleRepresentativeChange('street', e.target.value)}
+                />
+                <label>Straße</label>
+              </Form.Floating>
             </div>
+            <div className="col-md-4">
+              <Form.Floating>
+                <Form.Control
+                  type="text"
+                  placeholder="Hausnummer"
+                  value={formData.representative.houseNumber}
+                  onChange={(e) => handleRepresentativeChange('houseNumber', e.target.value)}
+                />
+                <label>Hausnummer</label>
+              </Form.Floating>
+            </div>
+          </div>
 
-            <div className="row g-3 mt-1">
-              <div className="col-md-8">
-                <Form.Floating>
-                  <Form.Control
-                    type="text"
-                    placeholder="Straße"
-                    value={formData.representative.street}
-                    onChange={(e) => handleRepresentativeChange('street', e.target.value)}
-                  />
-                  <label>Straße</label>
-                </Form.Floating>
-              </div>
-              <div className="col-md-4">
-                <Form.Floating>
-                  <Form.Control
-                    type="text"
-                    placeholder="Hausnummer"
-                    value={formData.representative.houseNumber}
-                    onChange={(e) => handleRepresentativeChange('houseNumber', e.target.value)}
-                  />
-                  <label>Hausnummer</label>
-                </Form.Floating>
-              </div>
+          <div className="row g-3 mt-1">
+            <div className="col-md-4">
+              <Form.Floating>
+                <Form.Control
+                  type="text"
+                  placeholder="Postleitzahl"
+                  value={formData.representative.postalCode}
+                  onChange={(e) => handleRepresentativeChange('postalCode', e.target.value)}
+                />
+                <label>Postleitzahl</label>
+              </Form.Floating>
             </div>
+            <div className="col-md-8">
+              <Form.Floating>
+                <Form.Control
+                  type="text"
+                  placeholder="Ort"
+                  value={formData.representative.city}
+                  onChange={(e) => handleRepresentativeChange('city', e.target.value)}
+                />
+                <label>Ort</label>
+              </Form.Floating>
+            </div>
+          </div>
 
-            <div className="row g-3 mt-1">
-              <div className="col-md-4">
-                <Form.Floating>
-                  <Form.Control
-                    type="text"
-                    placeholder="Postleitzahl"
-                    value={formData.representative.postalCode}
-                    onChange={(e) => handleRepresentativeChange('postalCode', e.target.value)}
-                  />
-                  <label>Postleitzahl</label>
-                </Form.Floating>
-              </div>
-              <div className="col-md-8">
-                <Form.Floating>
-                  <Form.Control
-                    type="text"
-                    placeholder="Ort"
-                    value={formData.representative.city}
-                    onChange={(e) => handleRepresentativeChange('city', e.target.value)}
-                  />
-                  <label>Ort</label>
-                </Form.Floating>
-              </div>
+          <div className="row g-3 mt-1">
+            <div className="col-md-6">
+              <Form.Floating>
+                <Form.Control
+                  type="tel"
+                  placeholder="Telefonnummer"
+                  value={formData.representative.phone}
+                  onChange={(e) => handleRepresentativeChange('phone', e.target.value)}
+                />
+                <label>Telefonnummer</label>
+              </Form.Floating>
             </div>
-
-            <div className="row g-3 mt-1">
-              <div className="col-md-6">
-                <Form.Floating>
-                  <Form.Control
-                    type="tel"
-                    placeholder="Telefonnummer"
-                    value={formData.representative.phone}
-                    onChange={(e) => handleRepresentativeChange('phone', e.target.value)}
-                  />
-                  <label>Telefonnummer</label>
-                </Form.Floating>
-              </div>
-              <div className="col-md-6">
-                <Form.Floating>
-                  <Form.Control
-                    type="email"
-                    placeholder="E-Mail Adresse"
-                    value={formData.representative.email}
-                    onChange={(e) => handleRepresentativeChange('email', e.target.value)}
-                  />
-                  <label>E-Mail Adresse</label>
-                </Form.Floating>
-              </div>
+            <div className="col-md-6">
+              <Form.Floating>
+                <Form.Control
+                  type="email"
+                  placeholder="E-Mail Adresse"
+                  value={formData.representative.email}
+                  onChange={(e) => handleRepresentativeChange('email', e.target.value)}
+                />
+                <label>E-Mail Adresse</label>
+              </Form.Floating>
             </div>
-          </>
-        )
+          </div>
+        </>
       )}
     </div>
   );
