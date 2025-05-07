@@ -502,6 +502,44 @@ const HauptantragContainer: React.FC = () => {
 
         if (financeError && financeError.code !== 'PGRST116') throw financeError;
 
+        // Calculate total costs from cost data
+        let totalCosts = 0;
+        if (costData) {
+          const isNeubau = objectData?.foerderVariante === 'neubau';
+          const isBestandserwerbOrErsterwerb = objectData?.foerderVariante?.includes('bestandserwerb') || objectData?.foerderVariante?.includes('ersterwerb');
+          const showBaukosten = isNeubau || objectData?.foerderVariante === 'nutzungsaenderung';
+
+          // Add Baugrundstück costs if Neubau
+          if (isNeubau) {
+            if (costData.grundstueck_kaufpreis) totalCosts += costData.grundstueck_kaufpreis;
+            if (costData.grundstueck_wert) totalCosts += costData.grundstueck_wert;
+            if (costData.erschliessungskosten) totalCosts += costData.erschliessungskosten;
+            if (costData.standortbedingte_mehrkosten) totalCosts += costData.standortbedingte_mehrkosten;
+          }
+
+          // Add Kaufpreis if Bestandserwerb or Ersterwerb
+          if (isBestandserwerbOrErsterwerb && costData.kaufpreis) {
+            totalCosts += costData.kaufpreis;
+          }
+
+          // Add Baukosten if Neubau or Nutzungsänderung
+          if (showBaukosten) {
+            if (costData.kosten_gebaeude) totalCosts += costData.kosten_gebaeude;
+            if (costData.besondere_bauausfuehrung) totalCosts += costData.besondere_bauausfuehrung;
+            if (costData.wert_vorhandener_gebaeude) totalCosts += costData.wert_vorhandener_gebaeude;
+            if (costData.kosten_aussenanlagen) totalCosts += costData.kosten_aussenanlagen;
+            if (costData.kosten_architekt) totalCosts += costData.kosten_architekt;
+          }
+
+          // Always add Nebenkosten
+          if (costData.erwerbsnebenkosten) totalCosts += costData.erwerbsnebenkosten;
+          if (costData.verwaltungsleistungen) totalCosts += costData.verwaltungsleistungen;
+          if (costData.beschaffung_dauerfinanzierung) totalCosts += costData.beschaffung_dauerfinanzierung;
+          if (costData.beschaffung_zwischenfinanzierung) totalCosts += costData.beschaffung_zwischenfinanzierung;
+          if (costData.sonstige_nebenkosten) totalCosts += costData.sonstige_nebenkosten;
+          if (costData.zusaetzliche_kosten) totalCosts += costData.zusaetzliche_kosten;
+        }
+
         // Reconstruct the form data from the database fields
         const loadedFormData: FormData = {
           ...formData,
@@ -683,7 +721,7 @@ const HauptantragContainer: React.FC = () => {
               sonstigeNebenkosten: costData?.sonstige_nebenkosten ? formatCurrencyForDisplay(costData.sonstige_nebenkosten) : '',
               zusatzlicheKosten: costData?.zusaetzliche_kosten ? formatCurrencyForDisplay(costData.zusaetzliche_kosten) : ''
             },
-            gesamtkosten: ''
+            gesamtkosten: formatCurrencyForDisplay(totalCosts)
           },
           step6: {
             fremddarlehen: financeData?.fremddarlehen ? financeData.fremddarlehen.map((darlehen: Fremddarlehen) => ({
