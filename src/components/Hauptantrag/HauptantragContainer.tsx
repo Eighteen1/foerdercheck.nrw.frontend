@@ -494,6 +494,14 @@ const HauptantragContainer: React.FC = () => {
 
         if (costError && costError.code !== 'PGRST116') throw costError; // PGRST116 is "no rows returned"
 
+        const { data: financeData, error: financeError } = await supabase
+          .from('finance_structure')
+          .select('*')
+          .eq('user_id', user.id)
+          .single();
+
+        if (financeError && financeError.code !== 'PGRST116') throw financeError;
+
         // Reconstruct the form data from the database fields
         const loadedFormData: FormData = {
           ...formData,
@@ -676,6 +684,58 @@ const HauptantragContainer: React.FC = () => {
               zusatzlicheKosten: costData?.zusaetzliche_kosten ? formatCurrencyForDisplay(costData.zusaetzliche_kosten) : ''
             },
             gesamtkosten: ''
+          },
+          step6: {
+            fremddarlehen: financeData?.fremddarlehen || [{
+              id: '1',
+              darlehenGeber: '',
+              nennbetrag: '',
+              zinssatz: '',
+              auszahlung: '',
+              tilgung: ''
+            }],
+            darlehenNRWBank: {
+              grunddarlehen: {
+                nennbetrag: financeData?.grunddarlehen_nennbetrag ? formatCurrencyForDisplay(financeData.grunddarlehen_nennbetrag) : '',
+                tilgungsnachlass: ''
+              },
+              zusatzdarlehen: {
+                familienbonus: {
+                  nennbetrag: financeData?.zusatzdarlehen_familienbonus_nennbetrag ? formatCurrencyForDisplay(financeData.zusatzdarlehen_familienbonus_nennbetrag) : '',
+                  tilgungsnachlass: ''
+                },
+                barrierefreiheit: {
+                  nennbetrag: financeData?.zusatzdarlehen_barrierefreiheit_nennbetrag ? formatCurrencyForDisplay(financeData.zusatzdarlehen_barrierefreiheit_nennbetrag) : '',
+                  tilgungsnachlass: ''
+                },
+                bauenMitHolz: {
+                  nennbetrag: financeData?.zusatzdarlehen_bauen_mit_holz_nennbetrag ? formatCurrencyForDisplay(financeData.zusatzdarlehen_bauen_mit_holz_nennbetrag) : '',
+                  tilgungsnachlass: ''
+                },
+                standortbedingteMehrkosten: {
+                  nennbetrag: financeData?.zusatzdarlehen_standortbedingte_mehrkosten_nennbetrag ? formatCurrencyForDisplay(financeData.zusatzdarlehen_standortbedingte_mehrkosten_nennbetrag) : '',
+                  tilgungsnachlass: ''
+                },
+                begEffizienzhaus40Standard: {
+                  nennbetrag: financeData?.zusatzdarlehen_effizienzhaus40_nennbetrag ? formatCurrencyForDisplay(financeData.zusatzdarlehen_effizienzhaus40_nennbetrag) : '',
+                  tilgungsnachlass: ''
+                }
+              },
+              summeNennbetrag: '',
+              summeTilgungsnachlass: ''
+            },
+            ergaenzungsdarlehen: {
+              nennbetrag: financeData?.ergaenzungsdarlehen_nennbetrag ? formatCurrencyForDisplay(financeData.ergaenzungsdarlehen_nennbetrag) : ''
+            },
+            eigenleistung: {
+              eigeneGeldmittel: financeData?.eigene_geldmittel ? formatCurrencyForDisplay(financeData.eigene_geldmittel) : '',
+              zuschüsse: financeData?.zuschuesse ? formatCurrencyForDisplay(financeData.zuschuesse) : '',
+              selbsthilfe: financeData?.selbsthilfe ? formatCurrencyForDisplay(financeData.selbsthilfe) : '',
+              wertVorhandenerGebaeudeteile: financeData?.wert_vorhandener_gebaeudeteile ? formatCurrencyForDisplay(financeData.wert_vorhandener_gebaeudeteile) : '',
+              wertBaugrundstück: financeData?.wert_baugrundstueck ? formatCurrencyForDisplay(financeData.wert_baugrundstueck) : '',
+              summeEigenleistung: ''
+            },
+            gesamtbetraege: ''
           }
         };
 
@@ -907,6 +967,56 @@ const HauptantragContainer: React.FC = () => {
         .eq('user_id', user.id);
 
       if (costError) throw costError;
+
+      // Save Step 6 data to finance_structure table
+      const { error: financeError } = await supabase
+        .from('finance_structure')
+        .upsert({
+          user_id: user.id,
+          // Save Fremddarlehen as JSONB
+          fremddarlehen: formData.step6.fremddarlehen.map(darlehen => ({
+            ...darlehen,
+            nennbetrag: formatCurrencyForDatabase(darlehen.nennbetrag)
+          })),
+
+          // NRW Bank data
+          grunddarlehen_nennbetrag: formatCurrencyForDatabase(formData.step6.darlehenNRWBank.grunddarlehen.nennbetrag),
+          
+          // Zusatzdarlehen data - only save if conditions are met
+          zusatzdarlehen_familienbonus_nennbetrag: parseInt(formData.step2.childCount) > 0 ? 
+            formatCurrencyForDatabase(formData.step6.darlehenNRWBank.zusatzdarlehen.familienbonus.nennbetrag) : null,
+          
+          zusatzdarlehen_barrierefreiheit_nennbetrag: formData.step3.objektDetailsAllgemein.barrierefrei ? 
+            formatCurrencyForDatabase(formData.step6.darlehenNRWBank.zusatzdarlehen.barrierefreiheit.nennbetrag) : null,
+          
+          zusatzdarlehen_bauen_mit_holz_nennbetrag: formatCurrencyForDatabase(formData.step6.darlehenNRWBank.zusatzdarlehen.bauenMitHolz.nennbetrag),
+          
+          zusatzdarlehen_standortbedingte_mehrkosten_nennbetrag: formatCurrencyForDatabase(formData.step6.darlehenNRWBank.zusatzdarlehen.standortbedingteMehrkosten.nennbetrag),
+          
+          zusatzdarlehen_effizienzhaus40_nennbetrag: formData.step3.objektDetailsAllgemein.begEffizienzhaus40Standard ? 
+            formatCurrencyForDatabase(formData.step6.darlehenNRWBank.zusatzdarlehen.begEffizienzhaus40Standard.nennbetrag) : null,
+
+          // Ergänzungsdarlehen - only save if hasSupplementaryLoan is true
+          ergaenzungsdarlehen_nennbetrag: formData.step2.hasSupplementaryLoan ? 
+            formatCurrencyForDatabase(formData.step6.ergaenzungsdarlehen.nennbetrag) : null,
+
+          // Eigenleistung data
+          eigene_geldmittel: formatCurrencyForDatabase(formData.step6.eigenleistung.eigeneGeldmittel),
+          zuschuesse: formatCurrencyForDatabase(formData.step6.eigenleistung.zuschüsse),
+          selbsthilfe: formatCurrencyForDatabase(formData.step6.eigenleistung.selbsthilfe),
+          
+          // Conditional Eigenleistung fields
+          wert_vorhandener_gebaeudeteile: (formData.step3.foerderVariante === 'neubau' || formData.step3.foerderVariante === 'nutzungsaenderung') ? 
+            formatCurrencyForDatabase(formData.step6.eigenleistung.wertVorhandenerGebaeudeteile) : null,
+          
+          wert_baugrundstueck: formData.step3.foerderVariante === 'neubau' ? 
+            formatCurrencyForDatabase(formData.step6.eigenleistung.wertBaugrundstück) : null,
+          
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', user.id);
+
+      if (financeError) throw financeError;
 
       // Also save to local storage as backup
       localStorage.setItem('hauptantragFormData', JSON.stringify(formData));
