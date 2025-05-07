@@ -89,8 +89,12 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
     
     let total = 0;
 
-    // Get the cost data from the form data
-    const costData = formData as any;
+    // Get the cost data from localStorage
+    const savedFormData = localStorage.getItem('hauptantragFormData');
+    if (!savedFormData) return '0';
+    
+    const parsedData = JSON.parse(savedFormData);
+    const costData = parsedData.step5;
 
     // Only include Baugrundstück if it's Neubau
     if (isNeubau && costData.baugrundstuck) {
