@@ -80,81 +80,6 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
 }) => {
   const [eigenleistungError, setEigenleistungError] = useState<string | null>(null);
   const [gesamtbetraegeError, setGesamtbetraegeError] = useState<string | null>(null);
-  const [calculatedGesamtkosten, setCalculatedGesamtkosten] = useState(gesamtkosten);
-
-  const calculateTotalCosts = () => {
-    const isNeubau = foerderVariante === 'neubau';
-    const isBestandserwerbOrErsterwerb = foerderVariante.includes('bestandserwerb') || foerderVariante.includes('ersterwerb');
-    const showBaukosten = isNeubau || foerderVariante === 'nutzungsaenderung';
-    
-    let total = 0;
-
-    // Get the cost data from localStorage
-    const savedFormData = localStorage.getItem('hauptantragFormData');
-    if (!savedFormData) return '0';
-    
-    const parsedData = JSON.parse(savedFormData);
-    const costData = parsedData.step5;
-
-    // Only include Baugrundstück if it's Neubau
-    if (isNeubau && costData.baugrundstuck) {
-      Object.values(costData.baugrundstuck).forEach((value: unknown) => {
-        if (typeof value === 'string' && value) {
-          const numberValue = Number(value.replace(/[^0-9]/g, ''));
-          if (!isNaN(numberValue)) {
-            total += numberValue;
-          }
-        }
-      });
-    }
-
-    // Only include Kaufpreis if it's Bestandserwerb or Ersterwerb
-    if (isBestandserwerbOrErsterwerb && costData.kaufpreis) {
-      Object.values(costData.kaufpreis).forEach((value: unknown) => {
-        if (typeof value === 'string' && value) {
-          const numberValue = Number(value.replace(/[^0-9]/g, ''));
-          if (!isNaN(numberValue)) {
-            total += numberValue;
-          }
-        }
-      });
-    }
-
-    // Only include Baukosten if it's Neubau or Nutzungsänderung
-    if (showBaukosten && costData.baukosten) {
-      Object.values(costData.baukosten).forEach((value: unknown) => {
-        if (typeof value === 'string' && value) {
-          const numberValue = Number(value.replace(/[^0-9]/g, ''));
-          if (!isNaN(numberValue)) {
-            total += numberValue;
-          }
-        }
-      });
-    }
-
-    // Always include Nebenkosten
-    if (costData.nebenkosten) {
-      Object.values(costData.nebenkosten).forEach((value: unknown) => {
-        if (typeof value === 'string' && value) {
-          const numberValue = Number(value.replace(/[^0-9]/g, ''));
-          if (!isNaN(numberValue)) {
-            total += numberValue;
-          }
-        }
-      });
-    }
-
-    return String(total);
-  };
-
-  useEffect(() => {
-    if (!gesamtkosten || gesamtkosten === '0') {
-      const calculated = calculateTotalCosts();
-      setCalculatedGesamtkosten(calculated);
-    } else {
-      setCalculatedGesamtkosten(gesamtkosten);
-    }
-  }, [gesamtkosten, foerderVariante]);
 
   const handleFremddarlehenChange = (id: string, field: keyof Fremddarlehen, value: string) => {
     const updatedDarlehen = formData.fremddarlehen.map(darlehen => {
@@ -298,7 +223,7 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
     });
 
     // Validate Eigenleistung (7.5% of Gesamtkosten)
-    const gesamtkostenValue = getNumericValue(calculatedGesamtkosten);
+    const gesamtkostenValue = getNumericValue(gesamtkosten);
     const minEigenleistung = Math.round(gesamtkostenValue * 0.075);
     if (eigenleistungSum < minEigenleistung) {
       setEigenleistungError(`Die Eigenleistung muss mind. 7,5% der Gesamtkosten (${formatCurrency(minEigenleistung)}) entsprechen.`);
