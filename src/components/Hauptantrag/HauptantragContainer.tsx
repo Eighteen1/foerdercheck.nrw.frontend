@@ -486,6 +486,14 @@ const HauptantragContainer: React.FC = () => {
 
         if (objectError) throw objectError;
 
+        const { data: costData, error: costError } = await supabase
+          .from('cost_structure')
+          .select('*')
+          .eq('user_id', user.id)
+          .single();
+
+        if (costError && costError.code !== 'PGRST116') throw costError; // PGRST116 is "no rows returned"
+
         // Reconstruct the form data from the database fields
         const loadedFormData: FormData = {
           ...formData,
@@ -641,6 +649,33 @@ const HauptantragContainer: React.FC = () => {
               vorhanden: objectData?.altlasten_vorhanden,
               art: objectData?.altlasten_art || ''
             }
+          },
+          step5: {
+            baugrundstuck: {
+              kaufpreis: costData?.grundstueck_kaufpreis ? formatCurrencyForDisplay(costData.grundstueck_kaufpreis) : '',
+              wert: costData?.grundstueck_wert ? formatCurrencyForDisplay(costData.grundstueck_wert) : '',
+              erschliessungskosten: costData?.erschliessungskosten ? formatCurrencyForDisplay(costData.erschliessungskosten) : '',
+              standortbedingteMehrkosten: costData?.standortbedingte_mehrkosten ? formatCurrencyForDisplay(costData.standortbedingte_mehrkosten) : ''
+            },
+            kaufpreis: {
+              kaufpreis: costData?.kaufpreis ? formatCurrencyForDisplay(costData.kaufpreis) : ''
+            },
+            baukosten: {
+              kostenGebaeude: costData?.kosten_gebaeude ? formatCurrencyForDisplay(costData.kosten_gebaeude) : '',
+              besondereBauausfuhrung: costData?.besondere_bauausfuehrung ? formatCurrencyForDisplay(costData.besondere_bauausfuehrung) : '',
+              wertVorhandenerGebaude: costData?.wert_vorhandener_gebaeude ? formatCurrencyForDisplay(costData.wert_vorhandener_gebaeude) : '',
+              kostenAussenanlagen: costData?.kosten_aussenanlagen ? formatCurrencyForDisplay(costData.kosten_aussenanlagen) : '',
+              kostenArchitekt: costData?.kosten_architekt ? formatCurrencyForDisplay(costData.kosten_architekt) : ''
+            },
+            nebenkosten: {
+              erwerbsnebenkosten: costData?.erwerbsnebenkosten ? formatCurrencyForDisplay(costData.erwerbsnebenkosten) : '',
+              verwaltungsleistungen: costData?.verwaltungsleistungen ? formatCurrencyForDisplay(costData.verwaltungsleistungen) : '',
+              beschaffungDauerfinanzierung: costData?.beschaffung_dauerfinanzierung ? formatCurrencyForDisplay(costData.beschaffung_dauerfinanzierung) : '',
+              beschaffungZwischenfinanzierung: costData?.beschaffung_zwischenfinanzierung ? formatCurrencyForDisplay(costData.beschaffung_zwischenfinanzierung) : '',
+              sonstigeNebenkosten: costData?.sonstige_nebenkosten ? formatCurrencyForDisplay(costData.sonstige_nebenkosten) : '',
+              zusatzlicheKosten: costData?.zusaetzliche_kosten ? formatCurrencyForDisplay(costData.zusaetzliche_kosten) : ''
+            },
+            gesamtkosten: ''
           }
         };
 
@@ -827,6 +862,51 @@ const HauptantragContainer: React.FC = () => {
         .eq('user_id', user.id);
 
       if (objectError) throw objectError;
+
+      // Save Step 5 data to cost_structure table
+      const { error: costError } = await supabase
+        .from('cost_structure')
+        .upsert({
+          user_id: user.id,
+          // Baugrundstück (only for Neubau)
+          grundstueck_kaufpreis: formData.step3.foerderVariante === 'neubau' ? formatCurrencyForDatabase(formData.step5.baugrundstuck.kaufpreis) : null,
+          grundstueck_wert: formData.step3.foerderVariante === 'neubau' ? formatCurrencyForDatabase(formData.step5.baugrundstuck.wert) : null,
+          erschliessungskosten: formData.step3.foerderVariante === 'neubau' ? formatCurrencyForDatabase(formData.step5.baugrundstuck.erschliessungskosten) : null,
+          standortbedingte_mehrkosten: formData.step3.foerderVariante === 'neubau' ? formatCurrencyForDatabase(formData.step5.baugrundstuck.standortbedingteMehrkosten) : null,
+
+          // Kaufpreis (only for bestandserwerb or ersterwerb)
+          kaufpreis: (formData.step3.foerderVariante.includes('bestandserwerb') || formData.step3.foerderVariante.includes('ersterwerb')) 
+            ? formatCurrencyForDatabase(formData.step5.kaufpreis.kaufpreis) 
+            : null,
+
+          // Baukosten (only for Neubau or Nutzungsänderung)
+          kosten_gebaeude: formData.step3.foerderVariante === 'neubau' ? formatCurrencyForDatabase(formData.step5.baukosten.kostenGebaeude) : null,
+          besondere_bauausfuehrung: (formData.step3.foerderVariante === 'neubau' || formData.step3.foerderVariante === 'nutzungsaenderung') 
+            ? formatCurrencyForDatabase(formData.step5.baukosten.besondereBauausfuhrung) 
+            : null,
+          wert_vorhandener_gebaeude: (formData.step3.foerderVariante === 'neubau' || formData.step3.foerderVariante === 'nutzungsaenderung') 
+            ? formatCurrencyForDatabase(formData.step5.baukosten.wertVorhandenerGebaude) 
+            : null,
+          kosten_aussenanlagen: (formData.step3.foerderVariante === 'neubau' || formData.step3.foerderVariante === 'nutzungsaenderung') 
+            ? formatCurrencyForDatabase(formData.step5.baukosten.kostenAussenanlagen) 
+            : null,
+          kosten_architekt: (formData.step3.foerderVariante === 'neubau' || formData.step3.foerderVariante === 'nutzungsaenderung') 
+            ? formatCurrencyForDatabase(formData.step5.baukosten.kostenArchitekt) 
+            : null,
+
+          // Nebenkosten (always saved)
+          erwerbsnebenkosten: formatCurrencyForDatabase(formData.step5.nebenkosten.erwerbsnebenkosten),
+          verwaltungsleistungen: formatCurrencyForDatabase(formData.step5.nebenkosten.verwaltungsleistungen),
+          beschaffung_dauerfinanzierung: formatCurrencyForDatabase(formData.step5.nebenkosten.beschaffungDauerfinanzierung),
+          beschaffung_zwischenfinanzierung: formatCurrencyForDatabase(formData.step5.nebenkosten.beschaffungZwischenfinanzierung),
+          sonstige_nebenkosten: formatCurrencyForDatabase(formData.step5.nebenkosten.sonstigeNebenkosten),
+          zusaetzliche_kosten: formatCurrencyForDatabase(formData.step5.nebenkosten.zusatzlicheKosten),
+          
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', user.id);
+
+      if (costError) throw costError;
 
       // Also save to local storage as backup
       localStorage.setItem('hauptantragFormData', JSON.stringify(formData));
