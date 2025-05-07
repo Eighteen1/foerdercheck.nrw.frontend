@@ -242,8 +242,42 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
   };
 
   useEffect(() => {
+    // Trigger Tilgungsnachlass calculations for all NRW Bank fields
+    const updatedFormData = { ...formData };
+    
+    // Calculate Grunddarlehen Tilgungsnachlass
+    if (updatedFormData.darlehenNRWBank.grunddarlehen.nennbetrag) {
+      const nennbetragValue = updatedFormData.darlehenNRWBank.grunddarlehen.nennbetrag.replace(/[^0-9]/g, '');
+      const tilgungsnachlassValue = Math.round(Number(nennbetragValue) * 0.1);
+      updatedFormData.darlehenNRWBank.grunddarlehen.tilgungsnachlass = new Intl.NumberFormat('de-DE', {
+        style: 'currency',
+        currency: 'EUR',
+        minimumFractionDigits: 2
+      }).format(tilgungsnachlassValue/100);
+    }
+
+    // Calculate Zusatzdarlehen Tilgungsnachlässe
+    Object.entries(updatedFormData.darlehenNRWBank.zusatzdarlehen).forEach(([key, darlehen]) => {
+      if (darlehen.nennbetrag) {
+        const nennbetragValue = darlehen.nennbetrag.replace(/[^0-9]/g, '');
+        const tilgungsRate = key === 'begEffizienzhaus40Standard' ? 0.5 : 0.1;
+        const tilgungsnachlassValue = Math.round(Number(nennbetragValue) * tilgungsRate);
+        darlehen.tilgungsnachlass = new Intl.NumberFormat('de-DE', {
+          style: 'currency',
+          currency: 'EUR',
+          minimumFractionDigits: 2
+        }).format(tilgungsnachlassValue/100);
+      }
+    });
+
+    updateFormData(updatedFormData);
     calculateSums();
-  }, [formData, gesamtkosten]);
+  }, [formData.darlehenNRWBank.grunddarlehen.nennbetrag, 
+      formData.darlehenNRWBank.zusatzdarlehen.familienbonus.nennbetrag,
+      formData.darlehenNRWBank.zusatzdarlehen.barrierefreiheit.nennbetrag,
+      formData.darlehenNRWBank.zusatzdarlehen.bauenMitHolz.nennbetrag,
+      formData.darlehenNRWBank.zusatzdarlehen.standortbedingteMehrkosten.nennbetrag,
+      formData.darlehenNRWBank.zusatzdarlehen.begEffizienzhaus40Standard.nennbetrag]);
 
   const renderTooltip = (text: string) => (
     <Tooltip id="button-tooltip">
