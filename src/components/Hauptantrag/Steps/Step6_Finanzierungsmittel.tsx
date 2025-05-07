@@ -279,6 +279,22 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
       formData.darlehenNRWBank.zusatzdarlehen.standortbedingteMehrkosten.nennbetrag,
       formData.darlehenNRWBank.zusatzdarlehen.begEffizienzhaus40Standard.nennbetrag]);
 
+  // Add new useEffect for Eigenleistung changes
+  useEffect(() => {
+    calculateSums();
+  }, [
+    formData.eigenleistung.eigeneGeldmittel,
+    formData.eigenleistung.zuschüsse,
+    formData.eigenleistung.selbsthilfe,
+    formData.eigenleistung.wertVorhandenerGebaeudeteile,
+    formData.eigenleistung.wertBaugrundstück
+  ]);
+
+  // Add new useEffect for Fremddarlehen changes
+  useEffect(() => {
+    calculateSums();
+  }, [formData.fremddarlehen]);
+
   const renderTooltip = (text: string) => (
     <Tooltip id="button-tooltip">
       {text}
