@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Form, Button, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import CurrencyInput from '../../common/CurrencyInput';
 
-interface Fremddarlehen {
+export interface Fremddarlehen {
   id: string;
   darlehenGeber: string;
   nennbetrag: string;

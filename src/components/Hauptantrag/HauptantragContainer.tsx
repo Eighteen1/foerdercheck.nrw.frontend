@@ -9,7 +9,7 @@ import Step2_HouseholdInfo from './Steps/Step2_HouseholdInfo';
 import Step3_Objektdetails from './Steps/Step3_Objektdetails';
 import Step4_Eigentumsverhaeltnisse from './Steps/Step4_Eigentumsverhaeltnisse';
 import Step5_Kostenaufstellung from './Steps/Step5_Kostenaufstellung';
-import Step6_Finanzierungsmittel from './Steps/Step6_Finanzierungsmittel';
+import Step6_Finanzierungsmittel, { Fremddarlehen } from './Steps/Step6_Finanzierungsmittel';
 // Import other steps as they are created
 
 interface FormData {
@@ -686,7 +686,10 @@ const HauptantragContainer: React.FC = () => {
             gesamtkosten: ''
           },
           step6: {
-            fremddarlehen: financeData?.fremddarlehen || [{
+            fremddarlehen: financeData?.fremddarlehen ? financeData.fremddarlehen.map((darlehen: Fremddarlehen) => ({
+              ...darlehen,
+              nennbetrag: formatCurrencyForDisplay(darlehen.nennbetrag)
+            })) : [{
               id: '1',
               darlehenGeber: '',
               nennbetrag: '',
@@ -974,7 +977,7 @@ const HauptantragContainer: React.FC = () => {
         .upsert({
           user_id: user.id,
           // Save Fremddarlehen as JSONB
-          fremddarlehen: formData.step6.fremddarlehen.map(darlehen => ({
+          fremddarlehen: formData.step6.fremddarlehen.map((darlehen: Fremddarlehen) => ({
             ...darlehen,
             nennbetrag: formatCurrencyForDatabase(darlehen.nennbetrag)
           })),
