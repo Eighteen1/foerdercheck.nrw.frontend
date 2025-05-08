@@ -66,6 +66,8 @@ interface Step6Props {
   barrierefrei: boolean | null;
   begEffizienzhaus40Standard: boolean | null;
   hasSupplementaryLoan: boolean | null;
+  hasLocationCostLoan: boolean | null;
+  hasWoodConstructionLoan: boolean | null;
 }
 
 const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
@@ -76,7 +78,9 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
   childCount,
   barrierefrei,
   begEffizienzhaus40Standard,
-  hasSupplementaryLoan
+  hasSupplementaryLoan,
+  hasLocationCostLoan,
+  hasWoodConstructionLoan
 }) => {
   const [eigenleistungError, setEigenleistungError] = useState<string | null>(null);
   const [gesamtbetraegeError, setGesamtbetraegeError] = useState<string | null>(null);
@@ -501,7 +505,7 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
           )}
 
           {/* Barrierefreiheit */}
-          {barrierefrei && (
+          {(foerderVariante === 'neubau' || foerderVariante.includes('ersterwerb')) && barrierefrei && (
             <div className="row g-3 mb-3">
               <div className="col-md-6">
                 <CurrencyInput
@@ -524,7 +528,7 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
           )}
 
           {/* BEG Effizienzhaus 40 Standard */}
-          {begEffizienzhaus40Standard && (
+          {(foerderVariante === 'neubau' || foerderVariante.includes('ersterwerb')) && begEffizienzhaus40Standard && (
             <div className="row g-3 mb-3">
               <div className="col-md-6">
                 <CurrencyInput
@@ -537,6 +541,52 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
               <div className="col-md-6">
                 <CurrencyInput
                   value={formData.darlehenNRWBank.zusatzdarlehen.begEffizienzhaus40Standard.tilgungsnachlass}
+                  onChange={() => {}}
+                  placeholder="Tilgungsnachlass"
+                  label="Tilgungsnachlass"
+                  disabled
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Standortbedingte Mehrkosten */}
+          {(foerderVariante === 'neubau' || foerderVariante.includes('ersterwerb')) && hasLocationCostLoan && (
+            <div className="row g-3 mb-3">
+              <div className="col-md-6">
+                <CurrencyInput
+                  value={formData.darlehenNRWBank.zusatzdarlehen.standortbedingteMehrkosten.nennbetrag}
+                  onChange={(value) => handleNRWBankChange('zusatzdarlehen', 'standortbedingteMehrkosten', value)}
+                  placeholder="Standortbedingte Mehrkosten"
+                  label="Standortbedingte Mehrkosten"
+                />
+              </div>
+              <div className="col-md-6">
+                <CurrencyInput
+                  value={formData.darlehenNRWBank.zusatzdarlehen.standortbedingteMehrkosten.tilgungsnachlass}
+                  onChange={() => {}}
+                  placeholder="Tilgungsnachlass"
+                  label="Tilgungsnachlass"
+                  disabled
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Bauen mit Holz */}
+          {hasWoodConstructionLoan && (
+            <div className="row g-3 mb-3">
+              <div className="col-md-6">
+                <CurrencyInput
+                  value={formData.darlehenNRWBank.zusatzdarlehen.bauenMitHolz.nennbetrag}
+                  onChange={(value) => handleNRWBankChange('zusatzdarlehen', 'bauenMitHolz', value)}
+                  placeholder="Bauen mit Holz"
+                  label="Bauen mit Holz"
+                />
+              </div>
+              <div className="col-md-6">
+                <CurrencyInput
+                  value={formData.darlehenNRWBank.zusatzdarlehen.bauenMitHolz.tilgungsnachlass}
                   onChange={() => {}}
                   placeholder="Tilgungsnachlass"
                   label="Tilgungsnachlass"

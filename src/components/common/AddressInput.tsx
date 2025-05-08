@@ -17,35 +17,89 @@ interface AddressInputProps {
   }) => void;
   isInvalid?: boolean;
   errorMessage?: string;
+  state?: 'NRW' | 'Bayern' | 'Baden-Württemberg' | 'Berlin' | 'Brandenburg' | 'Bremen' | 'Hamburg' | 'Hessen' | 'Mecklenburg-Vorpommern' | 'Niedersachsen' | 'Rheinland-Pfalz' | 'Saarland' | 'Sachsen' | 'Sachsen-Anhalt' | 'Schleswig-Holstein' | 'Thüringen';
 }
 
 const libraries: ("places")[] = ["places"];
+
+// Administrative area codes for German states
+const stateCodes: { [key: string]: string } = {
+  'NRW': 'DE-NW',
+  'Bayern': 'DE-BY',
+  'Baden-Württemberg': 'DE-BW',
+  'Berlin': 'DE-BE',
+  'Brandenburg': 'DE-BB',
+  'Bremen': 'DE-HB',
+  'Hamburg': 'DE-HH',
+  'Hessen': 'DE-HE',
+  'Mecklenburg-Vorpommern': 'DE-MV',
+  'Niedersachsen': 'DE-NI',
+  'Rheinland-Pfalz': 'DE-RP',
+  'Saarland': 'DE-SL',
+  'Sachsen': 'DE-SN',
+  'Sachsen-Anhalt': 'DE-ST',
+  'Schleswig-Holstein': 'DE-SH',
+  'Thüringen': 'DE-TH'
+};
 
 const AddressInput: React.FC<AddressInputProps> = ({
   value,
   onChange,
   isInvalid = false,
-  errorMessage
+  errorMessage,
+  state
 }) => {
   const [autocomplete, setAutocomplete] = useState<google.maps.places.Autocomplete | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  
+  // Debug API key
+  console.log('Google Maps API Key:', process.env.REACT_APP_GOOGLE_MAPS_API_KEY);
+  
   const { isLoaded, loadError } = useLoadScript({
-    googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY || '',
+    googleMapsApiKey: process.env.REACT_APP_GOOGLE_MAPS_API_KEY || '',
     libraries
   });
 
   useEffect(() => {
     if (isLoaded && !loadError && inputRef.current) {
-      const autocompleteInstance = new google.maps.places.Autocomplete(inputRef.current, {
+      // Define bounds for each German state
+      const stateBounds: { [key: string]: google.maps.LatLngBounds } = {
+        'NRW': new google.maps.LatLngBounds(
+          new google.maps.LatLng(50.3237, 5.8663), // Southwest coordinates
+          new google.maps.LatLng(52.5317, 9.4643)  // Northeast coordinates
+        ),
+        // ... other states if needed ...
+      };
+
+      const options: google.maps.places.AutocompleteOptions = {
         componentRestrictions: { country: 'de' },
         fields: ['address_components', 'formatted_address'],
         types: ['address']
-      });
+      };
+
+      // Add state filtering through bounds and restrictions
+      if (state && stateCodes[state]) {
+        options.types = ['address'];
+        if (stateBounds[state]) {
+          options.bounds = stateBounds[state];
+          options.strictBounds = true;
+        }
+      }
+
+      const autocompleteInstance = new google.maps.places.Autocomplete(inputRef.current, options);
 
       autocompleteInstance.addListener('place_changed', () => {
         const place = autocompleteInstance.getPlace();
-        if (place.address_components) {
-          const addressComponents = place.address_components;
+        console.log('Place details:', place);
+        
+        // Store the place data before any modifications
+        const placeData = place;
+        
+        if (placeData && placeData.address_components) {
+          const addressComponents = placeData.address_components;
+          console.log('Address components:', addressComponents);
+          
+          // Extract address components first
           const streetNumber = addressComponents.find(component => 
             component.types.includes('street_number')
           )?.long_name || '';
@@ -62,45 +116,114 @@ const AddressInput: React.FC<AddressInputProps> = ({
             component.types.includes('locality')
           )?.long_name || '';
 
-          onChange({
+          console.log('Extracted components:', { streetNumber, route, postalCode, city });
+
+          // Verify the selected address is in the correct state
+          const administrativeArea = addressComponents.find(component => 
+            component.types.includes('administrative_area_level_1')
+          );
+          
+          // Create new address object with all components
+          const newAddress = {
             street: route,
             houseNumber: streetNumber,
             postalCode,
             city
-          });
+          };
+
+          console.log('New address object:', newAddress);
+
+          // Update the form with all address components
+          onChange(newAddress);
+
+          // Update the input fields directly
+          if (inputRef.current) {
+            // Update the street input
+            const streetInput = inputRef.current;
+            
+            // Clear the input and autocomplete
+            streetInput.value = '';
+            streetInput.blur();
+            
+            // Reset the autocomplete instance
+            autocompleteInstance.set('place', null);
+            
+            // Set the value back after a short delay
+            setTimeout(() => {
+              streetInput.value = route;
+              streetInput.blur();
+            }, 100);
+          }
+
+          // Find and update other input fields without triggering events
+          const form = inputRef.current?.closest('form');
+          if (form) {
+            const houseNumberInput = form.querySelector('input[placeholder="Hausnummer"]') as HTMLInputElement;
+            const postalCodeInput = form.querySelector('input[placeholder="Postleitzahl"]') as HTMLInputElement;
+            const cityInput = form.querySelector('input[placeholder="Ort"]') as HTMLInputElement;
+
+            if (houseNumberInput) {
+              houseNumberInput.value = streetNumber;
+              houseNumberInput.blur();
+            }
+            if (postalCodeInput) {
+              postalCodeInput.value = postalCode;
+              postalCodeInput.blur();
+            }
+            if (cityInput) {
+              cityInput.value = city;
+              cityInput.blur();
+            }
+          }
+
+          // If state is specified and the address is not in the correct state, show an error
+          if (state && administrativeArea?.short_name !== stateCodes[state]) {
+            console.warn('Selected address is not in the specified state');
+          }
         }
       });
 
+      // Add a listener to prevent the autocomplete from showing when the input is not focused
+      if (inputRef.current) {
+        inputRef.current.addEventListener('blur', () => {
+          autocompleteInstance.set('place', null);
+        });
+      }
+
       setAutocomplete(autocompleteInstance);
     }
-  }, [isLoaded, loadError, onChange]);
+  }, [isLoaded, loadError, onChange, state]);
 
   const handleStreetChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onChange({
+    const newAddress = {
       ...value,
       street: e.target.value
-    });
+    };
+    onChange(newAddress);
   };
 
   const handleHouseNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onChange({
+    const newAddress = {
       ...value,
       houseNumber: e.target.value
-    });
+    };
+    onChange(newAddress);
   };
 
   const handlePostalCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onChange({
+    const newAddress = {
       ...value,
       postalCode: e.target.value
-    });
+    };
+    onChange(newAddress);
   };
 
   const handleCityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onChange({
+    const newAddress = {
       ...value,
       city: e.target.value
-    });
+    };
+    onChange(newAddress);
   };
 
   if (loadError) {

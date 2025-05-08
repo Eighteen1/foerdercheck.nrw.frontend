@@ -27,6 +27,8 @@ interface Step3Data {
     };
     barrierefrei: boolean | null;
     begEffizienzhaus40Standard: boolean | null;
+    hasLocationCostLoan: boolean | null;
+    hasWoodConstructionLoan: boolean | null;
   };
   objektDetailsEigentumswohnung: {
     anzahlVollgeschosse: string;
@@ -160,6 +162,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData })
             address
           })}
           isInvalid={false}
+          state="NRW"
         />
       </div>
 
@@ -332,7 +335,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData })
           )}
         </div>
 
-        {/* Erträge */}
+        {/* Erträge and Wood Construction Loan */}
         <div className="mt-4">
           <div className="d-flex align-items-center mb-3">
             <div className="flex-grow-1">
@@ -380,10 +383,62 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData })
               </div>
             </div>
           )}
-        </div>
 
-        {/* Barrierefreiheit and BEG Standard */}
-        <div className="mt-4">
+          <div className="d-flex align-items-center mb-3 mt-4">
+            <div className="flex-grow-1">
+              <Form.Label>Wird ein Zusatzdarlehen für Bauen mit Holz beantragt?</Form.Label>
+            </div>
+            <div className="d-flex gap-3">
+              <Form.Check
+                inline
+                type="radio"
+                label="Ja"
+                name="hasWoodConstructionLoan"
+                checked={formData.objektDetailsAllgemein.hasWoodConstructionLoan === true}
+                onChange={() => handleRadioChange('objektDetailsAllgemein', 'hasWoodConstructionLoan', true)}
+                className="custom-radio"
+              />
+              <Form.Check
+                inline
+                type="radio"
+                label="Nein"
+                name="hasWoodConstructionLoan"
+                checked={formData.objektDetailsAllgemein.hasWoodConstructionLoan === false}
+                onChange={() => handleRadioChange('objektDetailsAllgemein', 'hasWoodConstructionLoan', false)}
+                className="custom-radio"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Objektdetails Neubau/Ersterwerb */}
+      {(formData.foerderVariante === 'neubau' || 
+        formData.foerderVariante === 'ersterwerb-eigenheim' ||
+        formData.foerderVariante === 'ersterwerb-wohnung') && (
+        <div className="mb-5">
+          <div className="d-flex align-items-center gap-2 mb-4">
+            <h4 className="mb-0 text-[#000000] font-semibold italic">Objektdetails Neubau/Ersterwerb</h4>
+            <OverlayTrigger
+              placement="right"
+              overlay={renderTooltip("Details zum Neubau oder Ersterwerb")}
+            >
+              <Button
+                variant="outline-secondary"
+                className="rounded-circle p-0 d-flex align-items-center justify-content-center"
+                style={{
+                  width: '20px',
+                  height: '20px',
+                  color: '#064497',
+                  borderColor: '#D7DAEA',
+                  backgroundColor: '#D7DAEA'
+                }}
+              >
+                ?
+              </Button>
+            </OverlayTrigger>
+          </div>
+
           <div className="d-flex align-items-center mb-3">
             <div className="flex-grow-1">
               <Form.Label>Das Objekt ist barrierefrei</Form.Label>
@@ -435,112 +490,31 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData })
               />
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* Objektdetails Eigentumswohnung */}
-      {(formData.foerderVariante === 'ersterwerb-wohnung' || 
-        formData.foerderVariante === 'bestandserwerb-wohnung') && (
-        <div className="mb-5">
-          <div className="d-flex align-items-center gap-2 mb-4">
-            <h4 className="mb-0 text-[#000000] font-semibold italic">Objektdetails Eigentumswohnung</h4>
-            <OverlayTrigger
-              placement="right"
-              overlay={renderTooltip("Details zur Eigentumswohnung")}
-            >
-              <Button
-                variant="outline-secondary"
-                className="rounded-circle p-0 d-flex align-items-center justify-content-center"
-                style={{
-                  width: '20px',
-                  height: '20px',
-                  color: '#064497',
-                  borderColor: '#D7DAEA',
-                  backgroundColor: '#D7DAEA'
-                }}
-              >
-                ?
-              </Button>
-            </OverlayTrigger>
-          </div>
-
-          <div className="row g-3">
-            <div className="col-md-6">
-              <Form.Floating>
-                <Form.Control
-                  type="number"
-                  placeholder="Anzahl Vollgeschosse"
-                  value={formData.objektDetailsEigentumswohnung.anzahlVollgeschosse}
-                  onChange={(e) => handleNestedInputChange('objektDetailsEigentumswohnung', '', 'anzahlVollgeschosse', e.target.value)}
-                />
-                <label>Anzahl Vollgeschosse</label>
-              </Form.Floating>
+          <div className="d-flex align-items-center mb-3">
+            <div className="flex-grow-1">
+              <Form.Label>Wird ein Zusatzdarlehen für standortbedingte Mehrkosten beantragt?</Form.Label>
             </div>
-            <div className="col-md-6">
-              <Form.Floating>
-                <Form.Control
-                  type="number"
-                  placeholder="Wohnungen am Hauseingang"
-                  value={formData.objektDetailsEigentumswohnung.wohnungenAmHauseingang}
-                  onChange={(e) => handleNestedInputChange('objektDetailsEigentumswohnung', '', 'wohnungenAmHauseingang', e.target.value)}
-                />
-                <label>Wohnungen am Hauseingang</label>
-              </Form.Floating>
+            <div className="d-flex gap-3">
+              <Form.Check
+                inline
+                type="radio"
+                label="Ja"
+                name="hasLocationCostLoan"
+                checked={formData.objektDetailsAllgemein.hasLocationCostLoan === true}
+                onChange={() => handleRadioChange('objektDetailsAllgemein', 'hasLocationCostLoan', true)}
+                className="custom-radio"
+              />
+              <Form.Check
+                inline
+                type="radio"
+                label="Nein"
+                name="hasLocationCostLoan"
+                checked={formData.objektDetailsAllgemein.hasLocationCostLoan === false}
+                onChange={() => handleRadioChange('objektDetailsAllgemein', 'hasLocationCostLoan', false)}
+                className="custom-radio"
+              />
             </div>
-          </div>
-
-          <div className="row g-3 mt-1">
-            <div className="col-md-6">
-              <Form.Floating>
-                <Form.Control
-                  type="text"
-                  placeholder="Lage im Gebäude"
-                  value={formData.objektDetailsEigentumswohnung.lageImGebaeude}
-                  onChange={(e) => handleNestedInputChange('objektDetailsEigentumswohnung', '', 'lageImGebaeude', e.target.value)}
-                />
-                <label>Lage im Gebäude (z. B. EG, 1. OG)</label>
-              </Form.Floating>
-            </div>
-            <div className="col-md-6">
-              <Form.Floating>
-                <Form.Control
-                  type="text"
-                  placeholder="Lage im Geschoss"
-                  value={formData.objektDetailsEigentumswohnung.lageImGeschoss}
-                  onChange={(e) => handleNestedInputChange('objektDetailsEigentumswohnung', '', 'lageImGeschoss', e.target.value)}
-                />
-                <label>Lage im Geschoss (z. B. links)</label>
-              </Form.Floating>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Objektdetails Neubau/Ersterwerb */}
-      {(formData.foerderVariante === 'neubau' || 
-        formData.foerderVariante === 'ersterwerb-eigenheim' ||
-        formData.foerderVariante === 'ersterwerb-wohnung') && (
-        <div className="mb-5">
-          <div className="d-flex align-items-center gap-2 mb-4">
-            <h4 className="mb-0 text-[#000000] font-semibold italic">Objektdetails Neubau/Ersterwerb</h4>
-            <OverlayTrigger
-              placement="right"
-              overlay={renderTooltip("Details zum Neubau oder Ersterwerb")}
-            >
-              <Button
-                variant="outline-secondary"
-                className="rounded-circle p-0 d-flex align-items-center justify-content-center"
-                style={{
-                  width: '20px',
-                  height: '20px',
-                  color: '#064497',
-                  borderColor: '#D7DAEA',
-                  backgroundColor: '#D7DAEA'
-                }}
-              >
-                ?
-              </Button>
-            </OverlayTrigger>
           </div>
 
           <div className="d-flex align-items-center mb-3">
@@ -715,6 +689,84 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData })
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Objektdetails Eigentumswohnung */}
+      {(formData.foerderVariante === 'ersterwerb-wohnung' || 
+        formData.foerderVariante === 'bestandserwerb-wohnung') && (
+        <div className="mb-5">
+          <div className="d-flex align-items-center gap-2 mb-4">
+            <h4 className="mb-0 text-[#000000] font-semibold italic">Objektdetails Eigentumswohnung</h4>
+            <OverlayTrigger
+              placement="right"
+              overlay={renderTooltip("Details zur Eigentumswohnung")}
+            >
+              <Button
+                variant="outline-secondary"
+                className="rounded-circle p-0 d-flex align-items-center justify-content-center"
+                style={{
+                  width: '20px',
+                  height: '20px',
+                  color: '#064497',
+                  borderColor: '#D7DAEA',
+                  backgroundColor: '#D7DAEA'
+                }}
+              >
+                ?
+              </Button>
+            </OverlayTrigger>
+          </div>
+
+          <div className="row g-3">
+            <div className="col-md-6">
+              <Form.Floating>
+                <Form.Control
+                  type="number"
+                  placeholder="Anzahl Vollgeschosse"
+                  value={formData.objektDetailsEigentumswohnung.anzahlVollgeschosse}
+                  onChange={(e) => handleNestedInputChange('objektDetailsEigentumswohnung', '', 'anzahlVollgeschosse', e.target.value)}
+                />
+                <label>Anzahl Vollgeschosse</label>
+              </Form.Floating>
+            </div>
+            <div className="col-md-6">
+              <Form.Floating>
+                <Form.Control
+                  type="number"
+                  placeholder="Wohnungen am Hauseingang"
+                  value={formData.objektDetailsEigentumswohnung.wohnungenAmHauseingang}
+                  onChange={(e) => handleNestedInputChange('objektDetailsEigentumswohnung', '', 'wohnungenAmHauseingang', e.target.value)}
+                />
+                <label>Wohnungen am Hauseingang</label>
+              </Form.Floating>
+            </div>
+          </div>
+
+          <div className="row g-3 mt-1">
+            <div className="col-md-6">
+              <Form.Floating>
+                <Form.Control
+                  type="text"
+                  placeholder="Lage im Gebäude"
+                  value={formData.objektDetailsEigentumswohnung.lageImGebaeude}
+                  onChange={(e) => handleNestedInputChange('objektDetailsEigentumswohnung', '', 'lageImGebaeude', e.target.value)}
+                />
+                <label>Lage im Gebäude (z. B. EG, 1. OG)</label>
+              </Form.Floating>
+            </div>
+            <div className="col-md-6">
+              <Form.Floating>
+                <Form.Control
+                  type="text"
+                  placeholder="Lage im Geschoss"
+                  value={formData.objektDetailsEigentumswohnung.lageImGeschoss}
+                  onChange={(e) => handleNestedInputChange('objektDetailsEigentumswohnung', '', 'lageImGeschoss', e.target.value)}
+                />
+                <label>Lage im Geschoss (z. B. links)</label>
+              </Form.Floating>
+            </div>
           </div>
         </div>
       )}
