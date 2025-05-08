@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Button } from 'react-bootstrap';
+import { Container, Button, Modal } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
@@ -249,6 +249,10 @@ const HauptantragContainer: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
+  const [showValidationModal, setShowValidationModal] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<{ [key: number]: string[] }>({});
+  const [showValidation, setShowValidation] = useState(false);
+  const [hasValidatedOnce, setHasValidatedOnce] = useState(false);
   const [formData, setFormData] = useState<FormData>({
     step1: {
       representative: {
@@ -792,17 +796,20 @@ const HauptantragContainer: React.FC = () => {
   const totalSteps = 6;
 
   const handleNext = () => {
-    if (currentStep < totalSteps) {
-      setCurrentStep(prev => prev + 1);
-    } else {
-      // On last step, validate the entire form
+    if (currentStep === totalSteps) {
+      // If we're on the last step, validate the form
       validateForm();
+    } else {
+      // For all other steps, just move to next step
+      setCurrentStep(currentStep + 1);
+      setShowValidation(hasValidatedOnce);
     }
   };
 
   const handlePrevious = () => {
     if (currentStep > 1) {
-      setCurrentStep(prev => prev - 1);
+      setCurrentStep(currentStep - 1);
+      setShowValidation(hasValidatedOnce);
     }
   };
 
@@ -1076,82 +1083,381 @@ const HauptantragContainer: React.FC = () => {
   };
 
   const validateForm = () => {
-    const errors: string[] = [];
+    setShowValidation(true);
+    setHasValidatedOnce(true);
+    const errors: Record<number, string[]> = {};
 
     // Validate Step 1
+    errors[1] = [];
     formData.step1.persons.forEach((person, index) => {
-      if (!person.firstName) errors.push(`Person ${index + 1}: Vorname ist erforderlich`);
-      if (!person.lastName) errors.push(`Person ${index + 1}: Name ist erforderlich`);
-      if (!person.birthDate) errors.push(`Person ${index + 1}: Geburtsdatum ist erforderlich`);
-      if (!person.nationality) errors.push(`Person ${index + 1}: Staatsangehörigkeit ist erforderlich`);
-      if (!person.street) errors.push(`Person ${index + 1}: Straße ist erforderlich`);
-      if (!person.houseNumber) errors.push(`Person ${index + 1}: Hausnummer ist erforderlich`);
-      if (!person.postalCode) errors.push(`Person ${index + 1}: Postleitzahl ist erforderlich`);
-      if (!person.city) errors.push(`Person ${index + 1}: Ort ist erforderlich`);
-      if (!person.phone) errors.push(`Person ${index + 1}: Telefonnummer ist erforderlich`);
-      if (!person.email) errors.push(`Person ${index + 1}: E-Mail ist erforderlich`);
-      if (!person.employment.type) errors.push(`Person ${index + 1}: Beschäftigungsart ist erforderlich`);
+      if (!person.title) errors[1].push(`Person ${index + 1}: Titel ist erforderlich`);
+      if (!person.firstName) errors[1].push(`Person ${index + 1}: Vorname ist erforderlich`);
+      if (!person.lastName) errors[1].push(`Person ${index + 1}: Name ist erforderlich`);
+      if (!person.birthDate) errors[1].push(`Person ${index + 1}: Geburtsdatum ist erforderlich`);
+      if (!person.nationality) errors[1].push(`Person ${index + 1}: Staatsangehörigkeit ist erforderlich`);
+      if (!person.street) errors[1].push(`Person ${index + 1}: Straße ist erforderlich`);
+      if (!person.houseNumber) errors[1].push(`Person ${index + 1}: Hausnummer ist erforderlich`);
+      if (!person.postalCode) errors[1].push(`Person ${index + 1}: Postleitzahl ist erforderlich`);
+      if (!person.city) errors[1].push(`Person ${index + 1}: Ort ist erforderlich`);
+      if (!person.phone) errors[1].push(`Person ${index + 1}: Telefonnummer ist erforderlich`);
+      if (!person.email) errors[1].push(`Person ${index + 1}: E-Mail ist erforderlich`);
+      if (!person.employment.type) errors[1].push(`Person ${index + 1}: Beschäftigungsart ist erforderlich`);
+      if ((person.employment.type == 'sole-trader' || person.employment.type == 'business-owner' || person.employment.type == 'freelancer' || person.employment.type == 'farmer' || person.employment.type == 'private-income') && !person.employment.details) errors[1].push(`Person ${index + 1}: Branche ist erforderlich`);
     });
+    if (formData.step1.representative.hasRepresentative === null) errors[1].push('Bitte geben Sie an, ob Sie einen Bevollmächtigten angeben wollen');
+    if (formData.step1.representative.isCompany === null && formData.step1.representative.hasRepresentative == true) errors[1].push('Bitte geben Sie an, ob es sich um eine Firma handelt');
+    // Representative Company Info
+    if (!formData.step1.representative.companyName && formData.step1.representative.isCompany == true) errors[1].push('Bitte geben Sie den Namen der Bevollmächtigten Firma ein');
+    if (!formData.step1.representative.postboxCity && formData.step1.representative.isCompany == true) errors[1].push('Bitte geben Sie den Ort des Postfachs der Bevollmächtigten Firma ein');
+    if (!formData.step1.representative.postboxPostcode && formData.step1.representative.isCompany == true) errors[1].push('Bitte geben Sie die Postleitzahl des Postfachs der Bevollmächtigten Firma ein');
+    // Representative Personal Info
+    if (!formData.step1.representative.title && formData.step1.representative.isCompany == false) errors[1].push('Bitte geben Sie den Titel des Bevollmächtigten ein');
+    if (!formData.step1.representative.firstName && formData.step1.representative.isCompany == false) errors[1].push('Bitte geben Sie den Vornamen des Bevollmächtigten ein');
+    if (!formData.step1.representative.lastName && formData.step1.representative.isCompany == false) errors[1].push('Bitte geben Sie den Nachnamen des Bevollmächtigten ein');
+    if (!formData.step1.representative.street && formData.step1.representative.isCompany == false) errors[1].push('Bitte geben Sie die Straße des Bevollmächtigten ein');
+    if (!formData.step1.representative.houseNumber && formData.step1.representative.isCompany == false) errors[1].push('Bitte geben Sie die Hausnummer des Bevollmächtigten ein');
+    if (!formData.step1.representative.postalCode && formData.step1.representative.isCompany == false) errors[1].push('Bitte geben Sie die Postleitzahl des Bevollmächtigten ein');
+    if (!formData.step1.representative.city && formData.step1.representative.isCompany == false) errors[1].push('Bitte geben Sie die Stadt des Bevollmächtigten ein');
+    if (!formData.step1.representative.phone && formData.step1.representative.isCompany == false) errors[1].push('Bitte geben Sie die Telefonnummer des Bevollmächtigten ein');
+    if (!formData.step1.representative.email && formData.step1.representative.isCompany == false) errors[1].push('Bitte geben Sie die E-Mail des Bevollmächtigten ein');
 
     // Validate Step 2
-    if (!formData.step2.adultCount) errors.push('Anzahl Erwachsene ist erforderlich');
-    if (!formData.step2.childCount) errors.push('Anzahl Kinder ist erforderlich');
-    if (formData.step2.isDisabled === null) errors.push('Bitte geben Sie an, ob Personen schwerbehindert sind');
-    if (formData.step2.isMarried === null) errors.push('Bitte geben Sie an, ob Sie verheiratet sind');
-    if (formData.step2.hasAdditionalAssets === null) errors.push('Bitte geben Sie an, ob weiteres Vermögen vorhanden ist');
-    if (formData.step2.hasDoubleSubsidy === null) errors.push('Bitte geben Sie an, ob eine Doppelförderung vorliegt');
-    
-    // Conditional validation for Step 2
+    errors[2] = [];
+    if (!formData.step2.adultCount) errors[2].push('Bitte geben Sie die Anzahl der Erwachsenen ein');
+    if (parseInt(formData.step2.adultCount) < 0) errors[2].push('Die Anzahl der Erwachsenen darf nicht negativ sein');
+    if (parseInt(formData.step2.adultCount) === 0) errors[2].push('Die Anzahl der Erwachsenen darf nicht 0 sein');
+    if (!formData.step2.childCount) errors[2].push('Bitte geben Sie die Anzahl der Kinder ein');
+    if (parseInt(formData.step2.childCount) < 0) errors[2].push('Die Anzahl der Kinder darf nicht negativ sein');
+    if (parseInt(formData.step2.childCount) > 0 && !formData.step2.childrenAges) errors[2].push('Bitte geben Sie das Alter der Kinder ein');
+    // Check if any child age is greater than 17
+    if (formData.step2.childrenAges) {
+      const ages = formData.step2.childrenAges.split(',').map(age => parseInt(age.trim()));
+      if (ages.some(age => age > 17)) {
+        errors[2].push('Volljährige Personen zählen als Erwachsene');
+      }
+    }
+
+    if (formData.step2.isDisabled == null) errors[2].push('Bitte geben Sie an, ob behinderte Menschen in dem Haushalt leben');
     if (formData.step2.isDisabled === true) {
-      if (!formData.step2.disabledAdultsCount) errors.push('Anzahl schwerbehinderter Erwachsener ist erforderlich');
-      if (!formData.step2.disabledChildrenCount) errors.push('Anzahl schwerbehinderter Kinder ist erforderlich');
+      const totalDisabled = parseInt(formData.step2.disabledAdultsCount || '0') + parseInt(formData.step2.disabledChildrenCount || '0');
+      const totalHousehold = parseInt(formData.step2.adultCount || '0') + parseInt(formData.step2.childCount || '0');
+      if (totalDisabled <= 0) {
+        errors[2].push('Bitte geben Sie die Anzahl der behinderten Menschen in ihrem Haushalt ein');
+      }
+      if (totalDisabled > totalHousehold) {
+        errors[2].push('Die Anzahl der behinderten Menschen kann nicht größer sein als die Gesamtanzahl der Haushaltsmitglieder');
+      }
+    }
+    // Check marriage status
+    if (formData.step2.isMarried === null) {
+      errors[2].push('Bitte geben Sie an, ob Sie verheiratet sind oder in einer eingetragenen Lebenspartnerschaft leben');
+    }
+    // Check additional assets
+    if (formData.step2.hasAdditionalAssets === null) {
+      errors[2].push('Bitte geben Sie an, ob weiteres Vermögen vorhanden ist');
     }
     if (formData.step2.hasAdditionalAssets === true && !formData.step2.additionalAssetsDetails) {
-      errors.push('Bitte beschreiben Sie das weitere Vermögen');
+      errors[2].push('Bitte beschreiben Sie das weitere Vermögen');
+    }
+    // Check double subsidy
+    if (formData.step2.hasDoubleSubsidy === null) {
+      errors[2].push('Bitte geben Sie an, ob Sie bereits Eigentümer eines geförderten Eigenheims oder einer geförderten Eigentumswohnung sind/waren');
     }
     if (formData.step2.hasDoubleSubsidy === true) {
-      if (formData.step2.hasRepaidSubsidy === null) errors.push('Bitte geben Sie an, ob die Fördermittel zurückgezahlt wurden');
-      if (!formData.step2.subsidyAmount) errors.push('Betrag der Fördermittel ist erforderlich');
-      if (!formData.step2.subsidyFileNumber) errors.push('Aktenzeichen ist erforderlich');
-      if (!formData.step2.subsidyAuthority) errors.push('Bewilligungsbehörde ist erforderlich');
+      if (formData.step2.hasRepaidSubsidy === null) {
+        errors[2].push('Bitte geben Sie an, ob die Fördermittel bereits zurückgezahlt wurden');
+      }
+      if (!formData.step2.subsidyAmount) {
+        errors[2].push('Bitte geben Sie den Betrag der Fördermittel ein');
+      }
+      if (!formData.step2.subsidyFileNumber) {
+        errors[2].push('Bitte geben Sie das Aktenzeichen ein');
+      }
+      if (!formData.step2.subsidyAuthority) {
+        errors[2].push('Bitte geben Sie die Bewilligungsbehörde ein');
+      }
     }
-    if (formData.step2.hasSupplementaryLoan === null) errors.push('Bitte geben Sie an, ob ein Ergänzungsdarlehen beantragt wird');
+
+    // Check supplementary loan
+    if (formData.step2.hasSupplementaryLoan === null) {
+      errors[2].push('Bitte geben Sie an, ob Sie ein Ergänzungsdarlehen der NRW.BANK beantragen');
+    }
 
     // Validate Step 3
-    if (!formData.step3.foerderVariante) errors.push('Fördervariante ist erforderlich');
-    if (formData.step3.objektDetailsAllgemein.barrierefrei === null) errors.push('Bitte geben Sie an, ob das Objekt barrierefrei ist');
-    if (formData.step3.objektDetailsAllgemein.begEffizienzhaus40Standard === null) errors.push('Bitte geben Sie an, ob der BEG Effizienzhaus 40 Standard erfüllt wird');
+    errors[3] = [];
     
-    // Conditional validation for Step 3
-    if (formData.step3.objektDetailsAllgemein.gewerbeflaeche.hasGewerbeflaeche === null) {
-      errors.push('Bitte geben Sie an, ob Gewerbefläche vorhanden ist');
-    } else if (formData.step3.objektDetailsAllgemein.gewerbeflaeche.hasGewerbeflaeche === true && !formData.step3.objektDetailsAllgemein.gewerbeflaeche.flaeche) {
-      errors.push('Bitte geben Sie die Größe der Gewerbefläche an');
+    // Address validation
+    if (!formData.step3.address.street) errors[3].push('Bitte geben Sie die Straße ein');
+    if (!formData.step3.address.houseNumber) errors[3].push('Bitte geben Sie die Hausnummer ein');
+    if (!formData.step3.address.postalCode) errors[3].push('Bitte geben Sie die Postleitzahl ein');
+    if (!formData.step3.address.city) errors[3].push('Bitte geben Sie die Stadt ein');
+
+    // FoerderVariante validation
+    if (!formData.step3.foerderVariante) {
+      errors[3].push('Bitte wählen Sie eine Förderungsvariante aus');
     }
-    
+
+    // ObjektDetailsAllgemein validation
+    if (!formData.step3.objektDetailsAllgemein.wohnflaecheSelbstgenutzt) errors[3].push('Bitte geben Sie die selbstgenutzte Wohnfläche ein');
+    if (!formData.step3.objektDetailsAllgemein.gesamtWohnflaeche) errors[3].push('Bitte geben Sie die Gesamtwohnfläche ein');
+    if (!formData.step3.objektDetailsAllgemein.anzahlZimmer) errors[3].push('Bitte geben Sie die Anzahl der Zimmer ein');
+    if (!formData.step3.objektDetailsAllgemein.anzahlGaragen) errors[3].push('Bitte geben Sie die Anzahl der Garagen ein');
+
+    // Gewerbefläche validation
+    if (formData.step3.objektDetailsAllgemein.gewerbeflaeche.hasGewerbeflaeche === null) {
+      errors[3].push('Bitte geben Sie an, ob eine Gewerbefläche vorhanden ist');
+    }
+    if (formData.step3.objektDetailsAllgemein.gewerbeflaeche.hasGewerbeflaeche === true && !formData.step3.objektDetailsAllgemein.gewerbeflaeche.flaeche) {
+      errors[3].push('Bitte geben Sie die Größe der Gewerbefläche ein');
+    }
+
+    // Erträge validation
     if (formData.step3.objektDetailsAllgemein.ertraege.hasErtraege === null) {
-      errors.push('Bitte geben Sie an, ob Einnahmen vorhanden sind');
-    } else if (formData.step3.objektDetailsAllgemein.ertraege.hasErtraege === true) {
-      if (!formData.step3.objektDetailsAllgemein.ertraege.vermieteteWohnung) errors.push('Bitte geben Sie die vermietete Wohnfläche an');
-      if (!formData.step3.objektDetailsAllgemein.ertraege.vermieteteGarage) errors.push('Bitte geben Sie die vermietete Garage an');
+      errors[3].push('Bitte geben Sie an, ob Erträge vorhanden sind');
+    }
+    if (formData.step3.objektDetailsAllgemein.ertraege.hasErtraege === true) {
+      if (!formData.step3.objektDetailsAllgemein.ertraege.vermieteteWohnung && !formData.step3.objektDetailsAllgemein.ertraege.vermieteteGarage) {
+        errors[3].push('Bitte geben Sie mindestens einen Ertragswert ein (vermietete Wohnung oder Garage)');
+      }
+    }
+
+    // Barrierefrei and BEG validation
+    if (formData.step3.objektDetailsAllgemein.barrierefrei === null) {
+      errors[3].push('Bitte geben Sie an, ob das Objekt barrierefrei ist');
+    }
+    if (formData.step3.objektDetailsAllgemein.begEffizienzhaus40Standard === null) {
+      errors[3].push('Bitte geben Sie an, ob das Objekt dem BEG Effizienzhaus 40 Standard entspricht');
+    }
+
+    // Eigentumswohnung validation
+    if (formData.step3.foerderVariante?.includes('wohnung')) {
+      if (!formData.step3.objektDetailsEigentumswohnung.anzahlVollgeschosse) errors[3].push('Bitte geben Sie die Anzahl der Vollgeschosse ein');
+      if (!formData.step3.objektDetailsEigentumswohnung.wohnungenAmHauseingang) errors[3].push('Bitte geben Sie die Anzahl der Wohnungen am Hauseingang ein');
+      if (!formData.step3.objektDetailsEigentumswohnung.lageImGebaeude) errors[3].push('Bitte geben Sie die Lage im Gebäude ein');
+      if (!formData.step3.objektDetailsEigentumswohnung.lageImGeschoss) errors[3].push('Bitte geben Sie die Lage im Geschoss ein');
+    }
+
+    // Neubau/Ersterwerb validation
+    if (formData.step3.foerderVariante?.includes('neubau') || formData.step3.foerderVariante?.includes('ersterwerb')) {
+      if (formData.step3.objektDetailsNeubauErsterwerb.baugenehmigungErforderlich === null) {
+        errors[3].push('Bitte geben Sie an, ob eine Baugenehmigung erforderlich ist');
+      }
+
+      if (formData.step3.objektDetailsNeubauErsterwerb.baugenehmigungErforderlich === true) {
+        if (formData.step3.objektDetailsNeubauErsterwerb.baugenehmigung.wurdeErteilt === null) {
+          errors[3].push('Bitte geben Sie an, ob die Baugenehmigung erteilt wurde');
+        }
+
+        if (formData.step3.objektDetailsNeubauErsterwerb.baugenehmigung.wurdeErteilt === true) {
+          if (!formData.step3.objektDetailsNeubauErsterwerb.baugenehmigung.erteilungsDatum) errors[3].push('Bitte geben Sie das Erteilungsdatum der Baugenehmigung ein');
+          if (!formData.step3.objektDetailsNeubauErsterwerb.baugenehmigung.aktenzeichen) errors[3].push('Bitte geben Sie das Aktenzeichen der Baugenehmigung ein');
+          if (!formData.step3.objektDetailsNeubauErsterwerb.baugenehmigung.erteilungsBehoerde) errors[3].push('Bitte geben Sie die erteilende Behörde der Baugenehmigung ein');
+        }
+      }
+
+      if (formData.step3.objektDetailsNeubauErsterwerb.bauanzeige.wurdeEingereicht === null) {
+        errors[3].push('Bitte geben Sie an, ob eine Bauanzeige eingereicht wurde');
+      }
+
+      if (formData.step3.objektDetailsNeubauErsterwerb.bauanzeige.wurdeEingereicht === true && !formData.step3.objektDetailsNeubauErsterwerb.bauanzeige.einreichungsDatum) {
+        errors[3].push('Bitte geben Sie das Einreichungsdatum der Bauanzeige ein');
+      }
+
+      if (formData.step3.objektDetailsNeubauErsterwerb.bauarbeiten.wurdeBegonnen === null) {
+        errors[3].push('Bitte geben Sie an, ob die Bauarbeiten begonnen wurden');
+      }
+
+      if (formData.step3.objektDetailsNeubauErsterwerb.bauarbeiten.wurdeBegonnen === true && !formData.step3.objektDetailsNeubauErsterwerb.bauarbeiten.beginnDatum) {
+        errors[3].push('Bitte geben Sie das Datum des Baubeginns ein');
+      }
+    }
+
+    // Bestandserwerb validation
+    if (formData.step3.foerderVariante?.includes('bestandserwerb') && !formData.step3.objektDetailsBestandserwerb.baujahr) {
+      errors[3].push('Bitte geben Sie das Baujahr ein');
     }
 
     // Validate Step 4
-    if (!formData.step4.eigentumsverhaeltnis) errors.push('Eigentumsverhältnis ist erforderlich');
-    if (formData.step4.erbbaurecht === null) errors.push('Bitte geben Sie an, ob Erbbaurecht vorhanden ist');
-    if (formData.step4.baulasten.vorhanden === null) errors.push('Bitte geben Sie an, ob Baulasten vorhanden sind');
-    if (formData.step4.altlasten.vorhanden === null) errors.push('Bitte geben Sie an, ob Altlasten vorhanden sind');
+    errors[4] = [];
     
-    // Conditional validation for Step 4
-    if (formData.step4.baulasten.vorhanden === true && !formData.step4.baulasten.art) {
-      errors.push('Bitte beschreiben Sie die Art der Baulasten');
-    }
-    if (formData.step4.altlasten.vorhanden === true && !formData.step4.altlasten.art) {
-      errors.push('Bitte beschreiben Sie die Art der Altlasten');
+    // Eigentumsverhältnisse validation
+    if (formData.step4.eigentumsverhaeltnis === null) {
+      errors[4].push('Bitte geben Sie an, ob das Objekt im Eigentum der antragstellenden Person(en) ist');
     }
 
-    if (errors.length > 0) {
-      alert('Bitte korrigieren Sie die folgenden Fehler:\n\n' + errors.join('\n'));
+    if (formData.step4.eigentumsverhaeltnis === false) {
+      if (formData.step4.kaufvertrag.wurdeAbgeschlossen === null) {
+        errors[4].push('Bitte geben Sie an, ob der Kaufvertrag abgeschlossen wurde');
+      }
+      if (formData.step4.kaufvertrag.wurdeAbgeschlossen === true && !formData.step4.kaufvertrag.abschlussDatum) {
+        errors[4].push('Bitte geben Sie das Abschlussdatum des Kaufvertrags ein');
+      }
+    }
+
+    // Erbbaurecht validation
+    if (formData.step4.erbbaurecht === null) {
+      errors[4].push('Bitte geben Sie an, ob Erbbaurecht vorhanden ist');
+    }
+    if (formData.step4.erbbaurecht === true && !formData.step4.restlaufzeitErbbaurecht) {
+      errors[4].push('Bitte geben Sie die Restlaufzeit des Erbbaurechts ein');
+    }
+
+    // Grundbuch validation
+    if (!formData.step4.grundbuch.type) {
+      errors[4].push('Bitte wählen Sie einen Grundbuchtyp aus');
+    }
+    if (!formData.step4.grundbuch.amtsgericht) {
+      errors[4].push('Bitte geben Sie das Amtsgericht ein');
+    }
+    if (!formData.step4.grundbuch.ortGrundbuch) {
+      errors[4].push('Bitte geben Sie den Ort des Grundbuchs ein');
+    }
+    if (!formData.step4.grundbuch.gemarkung) {
+      errors[4].push('Bitte geben Sie die Gemarkung ein');
+    }
+    if (!formData.step4.grundbuch.blatt) {
+      errors[4].push('Bitte geben Sie das Blatt ein');
+    }
+    if (!formData.step4.grundbuch.flur) {
+      errors[4].push('Bitte geben Sie die Flur ein');
+    }
+    if (!formData.step4.grundbuch.flurstueck) {
+      errors[4].push('Bitte geben Sie das Flurstück ein');
+    }
+    if (!formData.step4.grundbuch.grundstuecksgroesse) {
+      errors[4].push('Bitte geben Sie die Grundstücksgröße ein');
+    }
+
+    // Baulasten validation
+    if (formData.step4.baulasten.vorhanden === null) {
+      errors[4].push('Bitte geben Sie an, ob Baulasten vorhanden sind');
+    }
+    if (formData.step4.baulasten.vorhanden === true && !formData.step4.baulasten.art) {
+      errors[4].push('Bitte geben Sie die Art der Baulasten ein');
+    }
+
+    // Altlasten validation
+    if (formData.step4.altlasten.vorhanden === null) {
+      errors[4].push('Bitte geben Sie an, ob Altlasten vorhanden sind');
+    }
+    if (formData.step4.altlasten.vorhanden === true && !formData.step4.altlasten.art) {
+      errors[4].push('Bitte geben Sie die Art der Altlasten ein');
+    }
+
+    // Validate Step 5
+    errors[5] = [];
+    
+    // Baugrundstück validation for Neubau
+    if (formData.step3.foerderVariante === 'neubau') {
+      if (!formData.step5.baugrundstuck.kaufpreis) errors[5].push('Bitte geben Sie den Kaufpreis des Baugrundstücks ein');
+      if (!formData.step5.baugrundstuck.wert) errors[5].push('Bitte geben Sie den Wert des Baugrundstücks ein');
+      if (!formData.step5.baugrundstuck.erschliessungskosten) errors[5].push('Bitte geben Sie die Erschließungskosten ein');
+      if (!formData.step5.baugrundstuck.standortbedingteMehrkosten) errors[5].push('Bitte geben Sie die standortbedingten Mehrkosten ein');
+    }
+
+    // Kaufpreis validation for Bestandserwerb or Ersterwerb
+    if (formData.step3.foerderVariante?.includes('bestandserwerb') || formData.step3.foerderVariante?.includes('ersterwerb')) {
+      if (!formData.step5.kaufpreis.kaufpreis) errors[5].push('Bitte geben Sie den Kaufpreis ein');
+    }
+
+    // Baukosten validation for Neubau or Nutzungsänderung
+    if (formData.step3.foerderVariante === 'neubau' || formData.step3.foerderVariante === 'nutzungsaenderung') {
+      if (formData.step3.foerderVariante === 'neubau' && !formData.step5.baukosten.kostenGebaeude) {
+        errors[5].push('Bitte geben Sie die Kosten des Gebäudes ein');
+      }
+      if (!formData.step5.baukosten.besondereBauausfuhrung) errors[5].push('Bitte geben Sie die besondere Bauausführung ein');
+      if (!formData.step5.baukosten.wertVorhandenerGebaude) errors[5].push('Bitte geben Sie den Wert vorhandener Gebäudeteile ein');
+      if (!formData.step5.baukosten.kostenAussenanlagen) errors[5].push('Bitte geben Sie die Kosten der Außenanlagen ein');
+      if (!formData.step5.baukosten.kostenArchitekt) errors[5].push('Bitte geben Sie die Kosten der Architekten- und Ingenieurleistungen ein');
+    }
+
+    // Nebenkosten validation (always required)
+    if (!formData.step5.nebenkosten.erwerbsnebenkosten) errors[5].push('Bitte geben Sie die Erwerbsnebenkosten ein');
+    if (!formData.step5.nebenkosten.verwaltungsleistungen) errors[5].push('Bitte geben Sie die Kosten der Verwaltungsleistungen ein');
+    if (!formData.step5.nebenkosten.beschaffungDauerfinanzierung) errors[5].push('Bitte geben Sie die Kosten der Beschaffung der Dauerfinanzierungsmittel ein');
+    if (!formData.step5.nebenkosten.beschaffungZwischenfinanzierung) errors[5].push('Bitte geben Sie die Kosten der Beschaffung und Verzinsung der Zwischenfinanzierung ein');
+    if (!formData.step5.nebenkosten.sonstigeNebenkosten) errors[5].push('Bitte geben Sie die sonstigen Nebenkosten ein');
+    if (!formData.step5.nebenkosten.zusatzlicheKosten) errors[5].push('Bitte geben Sie die zusätzlichen Kosten ein');
+
+    // Validate Step 6
+    errors[6] = [];
+
+    // Validate Fremddarlehen fields
+    formData.step6.fremddarlehen.forEach((darlehen, index) => {
+      // Check if any field has a value (excluding the id field)
+      const hasAnyValue = Object.entries(darlehen)
+        .filter(([key]) => key !== 'id') // Exclude the id field from the check
+        .some(([_, value]) => value !== '');
+      
+      if (hasAnyValue) {
+        if (!darlehen.darlehenGeber) errors[6].push(`Fremddarlehen ${index + 1}: Bitte geben Sie den Darlehensgeber ein`);
+        if (!darlehen.nennbetrag) errors[6].push(`Fremddarlehen ${index + 1}: Bitte geben Sie den Nennbetrag ein`);
+        if (!darlehen.zinssatz) errors[6].push(`Fremddarlehen ${index + 1}: Bitte geben Sie den Zinssatz ein`);
+        if (!darlehen.auszahlung) errors[6].push(`Fremddarlehen ${index + 1}: Bitte geben Sie die Auszahlung ein`);
+        if (!darlehen.tilgung) errors[6].push(`Fremddarlehen ${index + 1}: Bitte geben Sie die Tilgung ein`);
+      }
+    });
+
+    // Validate Ergänzungsdarlehen if hasSupplementaryLoan is true
+    if (formData.step2.hasSupplementaryLoan === true) {
+      if (!formData.step6.ergaenzungsdarlehen.nennbetrag) {
+        errors[6].push('Bitte geben Sie den Nennbetrag des Ergänzungsdarlehens ein');
+      }
+    } else {
+      // Validate NRW Bank Darlehen
+      if (!formData.step6.darlehenNRWBank.grunddarlehen.nennbetrag) {
+        errors[6].push('Bitte geben Sie den Nennbetrag des Grunddarlehens ein');
+      }
+
+      // Validate Familienbonus if childCount > 0
+      if (parseInt(formData.step2.childCount) > 0 && !formData.step6.darlehenNRWBank.zusatzdarlehen.familienbonus.nennbetrag) {
+        errors[6].push('Bitte geben Sie den Nennbetrag des Familienbonus ein');
+      }
+
+      // Validate Barrierefreiheit if barrierefrei is true
+      if (formData.step3.objektDetailsAllgemein.barrierefrei === true && !formData.step6.darlehenNRWBank.zusatzdarlehen.barrierefreiheit.nennbetrag) {
+        errors[6].push('Bitte geben Sie den Nennbetrag für Barrierefreiheit ein');
+      }
+
+      // Validate Bauen mit Holz
+      if (!formData.step6.darlehenNRWBank.zusatzdarlehen.bauenMitHolz.nennbetrag) {
+        errors[6].push('Bitte geben Sie den Nennbetrag für Bauen mit Holz ein');
+      }
+
+      // Validate Standortbedingte Mehrkosten
+      if (!formData.step6.darlehenNRWBank.zusatzdarlehen.standortbedingteMehrkosten.nennbetrag) {
+        errors[6].push('Bitte geben Sie den Nennbetrag für standortbedingte Mehrkosten ein');
+      }
+
+      // Validate BEG Effizienzhaus 40 Standard if begEffizienzhaus40Standard is true
+      if (formData.step3.objektDetailsAllgemein.begEffizienzhaus40Standard === true && !formData.step6.darlehenNRWBank.zusatzdarlehen.begEffizienzhaus40Standard.nennbetrag) {
+        errors[6].push('Bitte geben Sie den Nennbetrag für BEG Effizienzhaus 40 Standard ein');
+      }
+    }
+
+    // Validate Eigenleistung fields (always required)
+    if (!formData.step6.eigenleistung.eigeneGeldmittel) errors[6].push('Bitte geben Sie die eigenen Geldmittel ein');
+    if (!formData.step6.eigenleistung.zuschüsse) errors[6].push('Bitte geben Sie die Zuschüsse ein');
+    if (!formData.step6.eigenleistung.selbsthilfe) errors[6].push('Bitte geben Sie die Selbsthilfe ein');
+
+    // Validate wertBaugrundstück if foerderVariante is "neubau"
+    if (formData.step3.foerderVariante === 'neubau' && !formData.step6.eigenleistung.wertBaugrundstück) {
+      errors[6].push('Bitte geben Sie den Wert des Baugrundstücks ein');
+    }
+
+    // Validate wertVorhandenerGebaeudeteile if foerderVariante is "neubau" or "nutzungsaenderung"
+    if ((formData.step3.foerderVariante === 'neubau' || formData.step3.foerderVariante === 'nutzungsaenderung') && !formData.step6.eigenleistung.wertVorhandenerGebaeudeteile) {
+      errors[6].push('Bitte geben Sie den Wert vorhandener Gebäudeteile ein');
+    }
+
+    // Filter out empty error arrays
+    const filteredErrors = Object.fromEntries(
+      Object.entries(errors).filter(([_, errorArray]) => errorArray.length > 0)
+    );
+
+    if (Object.keys(filteredErrors).length > 0) {
+      setValidationErrors(filteredErrors);
+      setShowValidationModal(true);
       return false;
     }
 
@@ -1165,6 +1471,7 @@ const HauptantragContainer: React.FC = () => {
           <Step1_PersonalInfo
             formData={formData.step1}
             updateFormData={(data) => updateFormData('step1', data)}
+            showValidation={showValidation}
           />
         );
       case 2:
@@ -1172,6 +1479,7 @@ const HauptantragContainer: React.FC = () => {
           <Step2_HouseholdInfo
             formData={formData.step2}
             updateFormData={(data) => updateFormData('step2', data)}
+            showValidation={showValidation}
           />
         );
       case 3:
@@ -1315,6 +1623,44 @@ const HauptantragContainer: React.FC = () => {
           </Button>
         </div>
       </Container>
+
+      <Modal show={showValidationModal} onHide={() => setShowValidationModal(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Bitte korrigieren Sie die folgenden Fehler</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <div className="alert alert-danger mb-0">
+            <div className="error-list">
+              {Object.entries(validationErrors).map(([step, errors], index) => (
+                <div key={step} className="mb-3">
+                  <h5 className="text-danger mb-2">Schritt {step}:</h5>
+                  <ul className="mb-0 ps-3">
+                    {errors.map((error, errorIndex) => (
+                      <li key={errorIndex} className="mb-2">
+                        {error}
+                        {errorIndex < errors.length - 1 && (
+                          <hr className="my-2 border-danger opacity-25" />
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                  {index < Object.keys(validationErrors).length - 1 && (
+                    <hr className="my-3 border-danger opacity-50" />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button 
+            onClick={() => setShowValidationModal(false)}
+            style={{ backgroundColor: '#064497', border: 'none' }}
+          >
+            Schließen
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 };

@@ -7,6 +7,7 @@ interface CurrencyInputProps {
   placeholder?: string;
   label?: string;
   disabled?: boolean;
+  isInvalid?: boolean;
 }
 
 const CurrencyInput: React.FC<CurrencyInputProps> = ({
@@ -14,7 +15,8 @@ const CurrencyInput: React.FC<CurrencyInputProps> = ({
   onChange,
   placeholder,
   label,
-  disabled = false
+  disabled = false,
+  isInvalid = false
 }) => {
   const [cursorPosition, setCursorPosition] = useState<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -90,6 +92,7 @@ const CurrencyInput: React.FC<CurrencyInputProps> = ({
         value={value}
         onChange={handleChange}
         disabled={disabled}
+        isInvalid={isInvalid}
       />
       {label && <label>{label}</label>}
     </Form.Floating>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Form, Button, OverlayTrigger, Tooltip, Row, Col } from 'react-bootstrap';
 import CurrencyInput from '../../common/CurrencyInput';
+import AddressInput from '../../common/AddressInput';
 
 interface Step3Data {
   address: {
@@ -152,55 +153,14 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData })
           </OverlayTrigger>
         </div>
 
-        <div className="row g-3">
-          <div className="col-md-8">
-            <Form.Floating>
-              <Form.Control
-                type="text"
-                placeholder="Straße"
-                value={formData.address.street}
-                onChange={(e) => handleInputChange('address', 'street', e.target.value)}
-              />
-              <label>Straße</label>
-            </Form.Floating>
-          </div>
-          <div className="col-md-4">
-            <Form.Floating>
-              <Form.Control
-                type="text"
-                placeholder="Hausnummer"
-                value={formData.address.houseNumber}
-                onChange={(e) => handleInputChange('address', 'houseNumber', e.target.value)}
-              />
-              <label>Hausnummer</label>
-            </Form.Floating>
-          </div>
-        </div>
-
-        <div className="row g-3 mt-1">
-          <div className="col-md-4">
-            <Form.Floating>
-              <Form.Control
-                type="text"
-                placeholder="Postleitzahl"
-                value={formData.address.postalCode}
-                onChange={(e) => handleInputChange('address', 'postalCode', e.target.value)}
-              />
-              <label>Postleitzahl</label>
-            </Form.Floating>
-          </div>
-          <div className="col-md-8">
-            <Form.Floating>
-              <Form.Control
-                type="text"
-                placeholder="Ort"
-                value={formData.address.city}
-                onChange={(e) => handleInputChange('address', 'city', e.target.value)}
-              />
-              <label>Ort</label>
-            </Form.Floating>
-          </div>
-        </div>
+        <AddressInput
+          value={formData.address}
+          onChange={(address) => updateFormData({
+            ...formData,
+            address
+          })}
+          isInvalid={false}
+        />
       </div>
 
       {/* Fördervariante Section */}

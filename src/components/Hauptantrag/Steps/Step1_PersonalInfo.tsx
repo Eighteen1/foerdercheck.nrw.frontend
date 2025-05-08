@@ -227,6 +227,11 @@ const countries = [
   'Zypern'
 ];
 
+// Add validation interface
+interface ValidationErrors {
+  [key: string]: string[];
+}
+
 interface Representative {
   hasRepresentative: boolean | null;
   isCompany: boolean | null;
@@ -270,10 +275,16 @@ interface Step1Data {
 interface Step1Props {
   formData: Step1Data;
   updateFormData: (data: Step1Data) => void;
+  showValidation?: boolean;
 }
 
-const Step1_PersonalInfo: React.FC<Step1Props> = ({ formData, updateFormData }) => {
+const Step1_PersonalInfo: React.FC<Step1Props> = ({ 
+  formData, 
+  updateFormData,
+  showValidation = false
+}) => {
   const [expandedEmploymentSections, setExpandedEmploymentSections] = useState<Record<number, string | null>>({});
+  const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
 
   // Initialize default representative state if not present
   const ensureRepresentativeState = (data: Step1Data): Step1Data => {
@@ -435,6 +446,89 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({ formData, updateFormData }) 
     </Tooltip>
   );
 
+  const validatePerson = (person: Person, index: number): string[] => {
+    const errors: string[] = [];
+    if (!person.title) errors.push('Titel ist erforderlich');
+    if (!person.firstName) errors.push('Vorname ist erforderlich');
+    if (!person.lastName) errors.push('Name ist erforderlich');
+    if (!person.birthDate) errors.push('Geburtsdatum ist erforderlich');
+    if (!person.nationality) errors.push('Staatsangehörigkeit ist erforderlich');
+    if (!person.street) errors.push('Straße ist erforderlich');
+    if (!person.houseNumber) errors.push('Hausnummer ist erforderlich');
+    if (!person.postalCode) errors.push('Postleitzahl ist erforderlich');
+    if (!person.city) errors.push('Ort ist erforderlich');
+    if (!person.phone) errors.push('Telefonnummer ist erforderlich');
+    if (!person.email) errors.push('E-Mail ist erforderlich');
+    if (!person.employment.type) errors.push('Beschäftigungsart ist erforderlich');
+    if ((person.employment.type === 'sole-trader' || 
+         person.employment.type === 'business-owner' || 
+         person.employment.type === 'freelancer' || 
+         person.employment.type === 'farmer' || 
+         person.employment.type === 'private-income') && 
+        !person.employment.details) {
+      errors.push('Branche ist erforderlich');
+    }
+    return errors;
+  };
+
+  const validateRepresentative = (): string[] => {
+    const errors: string[] = [];
+    if (formData.representative.hasRepresentative === null) {
+      errors.push('Bitte geben Sie an, ob einen Bevollmächtigten angeben wollen');
+    }
+    if (formData.representative.isCompany === null && formData.representative.hasRepresentative === true) {
+      errors.push('Bitte geben Sie an, ob es sich um eine Firma handelt');
+    }
+    if (formData.representative.hasRepresentative) {
+      if (formData.representative.isCompany === true) {
+        if (!formData.representative.companyName) errors.push('Bitte geben Sie den Namen der Bevollmächtigten Firma ein');
+        if (!formData.representative.postboxCity) errors.push('Bitte geben Sie den Ort des Postfachs der Bevollmächtigten Firma ein');
+        if (!formData.representative.postboxPostcode) errors.push('Bitte geben Sie die Postleitzahl des Postfachs der Bevollmächtigten Firma ein');
+      } else if (formData.representative.isCompany === false) {
+        if (!formData.representative.title) errors.push('Bitte geben Sie den Titel des Bevollmächtigten ein');
+        if (!formData.representative.firstName) errors.push('Bitte geben Sie den Vornamen des Bevollmächtigten ein');
+        if (!formData.representative.lastName) errors.push('Bitte geben Sie den Nachnamen des Bevollmächtigten ein');
+        if (!formData.representative.street) errors.push('Bitte geben Sie die Straße des Bevollmächtigten ein');
+        if (!formData.representative.houseNumber) errors.push('Bitte geben Sie die Hausnummer des Bevollmächtigten ein');
+        if (!formData.representative.postalCode) errors.push('Bitte geben Sie die Postleitzahl des Bevollmächtigten ein');
+        if (!formData.representative.city) errors.push('Bitte geben Sie die Stadt des Bevollmächtigten ein');
+        if (!formData.representative.phone) errors.push('Bitte geben Sie die Telefonnummer des Bevollmächtigten ein');
+        if (!formData.representative.email) errors.push('Bitte geben Sie die E-Mail des Bevollmächtigten ein');
+      }
+    }
+    return errors;
+  };
+
+  // Update validation errors when form data changes AND showValidation is true
+  useEffect(() => {
+    if (showValidation) {
+      const newValidationErrors: ValidationErrors = {};
+      
+      // Validate each person
+      formData.persons.forEach((person, index) => {
+        const personErrors = validatePerson(person, index);
+        if (personErrors.length > 0) {
+          newValidationErrors[`person_${index}`] = personErrors;
+        }
+      });
+
+      // Validate representative
+      const representativeErrors = validateRepresentative();
+      if (representativeErrors.length > 0) {
+        newValidationErrors['representative'] = representativeErrors;
+      }
+
+      setValidationErrors(newValidationErrors);
+    } else {
+      // Clear validation errors when showValidation is false
+      setValidationErrors({});
+    }
+  }, [formData, showValidation]);
+
+  const getFieldError = (index: number, fieldName: string): boolean => {
+    return !!validationErrors[`person_${index}`]?.includes(`${fieldName} ist erforderlich`);
+  };
+
   const renderPersonForm = (person: Person, index: number) => (
     <div key={index} className="mb-5">
       <div className="d-flex align-items-center gap-3 mb-6">
@@ -518,6 +612,11 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({ formData, updateFormData }) 
             checked={person.title === 'ohne Anrede'}
             onChange={() => handlePersonChange(index, 'title', 'ohne Anrede')}
           />
+          {getFieldError(index, 'Titel') && (
+            <div className="text-danger mt-1">
+              Titel ist erforderlich
+            </div>
+          )}
         </div>
 
         <div className="row g-3">
@@ -528,8 +627,12 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({ formData, updateFormData }) 
                 placeholder="Vorname"
                 value={person.firstName}
                 onChange={(e) => handlePersonChange(index, 'firstName', e.target.value)}
+                isInvalid={getFieldError(index, 'Vorname')}
               />
               <label>Vorname</label>
+              <Form.Control.Feedback type="invalid">
+                Vorname ist erforderlich
+              </Form.Control.Feedback>
             </Form.Floating>
           </div>
           <div className="col-md-6">
@@ -539,8 +642,12 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({ formData, updateFormData }) 
                 placeholder="Name"
                 value={person.lastName}
                 onChange={(e) => handlePersonChange(index, 'lastName', e.target.value)}
+                isInvalid={getFieldError(index, 'Name')}
               />
               <label>Name</label>
+              <Form.Control.Feedback type="invalid">
+                Name ist erforderlich
+              </Form.Control.Feedback>
             </Form.Floating>
           </div>
         </div>
@@ -551,6 +658,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({ formData, updateFormData }) 
               <Form.Select
                 value={person.nationality}
                 onChange={(e) => handlePersonChange(index, 'nationality', e.target.value)}
+                isInvalid={getFieldError(index, 'Staatsangehörigkeit')}
               >
                 <option value="">Bitte wählen</option>
                 {countries.map((country) => (
@@ -560,6 +668,9 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({ formData, updateFormData }) 
                 ))}
               </Form.Select>
               <label>Staatsangehörigkeit</label>
+              <Form.Control.Feedback type="invalid">
+                Staatsangehörigkeit ist erforderlich
+              </Form.Control.Feedback>
             </Form.Floating>
           </div>
           <div className="col-md-6">
@@ -569,8 +680,12 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({ formData, updateFormData }) 
                 placeholder="Geburtsdatum"
                 value={person.birthDate}
                 onChange={(e) => handlePersonChange(index, 'birthDate', e.target.value)}
+                isInvalid={getFieldError(index, 'Geburtsdatum')}
               />
               <label>Geburtsdatum</label>
+              <Form.Control.Feedback type="invalid">
+                Geburtsdatum ist erforderlich
+              </Form.Control.Feedback>
             </Form.Floating>
           </div>
         </div>
@@ -607,8 +722,12 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({ formData, updateFormData }) 
                 placeholder="Straße"
                 value={person.street}
                 onChange={(e) => handlePersonChange(index, 'street', e.target.value)}
+                isInvalid={getFieldError(index, 'Straße')}
               />
               <label>Straße</label>
+              <Form.Control.Feedback type="invalid">
+                Straße ist erforderlich
+              </Form.Control.Feedback>
             </Form.Floating>
           </div>
           <div className="col-md-4">
@@ -618,8 +737,12 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({ formData, updateFormData }) 
                 placeholder="Hausnummer"
                 value={person.houseNumber}
                 onChange={(e) => handlePersonChange(index, 'houseNumber', e.target.value)}
+                isInvalid={getFieldError(index, 'Hausnummer')}
               />
               <label>Hausnummer</label>
+              <Form.Control.Feedback type="invalid">
+                Hausnummer ist erforderlich
+              </Form.Control.Feedback>
             </Form.Floating>
           </div>
         </div>
@@ -632,8 +755,12 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({ formData, updateFormData }) 
                 placeholder="Postleitzahl"
                 value={person.postalCode}
                 onChange={(e) => handlePersonChange(index, 'postalCode', e.target.value)}
+                isInvalid={getFieldError(index, 'Postleitzahl')}
               />
               <label>Postleitzahl</label>
+              <Form.Control.Feedback type="invalid">
+                Postleitzahl ist erforderlich
+              </Form.Control.Feedback>
             </Form.Floating>
           </div>
           <div className="col-md-8">
@@ -643,8 +770,12 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({ formData, updateFormData }) 
                 placeholder="Ort"
                 value={person.city}
                 onChange={(e) => handlePersonChange(index, 'city', e.target.value)}
+                isInvalid={getFieldError(index, 'Ort')}
               />
               <label>Ort</label>
+              <Form.Control.Feedback type="invalid">
+                Ort ist erforderlich
+              </Form.Control.Feedback>
             </Form.Floating>
           </div>
         </div>
@@ -681,8 +812,12 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({ formData, updateFormData }) 
                 placeholder="Telefonnummer"
                 value={person.phone}
                 onChange={(e) => handlePersonChange(index, 'phone', e.target.value)}
+                isInvalid={getFieldError(index, 'Telefonnummer')}
               />
               <label>Telefonnummer</label>
+              <Form.Control.Feedback type="invalid">
+                Telefonnummer ist erforderlich
+              </Form.Control.Feedback>
             </Form.Floating>
           </div>
           <div className="col-md-6">
@@ -692,8 +827,12 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({ formData, updateFormData }) 
                 placeholder="E-Mail Adresse"
                 value={person.email}
                 onChange={(e) => handlePersonChange(index, 'email', e.target.value)}
+                isInvalid={getFieldError(index, 'E-Mail')}
               />
               <label>E-Mail Adresse</label>
+              <Form.Control.Feedback type="invalid">
+                E-Mail ist erforderlich
+              </Form.Control.Feedback>
             </Form.Floating>
           </div>
         </div>
@@ -721,6 +860,12 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({ formData, updateFormData }) 
             </Button>
           </OverlayTrigger>
         </div>
+
+        {getFieldError(index, 'Beschäftigungsart') && (
+          <div className="text-danger mb-2">
+            Beschäftigungsart ist erforderlich
+          </div>
+        )}
 
         <div className="employment-sections">
           {/* Non-self-employed section */}
@@ -845,8 +990,12 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({ formData, updateFormData }) 
                       placeholder="Branche"
                       value={person.employment.details}
                       onChange={(e) => handleEmploymentDetailChange(index, e.target.value)}
+                      isInvalid={getFieldError(index, 'Branche')}
                     />
                     <label>Branche</label>
+                    <Form.Control.Feedback type="invalid">
+                      Branche ist erforderlich
+                    </Form.Control.Feedback>
                   </Form.Floating>
                 </div>
               </div>
@@ -957,6 +1106,11 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({ formData, updateFormData }) 
           />
         </div>
       </div>
+      {validationErrors['representative']?.includes('Bitte geben Sie an, ob einen Bevollmächtigten angeben wollen') && (
+        <div className="text-danger mt-1">
+          Bitte geben Sie an, ob einen Bevollmächtigten angeben wollen
+        </div>
+      )}
 
       {formData.representative.hasRepresentative && (
         <div className="d-flex align-items-center mb-3">
@@ -1005,6 +1159,11 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({ formData, updateFormData }) 
           </div>
         </div>
       )}
+      {validationErrors['representative']?.includes('Bitte geben Sie an, ob es sich um eine Firma handelt') && (
+        <div className="text-danger mt-1">
+          Bitte geben Sie an, ob es sich um eine Firma handelt
+        </div>
+      )}
 
       {formData.representative.hasRepresentative && formData.representative.isCompany === true && (
         // Company fields
@@ -1016,8 +1175,12 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({ formData, updateFormData }) 
                 placeholder="Firma"
                 value={formData.representative.companyName}
                 onChange={(e) => handleRepresentativeChange('companyName', e.target.value)}
+                isInvalid={validationErrors['representative']?.includes('Bitte geben Sie den Namen der Bevollmächtigten Firma ein')}
               />
               <label>Firma</label>
+              <Form.Control.Feedback type="invalid">
+                Bitte geben Sie den Namen der Bevollmächtigten Firma ein
+              </Form.Control.Feedback>
             </Form.Floating>
           </div>
           <div className="col-md-6">
@@ -1027,8 +1190,12 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({ formData, updateFormData }) 
                 placeholder="Postfach PLZ"
                 value={formData.representative.postboxPostcode}
                 onChange={(e) => handleRepresentativeChange('postboxPostcode', e.target.value)}
+                isInvalid={validationErrors['representative']?.includes('Bitte geben Sie die Postleitzahl des Postfachs der Bevollmächtigten Firma ein')}
               />
               <label>Postfach PLZ</label>
+              <Form.Control.Feedback type="invalid">
+                Bitte geben Sie die Postleitzahl des Postfachs der Bevollmächtigten Firma ein
+              </Form.Control.Feedback>
             </Form.Floating>
           </div>
           <div className="col-md-6">
@@ -1038,8 +1205,12 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({ formData, updateFormData }) 
                 placeholder="Postfach Ort"
                 value={formData.representative.postboxCity}
                 onChange={(e) => handleRepresentativeChange('postboxCity', e.target.value)}
+                isInvalid={validationErrors['representative']?.includes('Bitte geben Sie den Ort des Postfachs der Bevollmächtigten Firma ein')}
               />
               <label>Postfach Ort</label>
+              <Form.Control.Feedback type="invalid">
+                Bitte geben Sie den Ort des Postfachs der Bevollmächtigten Firma ein
+              </Form.Control.Feedback>
             </Form.Floating>
           </div>
         </div>
@@ -1073,6 +1244,11 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({ formData, updateFormData }) 
               checked={formData.representative.title === 'ohne Anrede'}
               onChange={() => handleRepresentativeChange('title', 'ohne Anrede')}
             />
+            {validationErrors['representative']?.includes('Bitte geben Sie den Titel des Bevollmächtigten ein') && (
+              <div className="text-danger mt-1">
+                Bitte geben Sie den Titel des Bevollmächtigten ein
+              </div>
+            )}
           </div>
 
           <div className="row g-3">
@@ -1083,8 +1259,12 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({ formData, updateFormData }) 
                   placeholder="Vorname"
                   value={formData.representative.firstName}
                   onChange={(e) => handleRepresentativeChange('firstName', e.target.value)}
+                  isInvalid={validationErrors['representative']?.includes('Bitte geben Sie den Vornamen des Bevollmächtigten ein')}
                 />
                 <label>Vorname</label>
+                <Form.Control.Feedback type="invalid">
+                  Bitte geben Sie den Vornamen des Bevollmächtigten ein
+                </Form.Control.Feedback>
               </Form.Floating>
             </div>
             <div className="col-md-6">
@@ -1094,8 +1274,12 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({ formData, updateFormData }) 
                   placeholder="Name"
                   value={formData.representative.lastName}
                   onChange={(e) => handleRepresentativeChange('lastName', e.target.value)}
+                  isInvalid={validationErrors['representative']?.includes('Bitte geben Sie den Nachnamen des Bevollmächtigten ein')}
                 />
                 <label>Name</label>
+                <Form.Control.Feedback type="invalid">
+                  Bitte geben Sie den Nachnamen des Bevollmächtigten ein
+                </Form.Control.Feedback>
               </Form.Floating>
             </div>
           </div>
@@ -1108,8 +1292,12 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({ formData, updateFormData }) 
                   placeholder="Straße"
                   value={formData.representative.street}
                   onChange={(e) => handleRepresentativeChange('street', e.target.value)}
+                  isInvalid={validationErrors['representative']?.includes('Bitte geben Sie die Straße des Bevollmächtigten ein')}
                 />
                 <label>Straße</label>
+                <Form.Control.Feedback type="invalid">
+                  Bitte geben Sie die Straße des Bevollmächtigten ein
+                </Form.Control.Feedback>
               </Form.Floating>
             </div>
             <div className="col-md-4">
@@ -1119,8 +1307,12 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({ formData, updateFormData }) 
                   placeholder="Hausnummer"
                   value={formData.representative.houseNumber}
                   onChange={(e) => handleRepresentativeChange('houseNumber', e.target.value)}
+                  isInvalid={validationErrors['representative']?.includes('Bitte geben Sie die Hausnummer des Bevollmächtigten ein')}
                 />
                 <label>Hausnummer</label>
+                <Form.Control.Feedback type="invalid">
+                  Bitte geben Sie die Hausnummer des Bevollmächtigten ein
+                </Form.Control.Feedback>
               </Form.Floating>
             </div>
           </div>
@@ -1133,8 +1325,12 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({ formData, updateFormData }) 
                   placeholder="Postleitzahl"
                   value={formData.representative.postalCode}
                   onChange={(e) => handleRepresentativeChange('postalCode', e.target.value)}
+                  isInvalid={validationErrors['representative']?.includes('Bitte geben Sie die Postleitzahl des Bevollmächtigten ein')}
                 />
                 <label>Postleitzahl</label>
+                <Form.Control.Feedback type="invalid">
+                  Bitte geben Sie die Postleitzahl des Bevollmächtigten ein
+                </Form.Control.Feedback>
               </Form.Floating>
             </div>
             <div className="col-md-8">
@@ -1144,8 +1340,12 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({ formData, updateFormData }) 
                   placeholder="Ort"
                   value={formData.representative.city}
                   onChange={(e) => handleRepresentativeChange('city', e.target.value)}
+                  isInvalid={validationErrors['representative']?.includes('Bitte geben Sie die Stadt des Bevollmächtigten ein')}
                 />
                 <label>Ort</label>
+                <Form.Control.Feedback type="invalid">
+                  Bitte geben Sie die Stadt des Bevollmächtigten ein
+                </Form.Control.Feedback>
               </Form.Floating>
             </div>
           </div>
@@ -1158,8 +1358,12 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({ formData, updateFormData }) 
                   placeholder="Telefonnummer"
                   value={formData.representative.phone}
                   onChange={(e) => handleRepresentativeChange('phone', e.target.value)}
+                  isInvalid={validationErrors['representative']?.includes('Bitte geben Sie die Telefonnummer des Bevollmächtigten ein')}
                 />
                 <label>Telefonnummer</label>
+                <Form.Control.Feedback type="invalid">
+                  Bitte geben Sie die Telefonnummer des Bevollmächtigten ein
+                </Form.Control.Feedback>
               </Form.Floating>
             </div>
             <div className="col-md-6">
@@ -1169,8 +1373,12 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({ formData, updateFormData }) 
                   placeholder="E-Mail Adresse"
                   value={formData.representative.email}
                   onChange={(e) => handleRepresentativeChange('email', e.target.value)}
+                  isInvalid={validationErrors['representative']?.includes('Bitte geben Sie die E-Mail des Bevollmächtigten ein')}
                 />
                 <label>E-Mail Adresse</label>
+                <Form.Control.Feedback type="invalid">
+                  Bitte geben Sie die E-Mail des Bevollmächtigten ein
+                </Form.Control.Feedback>
               </Form.Floating>
             </div>
           </div>
@@ -1195,6 +1403,29 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({ formData, updateFormData }) 
           .add-person-button:hover {
             color: white !important;
             background-color: #064497 !important;
+          }
+          /* Custom validation styling */
+          .form-control.is-invalid {
+            border-color: #f61c1c !important;
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' width='12' height='12' fill='none' stroke='%23f61c1c'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath stroke-linejoin='round' d='M5.8 3.6h.4L6 6.5z'/%3e%3ccircle cx='6' cy='8.2' r='.6' fill='%23f61c1c' stroke='none'/%3e%3c/svg%3e") !important;
+          }
+          .form-control.is-invalid:focus {
+            border-color: #f61c1c !important;
+            box-shadow: 0 0 0 0.25rem rgba(246, 28, 28, 0.25) !important;
+          }
+          .form-select.is-invalid {
+            border-color: #f61c1c !important;
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' width='12' height='12' fill='none' stroke='%23f61c1c'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath stroke-linejoin='round' d='M5.8 3.6h.4L6 6.5z'/%3e%3ccircle cx='6' cy='8.2' r='.6' fill='%23f61c1c' stroke='none'/%3e%3c/svg%3e") !important;
+          }
+          .form-select.is-invalid:focus {
+            border-color: #f61c1c !important;
+            box-shadow: 0 0 0 0.25rem rgba(246, 28, 28, 0.25) !important;
+          }
+          .invalid-feedback {
+            color: #f61c1c !important;
+          }
+          .text-danger {
+            color: #f61c1c !important;
           }
         `}
       </style>
