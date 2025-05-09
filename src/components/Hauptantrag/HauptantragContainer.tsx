@@ -820,18 +820,23 @@ const HauptantragContainer: React.FC = () => {
   };
 
   const handleSave = async () => {
+    console.log('handleSave function called');
+    
     if (!user?.id) {
       console.error('No user ID found');
       return;
     }
 
     try {
+      console.log('Calculating hauptantrag progress...');
       // Calculate hauptantrag progress
       const hauptantragProgress = calculateProgress();
+      console.log('Progress calculation completed:', hauptantragProgress);
 
       // Get the first person's data (main applicant)
       const mainApplicant = formData.step1.persons[0];
       
+      console.log('Saving to Supabase...');
       // Save progress to Supabase user_data table
       const { error: userError } = await supabase
         .from('user_data')
@@ -1589,9 +1594,6 @@ const HauptantragContainer: React.FC = () => {
         errors[2].push('Bitte geben Sie die Bewilligungsbehörde ein');
       }
     }
-    if (formData.step2.hasSupplementaryLoan === null) {
-      errors[2].push('Bitte geben Sie an, ob Sie ein Ergänzungsdarlehen der NRW.BANK beantragen');
-    }
 
     // Validate Step 3
     errors[3] = [];
@@ -1741,19 +1743,27 @@ const HauptantragContainer: React.FC = () => {
     let totalPotentialErrors = 0;
     let actualErrors = 0;
 
-    Object.values(errors).forEach(stepErrors => {
+    Object.entries(errors).forEach(([step, stepErrors]) => {
+      console.log(`Step ${step} - Total potential errors: ${stepErrors.length}`);
       totalPotentialErrors += stepErrors.length;
-      actualErrors += stepErrors.filter(error => {
-        // Check if the error condition is actually met
-        // For example, if the error is about a missing field, check if the field is actually empty
+      
+      const stepActualErrors = stepErrors.filter(error => {
         return error.includes('ist erforderlich') || error.includes('Bitte geben Sie') || error.includes('Bitte wählen Sie');
       }).length;
+      
+      actualErrors += stepActualErrors;
+      console.log(`Step ${step} - Actual errors: ${stepActualErrors}`);
     });
+
+    console.log('Total potential errors across all steps:', totalPotentialErrors);
+    console.log('Total actual errors across all steps:', actualErrors);
 
     // Calculate hauptantrag progress percentage
     const hauptantragProgress = totalPotentialErrors > 0 
       ? Math.round(((totalPotentialErrors - actualErrors) / totalPotentialErrors) * 100)
       : 100;
+
+    console.log('Calculated hauptantrag progress:', hauptantragProgress, '%');
 
     return hauptantragProgress;
   };
