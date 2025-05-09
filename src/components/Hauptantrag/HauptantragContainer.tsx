@@ -1042,14 +1042,16 @@ const HauptantragContainer: React.FC = () => {
           zusatzdarlehen_familienbonus_nennbetrag: parseInt(formData.step2.childCount) > 0 ? 
             formatCurrencyForDatabase(formData.step6.darlehenNRWBank.zusatzdarlehen.familienbonus.nennbetrag) : null,
           
-          zusatzdarlehen_barrierefreiheit_nennbetrag: formData.step3.objektDetailsAllgemein.barrierefrei ? 
+          zusatzdarlehen_bauen_mit_holz_nennbetrag: formData.step3.objektDetailsAllgemein.hasWoodConstructionLoan ? 
+            formatCurrencyForDatabase(formData.step6.darlehenNRWBank.zusatzdarlehen.bauenMitHolz.nennbetrag) : null,
+
+          zusatzdarlehen_barrierefreiheit_nennbetrag: (formData.step3.objektDetailsAllgemein.barrierefrei && (formData.step3.foerderVariante === 'neubau' || formData.step3.foerderVariante?.includes('ersterwerb'))) ? 
             formatCurrencyForDatabase(formData.step6.darlehenNRWBank.zusatzdarlehen.barrierefreiheit.nennbetrag) : null,
           
-          zusatzdarlehen_bauen_mit_holz_nennbetrag: formatCurrencyForDatabase(formData.step6.darlehenNRWBank.zusatzdarlehen.bauenMitHolz.nennbetrag),
+          zusatzdarlehen_standortbedingte_mehrkosten_nennbetrag: (formData.step3.objektDetailsAllgemein.hasLocationCostLoan && (formData.step3.foerderVariante === 'neubau' || formData.step3.foerderVariante?.includes('ersterwerb'))) ? 
+            formatCurrencyForDatabase(formData.step6.darlehenNRWBank.zusatzdarlehen.standortbedingteMehrkosten.nennbetrag) : null,
           
-          zusatzdarlehen_standortbedingte_mehrkosten_nennbetrag: formatCurrencyForDatabase(formData.step6.darlehenNRWBank.zusatzdarlehen.standortbedingteMehrkosten.nennbetrag),
-          
-          zusatzdarlehen_effizienzhaus40_nennbetrag: formData.step3.objektDetailsAllgemein.begEffizienzhaus40Standard ? 
+          zusatzdarlehen_effizienzhaus40_nennbetrag: (formData.step3.objektDetailsAllgemein.begEffizienzhaus40Standard && (formData.step3.foerderVariante === 'neubau' || formData.step3.foerderVariante?.includes('ersterwerb'))) ? 
             formatCurrencyForDatabase(formData.step6.darlehenNRWBank.zusatzdarlehen.begEffizienzhaus40Standard.nennbetrag) : null,
 
           // Ergänzungsdarlehen - only save if hasSupplementaryLoan is true

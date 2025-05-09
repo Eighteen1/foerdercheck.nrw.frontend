@@ -189,18 +189,54 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
     let nrwBankNennbetrag = getNumericValue(formData.darlehenNRWBank.grunddarlehen.nennbetrag);
     let nrwBankTilgungsnachlass = getNumericValue(formData.darlehenNRWBank.grunddarlehen.tilgungsnachlass);
 
-    Object.values(formData.darlehenNRWBank.zusatzdarlehen).forEach(darlehen => {
-      nrwBankNennbetrag += getNumericValue(darlehen.nennbetrag);
-      nrwBankTilgungsnachlass += getNumericValue(darlehen.tilgungsnachlass);
-    });
+    // Add Familienbonus if childCount > 0
+    if (parseInt(childCount) > 0) {
+      nrwBankNennbetrag += getNumericValue(formData.darlehenNRWBank.zusatzdarlehen.familienbonus.nennbetrag);
+      nrwBankTilgungsnachlass += getNumericValue(formData.darlehenNRWBank.zusatzdarlehen.familienbonus.tilgungsnachlass);
+    }
+
+    // Add Bauen mit Holz if hasWoodConstructionLoan is true
+    if (hasWoodConstructionLoan) {
+      nrwBankNennbetrag += getNumericValue(formData.darlehenNRWBank.zusatzdarlehen.bauenMitHolz.nennbetrag);
+      nrwBankTilgungsnachlass += getNumericValue(formData.darlehenNRWBank.zusatzdarlehen.bauenMitHolz.tilgungsnachlass);
+    }
+
+    // Check if we're in neubau or ersterwerb
+    const isNeubauOrErsterwerb = foerderVariante === 'neubau' || foerderVariante.includes('ersterwerb');
+
+    // Add Barrierefreiheit if applicable
+    if (isNeubauOrErsterwerb && barrierefrei) {
+      nrwBankNennbetrag += getNumericValue(formData.darlehenNRWBank.zusatzdarlehen.barrierefreiheit.nennbetrag);
+      nrwBankTilgungsnachlass += getNumericValue(formData.darlehenNRWBank.zusatzdarlehen.barrierefreiheit.tilgungsnachlass);
+    }
+
+    // Add Standortbedingte Mehrkosten if applicable
+    if (isNeubauOrErsterwerb && hasLocationCostLoan) {
+      nrwBankNennbetrag += getNumericValue(formData.darlehenNRWBank.zusatzdarlehen.standortbedingteMehrkosten.nennbetrag);
+      nrwBankTilgungsnachlass += getNumericValue(formData.darlehenNRWBank.zusatzdarlehen.standortbedingteMehrkosten.tilgungsnachlass);
+    }
+
+    // Add BEG Effizienzhaus 40 Standard if applicable
+    if (isNeubauOrErsterwerb && begEffizienzhaus40Standard) {
+      nrwBankNennbetrag += getNumericValue(formData.darlehenNRWBank.zusatzdarlehen.begEffizienzhaus40Standard.nennbetrag);
+      nrwBankTilgungsnachlass += getNumericValue(formData.darlehenNRWBank.zusatzdarlehen.begEffizienzhaus40Standard.tilgungsnachlass);
+    }
 
     // Calculate Eigenleistung sum
     let eigenleistungSum = 0;
-    Object.entries(formData.eigenleistung).forEach(([key, value]) => {
-      if (key !== 'summeEigenleistung') {
-        eigenleistungSum += getNumericValue(value);
-      }
-    });
+    
+    // Always include these values
+    eigenleistungSum += getNumericValue(formData.eigenleistung.eigeneGeldmittel);
+    eigenleistungSum += getNumericValue(formData.eigenleistung.zuschüsse);
+    eigenleistungSum += getNumericValue(formData.eigenleistung.selbsthilfe);
+
+    // Only include these values if foerderVariante is "neubau"
+    if (foerderVariante === 'neubau' || foerderVariante === 'nutzungsaenderung') {
+      eigenleistungSum += getNumericValue(formData.eigenleistung.wertVorhandenerGebaeudeteile);
+    }
+    if (foerderVariante === 'neubau') {
+      eigenleistungSum += getNumericValue(formData.eigenleistung.wertBaugrundstück);
+    }
 
     // Calculate total (excluding Eigenleistung)
     const fremddarlehenSum = formData.fremddarlehen.reduce((sum, darlehen) => 
