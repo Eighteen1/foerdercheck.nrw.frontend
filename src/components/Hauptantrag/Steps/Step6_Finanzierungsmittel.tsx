@@ -68,6 +68,7 @@ interface Step6Props {
   hasSupplementaryLoan: boolean | null;
   hasLocationCostLoan: boolean | null;
   hasWoodConstructionLoan: boolean | null;
+  showValidation?: boolean;
 }
 
 const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
@@ -80,10 +81,12 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
   begEffizienzhaus40Standard,
   hasSupplementaryLoan,
   hasLocationCostLoan,
-  hasWoodConstructionLoan
+  hasWoodConstructionLoan,
+  showValidation = false
 }) => {
   const [eigenleistungError, setEigenleistungError] = useState<string | null>(null);
   const [gesamtbetraegeError, setGesamtbetraegeError] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
   const handleFremddarlehenChange = (id: string, field: keyof Fremddarlehen, value: string) => {
     const updatedDarlehen = formData.fremddarlehen.map(darlehen => {
@@ -335,6 +338,99 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
     calculateSums();
   }, [formData.fremddarlehen]);
 
+  // Add validation function
+  const validateStep6 = () => {
+    const errors: string[] = [];
+
+    // Validate Fremddarlehen fields
+    formData.fremddarlehen.forEach((darlehen, index) => {
+      const hasAnyValue = Object.entries(darlehen)
+        .filter(([key]) => key !== 'id')
+        .some(([_, value]) => value !== '');
+      
+      if (hasAnyValue) {
+        if (!darlehen.darlehenGeber) errors.push(`Fremddarlehen ${index + 1}: Bitte geben Sie den Darlehensgeber ein`);
+        if (!darlehen.nennbetrag) errors.push(`Fremddarlehen ${index + 1}: Bitte geben Sie den Nennbetrag ein`);
+        if (!darlehen.zinssatz) errors.push(`Fremddarlehen ${index + 1}: Bitte geben Sie den Zinssatz ein`);
+        if (!darlehen.auszahlung) errors.push(`Fremddarlehen ${index + 1}: Bitte geben Sie die Auszahlung ein`);
+        if (!darlehen.tilgung) errors.push(`Fremddarlehen ${index + 1}: Bitte geben Sie die Tilgung ein`);
+      }
+    });
+
+    // Validate Ergänzungsdarlehen if hasSupplementaryLoan is true
+    if (hasSupplementaryLoan === true) {
+      if (!formData.ergaenzungsdarlehen.nennbetrag) {
+        errors.push('Bitte geben Sie den Nennbetrag des Ergänzungsdarlehens ein');
+      }
+    } else {
+      // Validate NRW Bank Darlehen
+      if (!formData.darlehenNRWBank.grunddarlehen.nennbetrag) {
+        errors.push('Bitte geben Sie den Nennbetrag des Grunddarlehens ein');
+      }
+
+      // Validate Familienbonus if childCount > 0
+      if (parseInt(childCount) > 0 && !formData.darlehenNRWBank.zusatzdarlehen.familienbonus.nennbetrag) {
+        errors.push('Bitte geben Sie den Nennbetrag des Familienbonus ein (0,00€ wenn nicht vorhanden)');
+      }
+
+      // Validate Bauen mit Holz
+      if (hasWoodConstructionLoan === true && !formData.darlehenNRWBank.zusatzdarlehen.bauenMitHolz.nennbetrag) {
+        errors.push('Bitte geben Sie den Nennbetrag für Bauen mit Holz ein (0,00€ wenn nicht vorhanden)');
+      }
+
+      // Validate Barrierefreiheit if barrierefrei is true
+      if ((foerderVariante === 'neubau' || foerderVariante?.includes('ersterwerb')) && 
+          barrierefrei === true && 
+          !formData.darlehenNRWBank.zusatzdarlehen.barrierefreiheit.nennbetrag) {
+        errors.push('Bitte geben Sie den Nennbetrag für Barrierefreiheit ein (0,00€ wenn nicht vorhanden)');
+      }
+
+      // Validate Standortbedingte Mehrkosten
+      if ((foerderVariante === 'neubau' || foerderVariante?.includes('ersterwerb')) && 
+          hasLocationCostLoan === true && 
+          !formData.darlehenNRWBank.zusatzdarlehen.standortbedingteMehrkosten.nennbetrag) {
+        errors.push('Bitte geben Sie den Nennbetrag für standortbedingte Mehrkosten ein (0,00€ wenn nicht vorhanden)');
+      }
+
+      // Validate BEG Effizienzhaus 40 Standard
+      if ((foerderVariante === 'neubau' || foerderVariante?.includes('ersterwerb')) && 
+          begEffizienzhaus40Standard === true && 
+          !formData.darlehenNRWBank.zusatzdarlehen.begEffizienzhaus40Standard.nennbetrag) {
+        errors.push('Bitte geben Sie den Nennbetrag für BEG Effizienzhaus 40 Standard ein (0,00€ wenn nicht vorhanden)');
+      }
+    }
+
+    // Validate Eigenleistung fields
+    if (!formData.eigenleistung.eigeneGeldmittel) errors.push('Bitte geben Sie die eigenen Geldmittel ein (0,00€ wenn nicht vorhanden)');
+    if (!formData.eigenleistung.zuschüsse) errors.push('Bitte geben Sie die Zuschüsse ein (0,00€ wenn nicht vorhanden)');
+    if (!formData.eigenleistung.selbsthilfe) errors.push('Bitte geben Sie die Selbsthilfe ein (0,00€ wenn nicht vorhanden)');
+
+    // Validate wertBaugrundstück if foerderVariante is "neubau"
+    if (foerderVariante === 'neubau' && !formData.eigenleistung.wertBaugrundstück) {
+      errors.push('Bitte geben Sie den Wert des Baugrundstücks ein (0,00€ wenn nicht vorhanden)');
+    }
+
+    // Validate wertVorhandenerGebaeudeteile if foerderVariante is "neubau" or "nutzungsaenderung"
+    if ((foerderVariante === 'neubau' || foerderVariante === 'nutzungsaenderung') && !formData.eigenleistung.wertVorhandenerGebaeudeteile) {
+      errors.push('Bitte geben Sie den Wert vorhandener Gebäudeteile ein (0,00€ wenn nicht vorhanden)');
+    }
+
+    return errors;
+  };
+
+  // Update validation errors when form data changes AND showValidation is true
+  useEffect(() => {
+    if (showValidation) {
+      setValidationErrors(validateStep6());
+    } else {
+      setValidationErrors([]);
+    }
+  }, [formData, showValidation]);
+
+  const getFieldError = (fieldName: string): boolean => {
+    return showValidation && validationErrors.some(error => error.includes(fieldName));
+  };
+
   const renderTooltip = (text: string) => (
     <Tooltip id="button-tooltip">
       {text}
@@ -407,8 +503,12 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
                     placeholder="Darlehen der"
                     value={darlehen.darlehenGeber}
                     onChange={(e) => handleFremddarlehenChange(darlehen.id, 'darlehenGeber', e.target.value)}
+                    isInvalid={getFieldError(`Fremddarlehen ${index + 1}: Bitte geben Sie den Darlehensgeber ein`)}
                   />
                   <label>Darlehen der</label>
+                  <Form.Control.Feedback type="invalid">
+                    Bitte geben Sie den Darlehensgeber ein
+                  </Form.Control.Feedback>
                 </Form.Floating>
               </div>
               <div className="col-md-6">
@@ -417,6 +517,7 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
                   onChange={(value) => handleFremddarlehenChange(darlehen.id, 'nennbetrag', value)}
                   placeholder="Nennbetrag"
                   label="Nennbetrag"
+                  isInvalid={getFieldError(`Fremddarlehen ${index + 1}: Bitte geben Sie den Nennbetrag ein`)}
                 />
               </div>
             </div>
@@ -429,8 +530,12 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
                     placeholder="Zinssatz"
                     value={darlehen.zinssatz}
                     onChange={(e) => handleFremddarlehenChange(darlehen.id, 'zinssatz', e.target.value)}
+                    isInvalid={getFieldError(`Fremddarlehen ${index + 1}: Bitte geben Sie den Zinssatz ein`)}
                   />
                   <label>Zinssatz %</label>
+                  <Form.Control.Feedback type="invalid">
+                    Bitte geben Sie den Zinssatz ein
+                  </Form.Control.Feedback>
                 </Form.Floating>
               </div>
               <div className="col-md-4">
@@ -440,8 +545,12 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
                     placeholder="Auszahlung"
                     value={darlehen.auszahlung}
                     onChange={(e) => handleFremddarlehenChange(darlehen.id, 'auszahlung', e.target.value)}
+                    isInvalid={getFieldError(`Fremddarlehen ${index + 1}: Bitte geben Sie die Auszahlung ein`)}
                   />
                   <label>Auszahlung %</label>
+                  <Form.Control.Feedback type="invalid">
+                    Bitte geben Sie die Auszahlung ein
+                  </Form.Control.Feedback>
                 </Form.Floating>
               </div>
               <div className="col-md-4">
@@ -451,8 +560,12 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
                     placeholder="Tilgung"
                     value={darlehen.tilgung}
                     onChange={(e) => handleFremddarlehenChange(darlehen.id, 'tilgung', e.target.value)}
+                    isInvalid={getFieldError(`Fremddarlehen ${index + 1}: Bitte geben Sie die Tilgung ein`)}
                   />
                   <label>Tilgung %</label>
+                  <Form.Control.Feedback type="invalid">
+                    Bitte geben Sie die Tilgung ein
+                  </Form.Control.Feedback>
                 </Form.Floating>
               </div>
             </div>
@@ -501,7 +614,13 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
                 onChange={(value) => handleNRWBankChange('grunddarlehen', 'nennbetrag', value)}
                 placeholder="Grunddarlehen"
                 label="Grunddarlehen"
+                isInvalid={getFieldError('Bitte geben Sie den Nennbetrag des Grunddarlehens ein')}
               />
+              {getFieldError('Bitte geben Sie den Nennbetrag des Grunddarlehens ein') && (
+                <div className="text-danger mt-1">
+                  Bitte geben Sie den Nennbetrag des Grunddarlehens ein
+                </div>
+              )}
             </div>
             <div className="col-md-6">
               <CurrencyInput
@@ -526,7 +645,13 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
                   onChange={(value) => handleNRWBankChange('zusatzdarlehen', 'familienbonus', value)}
                   placeholder="Familienbonus"
                   label="Familienbonus"
+                  isInvalid={getFieldError('Bitte geben Sie den Nennbetrag des Familienbonus ein')}
                 />
+                {getFieldError('Bitte geben Sie den Nennbetrag des Familienbonus ein') && (
+                  <div className="text-danger mt-1">
+                    Bitte geben Sie den Nennbetrag des Familienbonus ein (0,00€ wenn nicht vorhanden)
+                  </div>
+                )}
               </div>
               <div className="col-md-6">
                 <CurrencyInput
@@ -549,7 +674,13 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
                   onChange={(value) => handleNRWBankChange('zusatzdarlehen', 'barrierefreiheit', value)}
                   placeholder="Barrierefreiheit"
                   label="Barrierefreiheit"
+                  isInvalid={getFieldError('Bitte geben Sie den Nennbetrag für Barrierefreiheit ein')}
                 />
+                {getFieldError('Bitte geben Sie den Nennbetrag für Barrierefreiheit ein') && (
+                  <div className="text-danger mt-1">
+                    Bitte geben Sie den Nennbetrag für Barrierefreiheit ein (0,00€ wenn nicht vorhanden)
+                  </div>
+                )}
               </div>
               <div className="col-md-6">
                 <CurrencyInput
@@ -572,7 +703,13 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
                   onChange={(value) => handleNRWBankChange('zusatzdarlehen', 'begEffizienzhaus40Standard', value)}
                   placeholder="BEG Effizienzhaus 40 Standard"
                   label="BEG Effizienzhaus 40 Standard"
+                  isInvalid={getFieldError('Bitte geben Sie den Nennbetrag für BEG Effizienzhaus 40 Standard ein')}
                 />
+                {getFieldError('Bitte geben Sie den Nennbetrag für BEG Effizienzhaus 40 Standard ein') && (
+                  <div className="text-danger mt-1">
+                    Bitte geben Sie den Nennbetrag für BEG Effizienzhaus 40 Standard ein (0,00€ wenn nicht vorhanden)
+                  </div>
+                )}
               </div>
               <div className="col-md-6">
                 <CurrencyInput
@@ -595,7 +732,13 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
                   onChange={(value) => handleNRWBankChange('zusatzdarlehen', 'standortbedingteMehrkosten', value)}
                   placeholder="Standortbedingte Mehrkosten"
                   label="Standortbedingte Mehrkosten"
+                  isInvalid={getFieldError('Bitte geben Sie den Nennbetrag für standortbedingte Mehrkosten ein')}
                 />
+                {getFieldError('Bitte geben Sie den Nennbetrag für standortbedingte Mehrkosten ein') && (
+                  <div className="text-danger mt-1">
+                    Bitte geben Sie den Nennbetrag für standortbedingte Mehrkosten ein (0,00€ wenn nicht vorhanden)
+                  </div>
+                )}
               </div>
               <div className="col-md-6">
                 <CurrencyInput
@@ -618,7 +761,13 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
                   onChange={(value) => handleNRWBankChange('zusatzdarlehen', 'bauenMitHolz', value)}
                   placeholder="Bauen mit Holz"
                   label="Bauen mit Holz"
+                  isInvalid={getFieldError('Bitte geben Sie den Nennbetrag für Bauen mit Holz ein')}
                 />
+                {getFieldError('Bitte geben Sie den Nennbetrag für Bauen mit Holz ein') && (
+                  <div className="text-danger mt-1">
+                    Bitte geben Sie den Nennbetrag für Bauen mit Holz ein (0,00€ wenn nicht vorhanden)
+                  </div>
+                )}
               </div>
               <div className="col-md-6">
                 <CurrencyInput
@@ -682,7 +831,13 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
                 }}
                 placeholder="Nennbetrag"
                 label="Nennbetrag"
+                isInvalid={getFieldError('Bitte geben Sie den Nennbetrag des Ergänzungsdarlehens ein')}
               />
+              {getFieldError('Bitte geben Sie den Nennbetrag des Ergänzungsdarlehens ein') && (
+                <div className="text-danger mt-1">
+                  Bitte geben Sie den Nennbetrag des Ergänzungsdarlehens ein
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -719,7 +874,13 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
               onChange={(value) => handleEigenleistungChange('eigeneGeldmittel', value)}
               placeholder="Eigene Geldmittel, bezahlte Rechnungen"
               label="Eigene Geldmittel, bezahlte Rechnungen"
+              isInvalid={getFieldError('Bitte geben Sie die eigenen Geldmittel ein')}
             />
+            {getFieldError('Bitte geben Sie die eigenen Geldmittel ein') && (
+              <div className="text-danger mt-1">
+                Bitte geben Sie die eigenen Geldmittel ein (0,00€ wenn nicht vorhanden)
+              </div>
+            )}
           </div>
           <div className="col-12">
             <CurrencyInput
@@ -727,7 +888,13 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
               onChange={(value) => handleEigenleistungChange('zuschüsse', value)}
               placeholder="Zuschüsse"
               label="Zuschüsse"
+              isInvalid={getFieldError('Bitte geben Sie die Zuschüsse ein')}
             />
+            {getFieldError('Bitte geben Sie die Zuschüsse ein') && (
+              <div className="text-danger mt-1">
+                Bitte geben Sie die Zuschüsse ein (0,00€ wenn nicht vorhanden)
+              </div>
+            )}
           </div>
           <div className="col-12">
             <CurrencyInput
@@ -735,7 +902,13 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
               onChange={(value) => handleEigenleistungChange('selbsthilfe', value)}
               placeholder="Selbsthilfe"
               label="Selbsthilfe"
+              isInvalid={getFieldError('Bitte geben Sie die Selbsthilfe ein')}
             />
+            {getFieldError('Bitte geben Sie die Selbsthilfe ein') && (
+              <div className="text-danger mt-1">
+                Bitte geben Sie die Selbsthilfe ein (0,00€ wenn nicht vorhanden)
+              </div>
+            )}
           </div>
           {(foerderVariante === 'neubau' || foerderVariante === 'nutzungsaenderung') && (
             <div className="col-12">
@@ -744,7 +917,13 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
                 onChange={(value) => handleEigenleistungChange('wertVorhandenerGebaeudeteile', value)}
                 placeholder="Wert vorhandener Gebäudeteile"
                 label="Wert vorhandener Gebäudeteile"
+                isInvalid={getFieldError('Bitte geben Sie den Wert vorhandener Gebäudeteile ein')}
               />
+              {getFieldError('Bitte geben Sie den Wert vorhandener Gebäudeteile ein') && (
+                <div className="text-danger mt-1">
+                  Bitte geben Sie den Wert vorhandener Gebäudeteile ein (0,00€ wenn nicht vorhanden)
+                </div>
+              )}
             </div>
           )}
           {foerderVariante === 'neubau' && (
@@ -754,7 +933,13 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
                 onChange={(value) => handleEigenleistungChange('wertBaugrundstück', value)}
                 placeholder="Wert Baugrundstück"
                 label="Wert Baugrundstück"
+                isInvalid={getFieldError('Bitte geben Sie den Wert des Baugrundstücks ein')}
               />
+              {getFieldError('Bitte geben Sie den Wert des Baugrundstücks ein') && (
+                <div className="text-danger mt-1">
+                  Bitte geben Sie den Wert des Baugrundstücks ein (0,00€ wenn nicht vorhanden)
+                </div>
+              )}
             </div>
           )}
         </div>

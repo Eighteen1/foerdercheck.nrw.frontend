@@ -34,11 +34,13 @@ interface Step5Props {
   formData: Step5Data;
   updateFormData: (data: Step5Data) => void;
   foerderVariante: string;
+  showValidation?: boolean;
 }
 
-const Step5_Kostenaufstellung: React.FC<Step5Props> = ({ formData, updateFormData, foerderVariante }) => {
+const Step5_Kostenaufstellung: React.FC<Step5Props> = ({ formData, updateFormData, foerderVariante, showValidation = false }) => {
   const [totalCost, setTotalCost] = useState('0');
   const [previousFoerderVariante, setPreviousFoerderVariante] = useState(foerderVariante);
+  const [validationErrors, setValidationErrors] = useState<{ [key: string]: string[] }>({});
 
   const formatCurrency = (value: string): string => {
     if (value === '') return '';
@@ -164,6 +166,71 @@ const Step5_Kostenaufstellung: React.FC<Step5Props> = ({ formData, updateFormDat
     });
   }, [formData.baugrundstuck, formData.kaufpreis, formData.baukosten, formData.nebenkosten]);
 
+  // Add validation function
+  const validateStep5 = () => {
+    const errors: { [key: string]: string[] } = {};
+    
+    // Baugrundstück validation for Neubau
+    if (foerderVariante === 'neubau') {
+      const baugrundstuckErrors: string[] = [];
+      if (!formData.baugrundstuck.kaufpreis) baugrundstuckErrors.push('Bitte geben Sie den Kaufpreis des Baugrundstücks ein (0,00€ wenn nicht vorhanden)');
+      if (!formData.baugrundstuck.wert) baugrundstuckErrors.push('Bitte geben Sie den Wert des Baugrundstücks ein (0,00€ wenn nicht vorhanden)');
+      if (!formData.baugrundstuck.erschliessungskosten) baugrundstuckErrors.push('Bitte geben Sie die Erschließungskosten ein (0,00€ wenn nicht vorhanden)');
+      if (!formData.baugrundstuck.standortbedingteMehrkosten) baugrundstuckErrors.push('Bitte geben Sie die standortbedingten Mehrkosten ein (0,00€ wenn nicht vorhanden)');
+      if (baugrundstuckErrors.length > 0) {
+        errors['baugrundstuck'] = baugrundstuckErrors;
+      }
+    }
+
+    // Kaufpreis validation for Bestandserwerb or Ersterwerb
+    if (foerderVariante?.includes('bestandserwerb') || foerderVariante?.includes('ersterwerb')) {
+      const kaufpreisErrors: string[] = [];
+      if (!formData.kaufpreis.kaufpreis) kaufpreisErrors.push('Bitte geben Sie den Kaufpreis ein (0,00€ wenn nicht vorhanden)');
+      if (kaufpreisErrors.length > 0) {
+        errors['kaufpreis'] = kaufpreisErrors;
+      }
+    }
+
+    // Baukosten validation for Neubau or Nutzungsänderung
+    if (foerderVariante === 'neubau' || foerderVariante === 'nutzungsaenderung') {
+      const baukostenErrors: string[] = [];
+      if (foerderVariante === 'neubau' && !formData.baukosten.kostenGebaeude) {
+        baukostenErrors.push('Bitte geben Sie die Kosten des Gebäudes ein (0,00€ wenn nicht vorhanden)');
+      }
+      if (!formData.baukosten.besondereBauausfuhrung) baukostenErrors.push('Bitte geben Sie die besondere Bauausführung ein (0,00€ wenn nicht vorhanden)');
+      if (!formData.baukosten.wertVorhandenerGebaude) baukostenErrors.push('Bitte geben Sie den Wert vorhandener Gebäudeteile ein (0,00€ wenn nicht vorhanden)');
+      if (!formData.baukosten.kostenAussenanlagen) baukostenErrors.push('Bitte geben Sie die Kosten der Außenanlagen ein (0,00€ wenn nicht vorhanden)');
+      if (!formData.baukosten.kostenArchitekt) baukostenErrors.push('Bitte geben Sie die Kosten der Architekten- und Ingenieurleistungen ein (0,00€ wenn nicht vorhanden)');
+      if (baukostenErrors.length > 0) {
+        errors['baukosten'] = baukostenErrors;
+      }
+    }
+
+    // Nebenkosten validation (always required)
+    const nebenkostenErrors: string[] = [];
+    if (!formData.nebenkosten.erwerbsnebenkosten) nebenkostenErrors.push('Bitte geben Sie die Erwerbsnebenkosten ein (0,00€ wenn nicht vorhanden)');
+    if (!formData.nebenkosten.verwaltungsleistungen) nebenkostenErrors.push('Bitte geben Sie die Kosten der Verwaltungsleistungen ein (0,00€ wenn nicht vorhanden)');
+    if (!formData.nebenkosten.beschaffungDauerfinanzierung) nebenkostenErrors.push('Bitte geben Sie die Kosten der Beschaffung der Dauerfinanzierungsmittel ein (0,00€ wenn nicht vorhanden)');
+    if (!formData.nebenkosten.beschaffungZwischenfinanzierung) nebenkostenErrors.push('Bitte geben Sie die Kosten der Beschaffung und Verzinsung der Zwischenfinanzierung ein (0,00€ wenn nicht vorhanden)');
+    if (!formData.nebenkosten.sonstigeNebenkosten) nebenkostenErrors.push('Bitte geben Sie die sonstigen Nebenkosten ein (0,00€ wenn nicht vorhanden)');
+    if (!formData.nebenkosten.zusatzlicheKosten) nebenkostenErrors.push('Bitte geben Sie die zusätzlichen Kosten ein (0,00€ wenn nicht vorhanden)');
+    if (nebenkostenErrors.length > 0) {
+      errors['nebenkosten'] = nebenkostenErrors;
+    }
+
+    return errors;
+  };
+
+  // Update validation errors when form data changes AND showValidation is true
+  useEffect(() => {
+    if (showValidation) {
+      const newValidationErrors = validateStep5();
+      setValidationErrors(newValidationErrors);
+    } else {
+      setValidationErrors({});
+    }
+  }, [formData, showValidation, foerderVariante]);
+
   const renderTooltip = (text: string) => (
     <Tooltip id="button-tooltip">
       {text}
@@ -218,6 +285,7 @@ const Step5_Kostenaufstellung: React.FC<Step5Props> = ({ formData, updateFormDat
                 onChange={(value) => handleInputChange('baugrundstuck', 'kaufpreis', value)}
                 placeholder="Kaufpreis des Baugrundstücks"
                 label="Kaufpreis des Baugrundstücks"
+                isInvalid={showValidation && validationErrors['baugrundstuck']?.includes('Bitte geben Sie den Kaufpreis des Baugrundstücks ein')}
               />
             </div>
             <div className="col-12">
@@ -226,6 +294,7 @@ const Step5_Kostenaufstellung: React.FC<Step5Props> = ({ formData, updateFormDat
                 onChange={(value) => handleInputChange('baugrundstuck', 'wert', value)}
                 placeholder="Wert des Baugrundstücks"
                 label="Wert des Baugrundstücks"
+                isInvalid={showValidation && validationErrors['baugrundstuck']?.includes('Bitte geben Sie den Wert des Baugrundstücks ein')}
               />
             </div>
             <div className="col-12">
@@ -234,6 +303,7 @@ const Step5_Kostenaufstellung: React.FC<Step5Props> = ({ formData, updateFormDat
                 onChange={(value) => handleInputChange('baugrundstuck', 'erschliessungskosten', value)}
                 placeholder="Erschließungskosten"
                 label="Erschließungskosten"
+                isInvalid={showValidation && validationErrors['baugrundstuck']?.includes('Bitte geben Sie die Erschließungskosten ein')}
               />
             </div>
             <div className="col-12">
@@ -242,9 +312,17 @@ const Step5_Kostenaufstellung: React.FC<Step5Props> = ({ formData, updateFormDat
                 onChange={(value) => handleInputChange('baugrundstuck', 'standortbedingteMehrkosten', value)}
                 placeholder="Förderfähige standortbedingte Mehrkosten"
                 label="Förderfähige standortbedingte Mehrkosten"
+                isInvalid={showValidation && validationErrors['baugrundstuck']?.includes('Bitte geben Sie die standortbedingten Mehrkosten ein')}
               />
             </div>
           </div>
+          {showValidation && validationErrors['baugrundstuck'] && (
+            <div className="alert alert-danger mt-3" role="alert">
+              {validationErrors['baugrundstuck'].map((error, index) => (
+                <div key={index}>{error}</div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -280,9 +358,17 @@ const Step5_Kostenaufstellung: React.FC<Step5Props> = ({ formData, updateFormDat
                 onChange={(value) => handleInputChange('kaufpreis', 'kaufpreis', value)}
                 placeholder="Kaufpreis (bei Bestandserwerb und Ersterwerb)"
                 label="Kaufpreis (bei Bestandserwerb und Ersterwerb)"
+                isInvalid={showValidation && validationErrors['kaufpreis']?.includes('Bitte geben Sie den Kaufpreis ein')}
               />
             </div>
           </div>
+          {showValidation && validationErrors['kaufpreis'] && (
+            <div className="alert alert-danger mt-3" role="alert">
+              {validationErrors['kaufpreis'].map((error, index) => (
+                <div key={index}>{error}</div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -318,6 +404,7 @@ const Step5_Kostenaufstellung: React.FC<Step5Props> = ({ formData, updateFormDat
                 onChange={(value) => handleInputChange('baukosten', 'kostenGebaeude', value)}
                 placeholder="Kosten des Gebäudes (bei Neubau)"
                 label="Kosten des Gebäudes (bei Neubau)"
+                isInvalid={showValidation && validationErrors['baukosten']?.includes('Bitte geben Sie die Kosten des Gebäudes ein')}
               />
             </div>
             <div className="col-12">
@@ -326,6 +413,7 @@ const Step5_Kostenaufstellung: React.FC<Step5Props> = ({ formData, updateFormDat
                 onChange={(value) => handleInputChange('baukosten', 'besondereBauausfuhrung', value)}
                 placeholder="Besonders zu veranschlagende Bauausführung und Bauteile"
                 label="Besonders zu veranschlagende Bauausführung und Bauteile"
+                isInvalid={showValidation && validationErrors['baukosten']?.includes('Bitte geben Sie die besondere Bauausführung ein')}
               />
             </div>
             <div className="col-12">
@@ -334,6 +422,7 @@ const Step5_Kostenaufstellung: React.FC<Step5Props> = ({ formData, updateFormDat
                 onChange={(value) => handleInputChange('baukosten', 'wertVorhandenerGebaude', value)}
                 placeholder="Wert vorhandener und wiederverwendeter Gebäudeteile"
                 label="Wert vorhandener und wiederverwendeter Gebäudeteile"
+                isInvalid={showValidation && validationErrors['baukosten']?.includes('Bitte geben Sie den Wert vorhandener Gebäudeteile ein')}
               />
             </div>
             <div className="col-12">
@@ -342,6 +431,7 @@ const Step5_Kostenaufstellung: React.FC<Step5Props> = ({ formData, updateFormDat
                 onChange={(value) => handleInputChange('baukosten', 'kostenAussenanlagen', value)}
                 placeholder="Kosten der Außenanlagen"
                 label="Kosten der Außenanlagen"
+                isInvalid={showValidation && validationErrors['baukosten']?.includes('Bitte geben Sie die Kosten der Außenanlagen ein')}
               />
             </div>
             <div className="col-12">
@@ -350,9 +440,17 @@ const Step5_Kostenaufstellung: React.FC<Step5Props> = ({ formData, updateFormDat
                 onChange={(value) => handleInputChange('baukosten', 'kostenArchitekt', value)}
                 placeholder="Kosten der Architekten- und Ingenieurleistungen"
                 label="Kosten der Architekten- und Ingenieurleistungen"
+                isInvalid={showValidation && validationErrors['baukosten']?.includes('Bitte geben Sie die Kosten der Architekten- und Ingenieurleistungen ein')}
               />
             </div>
           </div>
+          {showValidation && validationErrors['baukosten'] && (
+            <div className="alert alert-danger mt-3" role="alert">
+              {validationErrors['baukosten'].map((error, index) => (
+                <div key={index}>{error}</div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -387,6 +485,7 @@ const Step5_Kostenaufstellung: React.FC<Step5Props> = ({ formData, updateFormDat
               onChange={(value) => handleInputChange('nebenkosten', 'erwerbsnebenkosten', value)}
               placeholder="Erwerbsnebenkosten"
               label="Erwerbsnebenkosten"
+              isInvalid={showValidation && validationErrors['nebenkosten']?.includes('Bitte geben Sie die Erwerbsnebenkosten ein')}
             />
           </div>
           <div className="col-12">
@@ -395,6 +494,7 @@ const Step5_Kostenaufstellung: React.FC<Step5Props> = ({ formData, updateFormDat
               onChange={(value) => handleInputChange('nebenkosten', 'verwaltungsleistungen', value)}
               placeholder="Kosten der Verwaltungsleistungen"
               label="Kosten der Verwaltungsleistungen"
+              isInvalid={showValidation && validationErrors['nebenkosten']?.includes('Bitte geben Sie die Kosten der Verwaltungsleistungen ein')}
             />
           </div>
           <div className="col-12">
@@ -403,6 +503,7 @@ const Step5_Kostenaufstellung: React.FC<Step5Props> = ({ formData, updateFormDat
               onChange={(value) => handleInputChange('nebenkosten', 'beschaffungDauerfinanzierung', value)}
               placeholder="Kosten der Beschaffung der Dauerfinanzierungsmittel"
               label="Kosten der Beschaffung der Dauerfinanzierungsmittel"
+              isInvalid={showValidation && validationErrors['nebenkosten']?.includes('Bitte geben Sie die Kosten der Beschaffung der Dauerfinanzierungsmittel ein')}
             />
           </div>
           <div className="col-12">
@@ -411,6 +512,7 @@ const Step5_Kostenaufstellung: React.FC<Step5Props> = ({ formData, updateFormDat
               onChange={(value) => handleInputChange('nebenkosten', 'beschaffungZwischenfinanzierung', value)}
               placeholder="Kosten der Beschaffung und Verzinsung der Zwischenfinanzierung"
               label="Kosten der Beschaffung und Verzinsung der Zwischenfinanzierung"
+              isInvalid={showValidation && validationErrors['nebenkosten']?.includes('Bitte geben Sie die Kosten der Beschaffung und Verzinsung der Zwischenfinanzierung ein')}
             />
           </div>
           <div className="col-12">
@@ -419,6 +521,7 @@ const Step5_Kostenaufstellung: React.FC<Step5Props> = ({ formData, updateFormDat
               onChange={(value) => handleInputChange('nebenkosten', 'sonstigeNebenkosten', value)}
               placeholder="Sonstige Nebenkosten"
               label="Sonstige Nebenkosten"
+              isInvalid={showValidation && validationErrors['nebenkosten']?.includes('Bitte geben Sie die sonstigen Nebenkosten ein')}
             />
           </div>
           <div className="col-12">
@@ -427,9 +530,17 @@ const Step5_Kostenaufstellung: React.FC<Step5Props> = ({ formData, updateFormDat
               onChange={(value) => handleInputChange('nebenkosten', 'zusatzlicheKosten', value)}
               placeholder="Zusätzliche Kosten (Modernisierung, Instandsetzung, Schönheitsreparaturen)"
               label="Zusätzliche Kosten (Modernisierung, Instandsetzung, Schönheitsreparaturen)"
+              isInvalid={showValidation && validationErrors['nebenkosten']?.includes('Bitte geben Sie die zusätzlichen Kosten ein')}
             />
           </div>
         </div>
+        {showValidation && validationErrors['nebenkosten'] && (
+          <div className="alert alert-danger mt-3" role="alert">
+            {validationErrors['nebenkosten'].map((error, index) => (
+              <div key={index}>{error}</div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Gesamtkosten Section */}

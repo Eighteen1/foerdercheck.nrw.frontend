@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Form, Button, OverlayTrigger, Tooltip } from 'react-bootstrap';
 
 interface Step4Data {
@@ -33,9 +33,10 @@ interface Step4Data {
 interface Step4Props {
   formData: Step4Data;
   updateFormData: (data: Step4Data) => void;
+  showValidation?: boolean;
 }
 
-const Step4_Eigentumsverhaeltnisse: React.FC<Step4Props> = ({ formData, updateFormData }) => {
+const Step4_Eigentumsverhaeltnisse: React.FC<Step4Props> = ({ formData, updateFormData, showValidation = false }) => {
   const handleInputChange = (field: keyof Step4Data | string, value: any) => {
     if (field.includes('.')) {
       const [parent, child] = field.split('.');
@@ -59,11 +60,331 @@ const Step4_Eigentumsverhaeltnisse: React.FC<Step4Props> = ({ formData, updateFo
     }
   };
 
+  const getFieldError = (fieldName: string): boolean => {
+    return showValidation && validationErrors.some(error => error.includes(fieldName));
+  };
+
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+
+  const validateStep4 = () => {
+    const errors: string[] = [];
+    
+    // Eigentumsverhältnisse validation
+    if (formData.eigentumsverhaeltnis === null) {
+      errors.push('Bitte geben Sie an, ob das Objekt im Eigentum der antragstellenden Person(en) ist');
+    }
+
+    if (formData.eigentumsverhaeltnis === false) {
+      if (formData.kaufvertrag.wurdeAbgeschlossen === null) {
+        errors.push('Bitte geben Sie an, ob der Kaufvertrag abgeschlossen wurde');
+      }
+      if (formData.kaufvertrag.wurdeAbgeschlossen === true && !formData.kaufvertrag.abschlussDatum) {
+        errors.push('Bitte geben Sie das Abschlussdatum des Kaufvertrags ein');
+      }
+    }
+
+    // Erbbaurecht validation - only if eigentumsverhaeltnis is true
+    if (formData.eigentumsverhaeltnis === true) {
+      if (formData.erbbaurecht === null) {
+        errors.push('Bitte geben Sie an, ob Erbbaurecht vorhanden ist');
+      }
+      if (formData.erbbaurecht === true && !formData.restlaufzeitErbbaurecht) {
+        errors.push('Bitte geben Sie die Restlaufzeit des Erbbaurechts ein');
+      }
+    }
+
+    // Grundbuch validation - only if eigentumsverhaeltnis is false or erbbaurecht is true
+    if (formData.eigentumsverhaeltnis === true) {
+      if (!formData.grundbuch.type) {
+        errors.push('Bitte wählen Sie einen Grundbuchtyp aus');
+      }
+      if (!formData.grundbuch.amtsgericht) {
+        errors.push('Bitte geben Sie das Amtsgericht ein');
+      }
+      if (!formData.grundbuch.ortGrundbuch) {
+        errors.push('Bitte geben Sie den Ort des Grundbuchs ein');
+      }
+      if (!formData.grundbuch.gemarkung) {
+        errors.push('Bitte geben Sie die Gemarkung ein');
+      }
+      if (!formData.grundbuch.blatt) {
+        errors.push('Bitte geben Sie das Blatt ein');
+      }
+      if (!formData.grundbuch.flur) {
+        errors.push('Bitte geben Sie die Flur ein');
+      }
+      if (!formData.grundbuch.flurstueck) {
+        errors.push('Bitte geben Sie das Flurstück ein');
+      }
+      if (!formData.grundbuch.grundstuecksgroesse) {
+        errors.push('Bitte geben Sie die Grundstücksgröße ein');
+      }
+    }
+
+    // Baulasten validation
+    if (formData.baulasten.vorhanden === null) {
+      errors.push('Bitte geben Sie an, ob Baulasten vorhanden sind');
+    }
+    if (formData.baulasten.vorhanden === true && !formData.baulasten.art) {
+      errors.push('Bitte geben Sie die Art der Baulasten ein');
+    }
+
+    // Altlasten validation
+    if (formData.altlasten.vorhanden === null) {
+      errors.push('Bitte geben Sie an, ob Altlasten vorhanden sind');
+    }
+    if (formData.altlasten.vorhanden === true && !formData.altlasten.art) {
+      errors.push('Bitte geben Sie die Art der Altlasten ein');
+    }
+
+    return errors;
+  };
+
+  useEffect(() => {
+    if (showValidation) {
+      setValidationErrors(validateStep4());
+    } else {
+      setValidationErrors([]);
+    }
+  }, [formData, showValidation]);
+
   const renderTooltip = (text: string) => (
     <Tooltip id="button-tooltip">
       {text}
     </Tooltip>
   );
+
+  const renderGrundbuchSection = () => {
+    const showErbbaurechtOptions = formData.erbbaurecht === true;
+    const showNormalOptions = formData.eigentumsverhaeltnis === false || formData.erbbaurecht === false;
+    const sectionTitle = formData.eigentumsverhaeltnis === false ? "Grundbuchangaben (falls vorhanden)" : "Grundbuchangaben";
+
+    return (
+      <div className="mb-5">
+        <div className="d-flex align-items-center gap-2 mb-4">
+          <h4 className="mb-0 text-[#000000] font-semibold italic">{sectionTitle}</h4>
+          <OverlayTrigger
+            placement="right"
+            overlay={renderTooltip("Geben Sie die Grundbuchdaten des Objekts an")}
+          >
+            <Button
+              variant="outline-secondary"
+              className="rounded-circle p-0 d-flex align-items-center justify-content-center"
+              style={{
+                width: '20px',
+                height: '20px',
+                color: '#064497',
+                borderColor: '#D7DAEA',
+                backgroundColor: '#D7DAEA'
+              }}
+            >
+              ?
+            </Button>
+          </OverlayTrigger>
+        </div>
+
+        {showNormalOptions && (
+          <>
+            <div className="row g-3 mb-4">
+              <div className="col-md-4">
+                <Form.Check
+                  type="checkbox"
+                  id="grundbuch"
+                  label="Grundbuch"
+                  checked={formData.grundbuch.type === 'grundbuch'}
+                  onChange={() => handleInputChange('grundbuch.type', 'grundbuch')}
+                />
+              </div>
+              <div className="col-md-4">
+                <Form.Check
+                  type="checkbox"
+                  id="wohnungsgrundbuch"
+                  label="Wohnungsgrundbuch"
+                  checked={formData.grundbuch.type === 'wohnungsgrundbuch'}
+                  onChange={() => handleInputChange('grundbuch.type', 'wohnungsgrundbuch')}
+                />
+              </div>
+              <div className="col-md-4">
+                <Form.Check
+                  type="checkbox"
+                  id="teileigentumsgrundbuch"
+                  label="Teileigentumsgrundbuch"
+                  checked={formData.grundbuch.type === 'teileigentumsgrundbuch'}
+                  onChange={() => handleInputChange('grundbuch.type', 'teileigentumsgrundbuch')}
+                />
+              </div>
+            </div>
+          </>
+        )}
+
+        {showErbbaurechtOptions && (
+          <div className="row g-3 mb-4">
+            <div className="col-md-4">
+              <Form.Check
+                type="checkbox"
+                id="erbbaugrundbuch"
+                label="Erbbaugrundbuch"
+                checked={formData.grundbuch.type === 'erbbaugrundbuch'}
+                onChange={() => handleInputChange('grundbuch.type', 'erbbaugrundbuch')}
+              />
+            </div>
+            <div className="col-md-4">
+              <Form.Check
+                type="checkbox"
+                id="wohnungserbbaugrundbuch"
+                label="Wohnungserbbaugrundbuch"
+                checked={formData.grundbuch.type === 'wohnungserbbaugrundbuch'}
+                onChange={() => handleInputChange('grundbuch.type', 'wohnungserbbaugrundbuch')}
+              />
+            </div>
+            <div className="col-md-4">
+              <Form.Check
+                type="checkbox"
+                id="teileigentumserbbaugrundbuch"
+                label="Teileigentumserbbaugrundbuch"
+                checked={formData.grundbuch.type === 'teileigentumserbbaugrundbuch'}
+                onChange={() => handleInputChange('grundbuch.type', 'teileigentumserbbaugrundbuch')}
+              />
+            </div>
+          </div>
+        )}
+
+        {showValidation && getFieldError('Grundbuchtyp') && (
+          <div className="text-danger mt-1">
+            Bitte wählen Sie einen Grundbuchtyp aus
+          </div>
+        )}
+
+        <div className="row g-3">
+          <div className="col-md-6">
+            <Form.Floating>
+              <Form.Control
+                type="text"
+                placeholder="Amtsgericht"
+                value={formData.grundbuch.amtsgericht}
+                onChange={(e) => handleInputChange('grundbuch.amtsgericht', e.target.value)}
+                isInvalid={getFieldError('Amtsgericht')}
+              />
+              <label>Amtsgericht</label>
+              <Form.Control.Feedback type="invalid">
+                Bitte geben Sie das Amtsgericht ein
+              </Form.Control.Feedback>
+            </Form.Floating>
+          </div>
+          <div className="col-md-6">
+            <Form.Floating>
+              <Form.Control
+                type="text"
+                placeholder="Ort Grundbuch"
+                value={formData.grundbuch.ortGrundbuch}
+                onChange={(e) => handleInputChange('grundbuch.ortGrundbuch', e.target.value)}
+                isInvalid={getFieldError('Ort des Grundbuchs')}
+              />
+              <label>Ort Grundbuch</label>
+              <Form.Control.Feedback type="invalid">
+                Bitte geben Sie den Ort des Grundbuchs ein
+              </Form.Control.Feedback>
+            </Form.Floating>
+          </div>
+        </div>
+
+        <div className="row g-3 mt-1">
+          <div className="col-md-6">
+            <Form.Floating>
+              <Form.Control
+                type="text"
+                placeholder="Gemarkung"
+                value={formData.grundbuch.gemarkung}
+                onChange={(e) => handleInputChange('grundbuch.gemarkung', e.target.value)}
+                isInvalid={getFieldError('Gemarkung')}
+              />
+              <label>Gemarkung</label>
+              <Form.Control.Feedback type="invalid">
+                Bitte geben Sie die Gemarkung ein
+              </Form.Control.Feedback>
+            </Form.Floating>
+          </div>
+          <div className="col-md-6">
+            <Form.Floating>
+              <Form.Control
+                type="text"
+                placeholder="Blatt"
+                value={formData.grundbuch.blatt}
+                onChange={(e) => handleInputChange('grundbuch.blatt', e.target.value)}
+                isInvalid={getFieldError('Blatt')}
+              />
+              <label>Blatt</label>
+              <Form.Control.Feedback type="invalid">
+                Bitte geben Sie das Blatt ein
+              </Form.Control.Feedback>
+            </Form.Floating>
+          </div>
+        </div>
+
+        <div className="row g-3 mt-1">
+          <div className="col-md-6">
+            <Form.Floating>
+              <Form.Control
+                type="text"
+                placeholder="Flur"
+                value={formData.grundbuch.flur}
+                onChange={(e) => handleInputChange('grundbuch.flur', e.target.value)}
+                isInvalid={getFieldError('Flur')}
+              />
+              <label>Flur</label>
+              <Form.Control.Feedback type="invalid">
+                Bitte geben Sie die Flur ein
+              </Form.Control.Feedback>
+            </Form.Floating>
+          </div>
+          <div className="col-md-6">
+            <Form.Floating>
+              <Form.Control
+                type="text"
+                placeholder="Flurstück(e)"
+                value={formData.grundbuch.flurstueck}
+                onChange={(e) => handleInputChange('grundbuch.flurstueck', e.target.value)}
+                isInvalid={getFieldError('Flurstück')}
+              />
+              <label>Flurstück(e)</label>
+              <Form.Control.Feedback type="invalid">
+                Bitte geben Sie das Flurstück ein
+              </Form.Control.Feedback>
+            </Form.Floating>
+          </div>
+        </div>
+
+        <div className="row g-3 mt-1">
+          <div className="col-md-6">
+            <Form.Floating>
+              <Form.Control
+                type="text"
+                placeholder="Flurstück(e) neu"
+                value={formData.grundbuch.flurstueckNeu}
+                onChange={(e) => handleInputChange('grundbuch.flurstueckNeu', e.target.value)}
+              />
+              <label>Flurstück(e) neu</label>
+            </Form.Floating>
+          </div>
+          <div className="col-md-6">
+            <Form.Floating>
+              <Form.Control
+                type="number"
+                placeholder="Grundstücksgröße"
+                value={formData.grundbuch.grundstuecksgroesse}
+                onChange={(e) => handleInputChange('grundbuch.grundstuecksgroesse', e.target.value)}
+                isInvalid={getFieldError('Grundstücksgröße')}
+              />
+              <label>Grundstücksgröße (m²)</label>
+              <Form.Control.Feedback type="invalid">
+                Bitte geben Sie die Grundstücksgröße ein
+              </Form.Control.Feedback>
+            </Form.Floating>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div>
@@ -117,6 +438,11 @@ const Step4_Eigentumsverhaeltnisse: React.FC<Step4Props> = ({ formData, updateFo
             onChange={() => handleInputChange('eigentumsverhaeltnis', false)}
             className="mb-2"
           />
+          {showValidation && getFieldError('Eigentum der antragstellenden Person(en)') && (
+            <div className="text-danger mt-1">
+              Bitte geben Sie an, ob das Objekt im Eigentum der antragstellenden Person(en) ist
+            </div>
+          )}
 
           {formData.eigentumsverhaeltnis === false && (
             <div className="ms-4 mt-3">
@@ -158,266 +484,106 @@ const Step4_Eigentumsverhaeltnisse: React.FC<Step4Props> = ({ formData, updateFo
                         abschlussDatum: e.target.value
                       })}
                       style={{ width: '200px' }}
+                      isInvalid={getFieldError('Abschlussdatum des Kaufvertrags')}
                     />
                   )}
                 </div>
+                {showValidation && getFieldError('Kaufvertrag abgeschlossen') && (
+                  <div className="text-danger mt-1">
+                    Bitte geben Sie an, ob der Kaufvertrag abgeschlossen wurde
+                  </div>
+                )}
+                {showValidation && getFieldError('Abschlussdatum des Kaufvertrags') && (
+                  <div className="text-danger mt-1">
+                    Bitte geben Sie das Abschlussdatum des Kaufvertrags ein
+                  </div>
+                )}
               </div>
             </div>
           )}
         </div>
       </div>
 
-      {/* Erbbaurecht Section */}
-      <div className="mb-5">
-        <div className="d-flex align-items-center gap-2 mb-4">
-          <h4 className="mb-0 text-[#000000] font-semibold italic">Erbbaurecht</h4>
-          <OverlayTrigger
-            placement="right"
-            overlay={renderTooltip("Geben Sie an, ob Sie Erbbaurecht besitzen")}
-          >
-            <Button
-              variant="outline-secondary"
-              className="rounded-circle p-0 d-flex align-items-center justify-content-center"
-              style={{
-                width: '20px',
-                height: '20px',
-                color: '#064497',
-                borderColor: '#D7DAEA',
-                backgroundColor: '#D7DAEA'
-              }}
+      {/* Erbbaurecht Section - Only show if eigentumsverhaeltnis is true */}
+      {formData.eigentumsverhaeltnis === true && (
+        <div className="mb-5">
+          <div className="d-flex align-items-center gap-2 mb-4">
+            <h4 className="mb-0 text-[#000000] font-semibold italic">Erbbaurecht</h4>
+            <OverlayTrigger
+              placement="right"
+              overlay={renderTooltip("Geben Sie an, ob Sie Erbbaurecht besitzen")}
             >
-              ?
-            </Button>
-          </OverlayTrigger>
-        </div>
+              <Button
+                variant="outline-secondary"
+                className="rounded-circle p-0 d-flex align-items-center justify-content-center"
+                style={{
+                  width: '20px',
+                  height: '20px',
+                  color: '#064497',
+                  borderColor: '#D7DAEA',
+                  backgroundColor: '#D7DAEA'
+                }}
+              >
+                ?
+              </Button>
+            </OverlayTrigger>
+          </div>
 
-        <div className="d-flex align-items-center mb-3">
-          <div className="flex-grow-1">
-            <Form.Label>Ist Erbbaurecht vorhanden?</Form.Label>
-          </div>
-          <div className="d-flex gap-3">
-            <Form.Check
-              inline
-              type="radio"
-              label="Ja"
-              name="erbbaurecht"
-              checked={formData.erbbaurecht === true}
-              onChange={() => handleInputChange('erbbaurecht', true)}
-              className="custom-radio"
-            />
-            <Form.Check
-              inline
-              type="radio"
-              label="Nein"
-              name="erbbaurecht"
-              checked={formData.erbbaurecht === false}
-              onChange={() => handleInputChange('erbbaurecht', false)}
-              className="custom-radio"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Grundbuchangaben Section */}
-      <div className="mb-5">
-        <div className="d-flex align-items-center gap-2 mb-4">
-          <h4 className="mb-0 text-[#000000] font-semibold italic">Grundbuchangaben</h4>
-          <OverlayTrigger
-            placement="right"
-            overlay={renderTooltip("Geben Sie die Grundbuchdaten des Objekts an")}
-          >
-            <Button
-              variant="outline-secondary"
-              className="rounded-circle p-0 d-flex align-items-center justify-content-center"
-              style={{
-                width: '20px',
-                height: '20px',
-                color: '#064497',
-                borderColor: '#D7DAEA',
-                backgroundColor: '#D7DAEA'
-              }}
-            >
-              ?
-            </Button>
-          </OverlayTrigger>
-        </div>
-
-        <div className="row g-3 mb-4">
-          <div className="col-md-4">
-            <Form.Check
-              type="checkbox"
-              id="grundbuch"
-              label="Grundbuch"
-              checked={formData.grundbuch.type === 'grundbuch'}
-              onChange={() => handleInputChange('grundbuch.type', 'grundbuch')}
-            />
-          </div>
-          <div className="col-md-4">
-            <Form.Check
-              type="checkbox"
-              id="erbbaugrundbuch"
-              label="Erbbaugrundbuch"
-              checked={formData.grundbuch.type === 'erbbaugrundbuch'}
-              onChange={() => handleInputChange('grundbuch.type', 'erbbaugrundbuch')}
-            />
-          </div>
-          <div className="col-md-4">
-            <Form.Check
-              type="checkbox"
-              id="wohnungsgrundbuch"
-              label="Wohnungsgrundbuch"
-              checked={formData.grundbuch.type === 'wohnungsgrundbuch'}
-              onChange={() => handleInputChange('grundbuch.type', 'wohnungsgrundbuch')}
-            />
-          </div>
-        </div>
-
-        <div className="row g-3 mb-4">
-          <div className="col-md-4">
-            <Form.Check
-              type="checkbox"
-              id="teileigentumsgrundbuch"
-              label="Teileigentumsgrundbuch"
-              checked={formData.grundbuch.type === 'teileigentumsgrundbuch'}
-              onChange={() => handleInputChange('grundbuch.type', 'teileigentumsgrundbuch')}
-            />
-          </div>
-          <div className="col-md-4">
-            <Form.Check
-              type="checkbox"
-              id="wohnungserbbaugrundbuch"
-              label="Wohnungserbbaugrundbuch"
-              checked={formData.grundbuch.type === 'wohnungserbbaugrundbuch'}
-              onChange={() => handleInputChange('grundbuch.type', 'wohnungserbbaugrundbuch')}
-            />
-          </div>
-          <div className="col-md-4">
-            <Form.Check
-              type="checkbox"
-              id="teileigentumserbbaugrundbuch"
-              label="Teileigentumserbbaugrundbuch"
-              checked={formData.grundbuch.type === 'teileigentumserbbaugrundbuch'}
-              onChange={() => handleInputChange('grundbuch.type', 'teileigentumserbbaugrundbuch')}
-            />
-          </div>
-        </div>
-
-        {formData.erbbaurecht && (
-          <div className="row g-3 mb-4">
-            <div className="col-12">
-              <Form.Floating>
-                <Form.Control
-                  type="number"
-                  placeholder="Restlaufzeit Erbbaurecht"
-                  value={formData.restlaufzeitErbbaurecht}
-                  onChange={(e) => handleInputChange('restlaufzeitErbbaurecht', e.target.value)}
-                />
-                <label>Restlaufzeit Erbbaurecht (Jahre)</label>
-              </Form.Floating>
+          <div className="d-flex align-items-center mb-3">
+            <div className="flex-grow-1">
+              <Form.Label>Ist Erbbaurecht vorhanden?</Form.Label>
+            </div>
+            <div className="d-flex gap-3">
+              <Form.Check
+                inline
+                type="radio"
+                label="Ja"
+                name="erbbaurecht"
+                checked={formData.erbbaurecht === true}
+                onChange={() => handleInputChange('erbbaurecht', true)}
+                className="custom-radio"
+              />
+              <Form.Check
+                inline
+                type="radio"
+                label="Nein"
+                name="erbbaurecht"
+                checked={formData.erbbaurecht === false}
+                onChange={() => handleInputChange('erbbaurecht', false)}
+                className="custom-radio"
+              />
             </div>
           </div>
-        )}
+          {showValidation && getFieldError('Erbbaurecht vorhanden') && (
+            <div className="text-danger mt-1">
+              Bitte geben Sie an, ob Erbbaurecht vorhanden ist
+            </div>
+          )}
 
-        <div className="row g-3">
-          <div className="col-md-6">
-            <Form.Floating>
-              <Form.Control
-                type="text"
-                placeholder="Amtsgericht"
-                value={formData.grundbuch.amtsgericht}
-                onChange={(e) => handleInputChange('grundbuch.amtsgericht', e.target.value)}
-              />
-              <label>Amtsgericht</label>
-            </Form.Floating>
-          </div>
-          <div className="col-md-6">
-            <Form.Floating>
-              <Form.Control
-                type="text"
-                placeholder="Ort Grundbuch"
-                value={formData.grundbuch.ortGrundbuch}
-                onChange={(e) => handleInputChange('grundbuch.ortGrundbuch', e.target.value)}
-              />
-              <label>Ort Grundbuch</label>
-            </Form.Floating>
-          </div>
+          {formData.erbbaurecht && (
+            <div className="row g-3 mb-4">
+              <div className="col-12">
+                <Form.Floating>
+                  <Form.Control
+                    type="number"
+                    placeholder="Restlaufzeit Erbbaurecht"
+                    value={formData.restlaufzeitErbbaurecht}
+                    onChange={(e) => handleInputChange('restlaufzeitErbbaurecht', e.target.value)}
+                    isInvalid={getFieldError('Restlaufzeit des Erbbaurechts')}
+                  />
+                  <label>Restlaufzeit Erbbaurecht (Jahre)</label>
+                  <Form.Control.Feedback type="invalid">
+                    Bitte geben Sie die Restlaufzeit des Erbbaurechts ein
+                  </Form.Control.Feedback>
+                </Form.Floating>
+              </div>
+            </div>
+          )}
         </div>
+      )}
 
-        <div className="row g-3 mt-1">
-          <div className="col-md-6">
-            <Form.Floating>
-              <Form.Control
-                type="text"
-                placeholder="Gemarkung"
-                value={formData.grundbuch.gemarkung}
-                onChange={(e) => handleInputChange('grundbuch.gemarkung', e.target.value)}
-              />
-              <label>Gemarkung</label>
-            </Form.Floating>
-          </div>
-          <div className="col-md-6">
-            <Form.Floating>
-              <Form.Control
-                type="text"
-                placeholder="Blatt"
-                value={formData.grundbuch.blatt}
-                onChange={(e) => handleInputChange('grundbuch.blatt', e.target.value)}
-              />
-              <label>Blatt</label>
-            </Form.Floating>
-          </div>
-        </div>
-
-        <div className="row g-3 mt-1">
-          <div className="col-md-6">
-            <Form.Floating>
-              <Form.Control
-                type="text"
-                placeholder="Flur"
-                value={formData.grundbuch.flur}
-                onChange={(e) => handleInputChange('grundbuch.flur', e.target.value)}
-              />
-              <label>Flur</label>
-            </Form.Floating>
-          </div>
-          <div className="col-md-6">
-            <Form.Floating>
-              <Form.Control
-                type="text"
-                placeholder="Flurstück(e)"
-                value={formData.grundbuch.flurstueck}
-                onChange={(e) => handleInputChange('grundbuch.flurstueck', e.target.value)}
-              />
-              <label>Flurstück(e)</label>
-            </Form.Floating>
-          </div>
-        </div>
-
-        <div className="row g-3 mt-1">
-          <div className="col-md-6">
-            <Form.Floating>
-              <Form.Control
-                type="text"
-                placeholder="Flurstück(e) neu"
-                value={formData.grundbuch.flurstueckNeu}
-                onChange={(e) => handleInputChange('grundbuch.flurstueckNeu', e.target.value)}
-              />
-              <label>Flurstück(e) neu</label>
-            </Form.Floating>
-          </div>
-          <div className="col-md-6">
-            <Form.Floating>
-              <Form.Control
-                type="number"
-                placeholder="Grundstücksgröße"
-                value={formData.grundbuch.grundstuecksgroesse}
-                onChange={(e) => handleInputChange('grundbuch.grundstuecksgroesse', e.target.value)}
-              />
-              <label>Grundstücksgröße (m²)</label>
-            </Form.Floating>
-          </div>
-        </div>
-      </div>
+      {/* Grundbuchangaben Section - Show based on conditions */}
+      {(formData.eigentumsverhaeltnis === false || formData.erbbaurecht === true || formData.erbbaurecht === false) && renderGrundbuchSection()}
 
       {/* Baulasten und Altlasten Section */}
       <div className="mb-5">
@@ -469,6 +635,11 @@ const Step4_Eigentumsverhaeltnisse: React.FC<Step4Props> = ({ formData, updateFo
               />
             </div>
           </div>
+          {showValidation && getFieldError('Baulasten vorhanden') && (
+            <div className="text-danger mt-1">
+              Bitte geben Sie an, ob Baulasten vorhanden sind
+            </div>
+          )}
 
           {formData.baulasten.vorhanden && (
             <div className="row g-3">
@@ -479,8 +650,12 @@ const Step4_Eigentumsverhaeltnisse: React.FC<Step4Props> = ({ formData, updateFo
                     placeholder="Art der Baulasten"
                     value={formData.baulasten.art}
                     onChange={(e) => handleInputChange('baulasten.art', e.target.value)}
+                    isInvalid={getFieldError('Art der Baulasten')}
                   />
                   <label>Art der Baulasten</label>
+                  <Form.Control.Feedback type="invalid">
+                    Bitte geben Sie die Art der Baulasten ein
+                  </Form.Control.Feedback>
                 </Form.Floating>
               </div>
             </div>
@@ -513,6 +688,11 @@ const Step4_Eigentumsverhaeltnisse: React.FC<Step4Props> = ({ formData, updateFo
               />
             </div>
           </div>
+          {showValidation && getFieldError('Altlasten vorhanden') && (
+            <div className="text-danger mt-1">
+              Bitte geben Sie an, ob Altlasten vorhanden sind
+            </div>
+          )}
 
           {formData.altlasten.vorhanden && (
             <div className="row g-3">
@@ -523,8 +703,12 @@ const Step4_Eigentumsverhaeltnisse: React.FC<Step4Props> = ({ formData, updateFo
                     placeholder="Art der Altlasten"
                     value={formData.altlasten.art}
                     onChange={(e) => handleInputChange('altlasten.art', e.target.value)}
+                    isInvalid={getFieldError('Art der Altlasten')}
                   />
                   <label>Art der Altlasten</label>
+                  <Form.Control.Feedback type="invalid">
+                    Bitte geben Sie die Art der Altlasten ein
+                  </Form.Control.Feedback>
                 </Form.Floating>
               </div>
             </div>

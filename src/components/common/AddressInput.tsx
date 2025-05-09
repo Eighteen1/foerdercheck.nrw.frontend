@@ -15,8 +15,18 @@ interface AddressInputProps {
     postalCode: string;
     city: string;
   }) => void;
-  isInvalid?: boolean;
-  errorMessage?: string;
+  isInvalid?: {
+    street?: boolean;
+    houseNumber?: boolean;
+    postalCode?: boolean;
+    city?: boolean;
+  };
+  errorMessages?: {
+    street?: string;
+    houseNumber?: string;
+    postalCode?: string;
+    city?: string;
+  };
   state?: 'NRW' | 'Bayern' | 'Baden-Württemberg' | 'Berlin' | 'Brandenburg' | 'Bremen' | 'Hamburg' | 'Hessen' | 'Mecklenburg-Vorpommern' | 'Niedersachsen' | 'Rheinland-Pfalz' | 'Saarland' | 'Sachsen' | 'Sachsen-Anhalt' | 'Schleswig-Holstein' | 'Thüringen';
 }
 
@@ -45,8 +55,8 @@ const stateCodes: { [key: string]: string } = {
 const AddressInput: React.FC<AddressInputProps> = ({
   value,
   onChange,
-  isInvalid = false,
-  errorMessage,
+  isInvalid = { street: false, houseNumber: false, postalCode: false, city: false },
+  errorMessages = { street: '', houseNumber: '', postalCode: '', city: '' },
   state
 }) => {
   const [autocomplete, setAutocomplete] = useState<google.maps.places.Autocomplete | null>(null);
@@ -245,12 +255,12 @@ const AddressInput: React.FC<AddressInputProps> = ({
               placeholder="Straße"
               value={value.street}
               onChange={handleStreetChange}
-              isInvalid={isInvalid}
+              isInvalid={isInvalid.street}
             />
             <label>Straße</label>
-            {isInvalid && errorMessage && (
+            {isInvalid.street && errorMessages.street && (
               <Form.Control.Feedback type="invalid">
-                {errorMessage}
+                {errorMessages.street}
               </Form.Control.Feedback>
             )}
           </Form.Floating>
@@ -262,9 +272,14 @@ const AddressInput: React.FC<AddressInputProps> = ({
               placeholder="Hausnummer"
               value={value.houseNumber}
               onChange={handleHouseNumberChange}
-              isInvalid={isInvalid}
+              isInvalid={isInvalid.houseNumber}
             />
             <label>Hausnummer</label>
+            {isInvalid.houseNumber && errorMessages.houseNumber && (
+              <Form.Control.Feedback type="invalid">
+                {errorMessages.houseNumber}
+              </Form.Control.Feedback>
+            )}
           </Form.Floating>
         </div>
       </div>
@@ -277,9 +292,14 @@ const AddressInput: React.FC<AddressInputProps> = ({
               placeholder="Postleitzahl"
               value={value.postalCode}
               onChange={handlePostalCodeChange}
-              isInvalid={isInvalid}
+              isInvalid={isInvalid.postalCode}
             />
             <label>Postleitzahl</label>
+            {isInvalid.postalCode && errorMessages.postalCode && (
+              <Form.Control.Feedback type="invalid">
+                {errorMessages.postalCode}
+              </Form.Control.Feedback>
+            )}
           </Form.Floating>
         </div>
         <div className="col-md-8">
@@ -289,9 +309,14 @@ const AddressInput: React.FC<AddressInputProps> = ({
               placeholder="Ort"
               value={value.city}
               onChange={handleCityChange}
-              isInvalid={isInvalid}
+              isInvalid={isInvalid.city}
             />
             <label>Ort</label>
+            {isInvalid.city && errorMessages.city && (
+              <Form.Control.Feedback type="invalid">
+                {errorMessages.city}
+              </Form.Control.Feedback>
+            )}
           </Form.Floating>
         </div>
       </div>

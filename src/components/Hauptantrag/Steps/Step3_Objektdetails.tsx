@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Form, Button, OverlayTrigger, Tooltip, Row, Col } from 'react-bootstrap';
 import CurrencyInput from '../../common/CurrencyInput';
 import AddressInput from '../../common/AddressInput';
@@ -61,10 +61,135 @@ interface Step3Data {
 interface Step3Props {
   formData: Step3Data;
   updateFormData: (data: Step3Data) => void;
+  showValidation?: boolean;
 }
 
-const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData }) => {
+const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, showValidation = false }) => {
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+
+  const validateStep3 = () => {
+    const errors: string[] = [];
+    
+    // Address validation
+    if (!formData.address.street) errors.push('Bitte geben Sie die Straße ein');
+    if (!formData.address.houseNumber) errors.push('Bitte geben Sie die Hausnummer ein');
+    if (!formData.address.postalCode) errors.push('Bitte geben Sie die Postleitzahl ein');
+    else {
+      const postalCode = formData.address.postalCode;
+      const validStartNumbers = ['32', '33', '34', '37', '40', '41', '42', '44', '45', '46', '47', '48', '49', '50', '51', '52', '53', '57', '58', '59'];
+      
+      if (!/^\d{5}$/.test(postalCode)) {
+        errors.push('Die Postleitzahl muss aus genau 5 Ziffern bestehen');
+      } else if (!validStartNumbers.includes(postalCode.substring(0, 2))) {
+        errors.push('Die Postleitzahl muss sich in Nordrhein-Westfalen befinden');
+      }
+    }
+    if (!formData.address.city) errors.push('Bitte geben Sie die Stadt ein');
+
+    // FoerderVariante validation
+    if (!formData.foerderVariante) {
+      errors.push('Bitte wählen Sie eine Förderungsvariante aus');
+    }
+
+    // ObjektDetailsAllgemein validation
+    if (!formData.objektDetailsAllgemein.wohnflaecheSelbstgenutzt) errors.push('Bitte geben Sie die selbstgenutzte Wohnfläche ein');
+    if (!formData.objektDetailsAllgemein.gesamtWohnflaeche) errors.push('Bitte geben Sie die Gesamtwohnfläche ein');
+    if (!formData.objektDetailsAllgemein.anzahlZimmer) errors.push('Bitte geben Sie die Anzahl der Zimmer ein');
+    if (!formData.objektDetailsAllgemein.anzahlGaragen) errors.push('Bitte geben Sie die Anzahl der Garagen ein');
+
+    // Gewerbefläche validation
+    if (formData.objektDetailsAllgemein.gewerbeflaeche.hasGewerbeflaeche === null) {
+      errors.push('Bitte geben Sie an, ob eine Gewerbefläche vorhanden ist');
+    }
+    if (formData.objektDetailsAllgemein.gewerbeflaeche.hasGewerbeflaeche === true && !formData.objektDetailsAllgemein.gewerbeflaeche.flaeche) {
+      errors.push('Bitte geben Sie die Größe der Gewerbefläche ein');
+    }
+
+    // Erträge validation
+    if (formData.objektDetailsAllgemein.ertraege.hasErtraege === null) {
+      errors.push('Bitte geben Sie an, ob Erträge vorhanden sind');
+    }
+    if (formData.objektDetailsAllgemein.ertraege.hasErtraege === true) {
+      if (!formData.objektDetailsAllgemein.ertraege.vermieteteWohnung && !formData.objektDetailsAllgemein.ertraege.vermieteteGarage) {
+        errors.push('Bitte geben Sie mindestens einen Ertragswert ein (vermietete Wohnung oder Garage)');
+      }
+    }
+    if (formData.objektDetailsAllgemein.hasWoodConstructionLoan === null) {
+      errors.push('Bitte geben Sie an, ob Sie ein Zusatzdarlehen für Bauen mit Holz beantragen');
+    }
+
+    // Eigentumswohnung validation
+    if (formData.foerderVariante?.includes('wohnung')) {
+      if (!formData.objektDetailsEigentumswohnung.anzahlVollgeschosse) errors.push('Bitte geben Sie die Anzahl der Vollgeschosse ein');
+      if (!formData.objektDetailsEigentumswohnung.wohnungenAmHauseingang) errors.push('Bitte geben Sie die Anzahl der Wohnungen am Hauseingang ein');
+      if (!formData.objektDetailsEigentumswohnung.lageImGebaeude) errors.push('Bitte geben Sie die Lage im Gebäude ein');
+      if (!formData.objektDetailsEigentumswohnung.lageImGeschoss) errors.push('Bitte geben Sie die Lage im Geschoss ein');
+    }
+
+    // Neubau/Ersterwerb validation
+    if (formData.foerderVariante?.includes('neubau') || formData.foerderVariante?.includes('ersterwerb')) {
+      if (formData.objektDetailsAllgemein.barrierefrei === null) {
+        errors.push('Bitte geben Sie an, ob das Objekt barrierefrei ist');
+      }
+      if (formData.objektDetailsAllgemein.begEffizienzhaus40Standard === null) {
+        errors.push('Bitte geben Sie an, ob das Objekt dem BEG Effizienzhaus 40 Standard entspricht');
+      }
+      if (formData.objektDetailsAllgemein.hasLocationCostLoan === null) {
+        errors.push('Bitte geben Sie an, ob Sie ein Zusatzdarlehen für standortbedingte Mehrkosten beantragen');
+      }
+      if (formData.objektDetailsNeubauErsterwerb.baugenehmigungErforderlich === null) {
+        errors.push('Bitte geben Sie an, ob eine Baugenehmigung erforderlich ist');
+      }
+
+      if (formData.objektDetailsNeubauErsterwerb.baugenehmigungErforderlich === true) {
+        if (formData.objektDetailsNeubauErsterwerb.baugenehmigung.wurdeErteilt === null) {
+          errors.push('Bitte geben Sie an, ob die Baugenehmigung erteilt wurde');
+        }
+
+        if (formData.objektDetailsNeubauErsterwerb.baugenehmigung.wurdeErteilt === true) {
+          if (!formData.objektDetailsNeubauErsterwerb.baugenehmigung.erteilungsDatum) errors.push('Bitte geben Sie das Erteilungsdatum der Baugenehmigung ein');
+          if (!formData.objektDetailsNeubauErsterwerb.baugenehmigung.aktenzeichen) errors.push('Bitte geben Sie das Aktenzeichen der Baugenehmigung ein');
+          if (!formData.objektDetailsNeubauErsterwerb.baugenehmigung.erteilungsBehoerde) errors.push('Bitte geben Sie die erteilende Behörde der Baugenehmigung ein');
+        }
+      }
+
+      if (formData.objektDetailsNeubauErsterwerb.bauanzeige.wurdeEingereicht === null) {
+        errors.push('Bitte geben Sie an, ob eine Bauanzeige eingereicht wurde');
+      }
+
+      if (formData.objektDetailsNeubauErsterwerb.bauanzeige.wurdeEingereicht === true && !formData.objektDetailsNeubauErsterwerb.bauanzeige.einreichungsDatum) {
+        errors.push('Bitte geben Sie das Einreichungsdatum der Bauanzeige ein');
+      }
+
+      if (formData.objektDetailsNeubauErsterwerb.bauarbeiten.wurdeBegonnen === null) {
+        errors.push('Bitte geben Sie an, ob die Bauarbeiten begonnen wurden');
+      }
+
+      if (formData.objektDetailsNeubauErsterwerb.bauarbeiten.wurdeBegonnen === true && !formData.objektDetailsNeubauErsterwerb.bauarbeiten.beginnDatum) {
+        errors.push('Bitte geben Sie das Datum des Baubeginns ein');
+      }
+    }
+
+    // Bestandserwerb validation
+    if (formData.foerderVariante?.includes('bestandserwerb') && !formData.objektDetailsBestandserwerb.baujahr) {
+      errors.push('Bitte geben Sie das Baujahr ein');
+    }
+
+    return errors;
+  };
+
+  useEffect(() => {
+    if (showValidation) {
+      setValidationErrors(validateStep3());
+    } else {
+      setValidationErrors([]);
+    }
+  }, [formData, showValidation]);
+
+  const getFieldError = (fieldName: string): boolean => {
+    return showValidation && validationErrors.some(error => error.includes(fieldName));
+  };
 
   const handleInputChange = (section: keyof Step3Data, field: string, value: any) => {
     const sectionData = formData[section] as Record<string, any>;
@@ -161,7 +286,18 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData })
             ...formData,
             address
           })}
-          isInvalid={false}
+          isInvalid={{
+            street: getFieldError('Straße'),
+            houseNumber: getFieldError('Hausnummer'),
+            postalCode: getFieldError('Postleitzahl'),
+            city: getFieldError('Stadt')
+          }}
+          errorMessages={{
+            street: validationErrors.find(error => error.includes('Straße')) || '',
+            houseNumber: validationErrors.find(error => error.includes('Hausnummer')) || '',
+            postalCode: validationErrors.find(error => error.includes('Postleitzahl')) || '',
+            city: validationErrors.find(error => error.includes('Stadt')) || ''
+          }}
           state="NRW"
         />
       </div>
@@ -214,6 +350,11 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData })
             </Col>
           ))}
         </Row>
+        {showValidation && getFieldError('Förderungsvariante') && (
+          <div className="text-danger mt-2">
+            Bitte wählen Sie eine Förderungsvariante aus
+          </div>
+        )}
       </div>
 
       {/* Objektdetails allgemein Section */}
@@ -248,8 +389,12 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData })
                 placeholder="Wohnfläche selbstgenutzte Wohneinheit"
                 value={formData.objektDetailsAllgemein.wohnflaecheSelbstgenutzt}
                 onChange={(e) => handleNestedInputChange('objektDetailsAllgemein', '', 'wohnflaecheSelbstgenutzt', e.target.value)}
+                isInvalid={getFieldError('selbstgenutzte Wohnfläche')}
               />
               <label>Wohnfläche selbstgenutzte Wohneinheit (m²)</label>
+              <Form.Control.Feedback type="invalid">
+                Bitte geben Sie die selbstgenutzte Wohnfläche ein
+              </Form.Control.Feedback>
             </Form.Floating>
           </div>
           <div className="col-md-6">
@@ -259,8 +404,12 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData })
                 placeholder="Gesamtwohnfläche bei zwei Wohnungen im Objekt"
                 value={formData.objektDetailsAllgemein.gesamtWohnflaeche}
                 onChange={(e) => handleNestedInputChange('objektDetailsAllgemein', '', 'gesamtWohnflaeche', e.target.value)}
+                isInvalid={getFieldError('Gesamtwohnfläche')}
               />
               <label>Gesamtwohnfläche bei zwei Wohnungen im Objekt (m²)</label>
+              <Form.Control.Feedback type="invalid">
+                Bitte geben Sie die Gesamtwohnfläche ein
+              </Form.Control.Feedback>
             </Form.Floating>
           </div>
         </div>
@@ -273,8 +422,12 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData })
                 placeholder="Anzahl Zimmer der selbstgenutzten Wohneinheit"
                 value={formData.objektDetailsAllgemein.anzahlZimmer}
                 onChange={(e) => handleNestedInputChange('objektDetailsAllgemein', '', 'anzahlZimmer', e.target.value)}
+                isInvalid={getFieldError('Anzahl der Zimmer')}
               />
               <label>Anzahl Zimmer der selbstgenutzten Wohneinheit</label>
+              <Form.Control.Feedback type="invalid">
+                Bitte geben Sie die Anzahl der Zimmer ein
+              </Form.Control.Feedback>
             </Form.Floating>
           </div>
           <div className="col-md-6">
@@ -284,8 +437,12 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData })
                 placeholder="Anzahl Garagen/Einstellplätze"
                 value={formData.objektDetailsAllgemein.anzahlGaragen}
                 onChange={(e) => handleNestedInputChange('objektDetailsAllgemein', '', 'anzahlGaragen', e.target.value)}
+                isInvalid={getFieldError('Anzahl der Garagen')}
               />
               <label>Anzahl Garagen/Einstellplätze</label>
+              <Form.Control.Feedback type="invalid">
+                Bitte geben Sie die Anzahl der Garagen ein
+              </Form.Control.Feedback>
             </Form.Floating>
           </div>
         </div>
@@ -293,10 +450,28 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData })
         {/* Gewerbefläche */}
         <div className="mt-4">
           <div className="d-flex align-items-center mb-3">
-            <div className="flex-grow-1">
-              <Form.Label>Enthält das Objekt eine Gewerbefläche?</Form.Label>
+            <div className="d-flex align-items-center gap-2">
+              <Form.Label className="mb-0">Enthält das Objekt eine Gewerbefläche?</Form.Label>
+              <OverlayTrigger
+                placement="right"
+                overlay={renderTooltip("Geben Sie an, ob das Objekt eine Gewerbefläche enthält")}
+              >
+                <Button
+                  variant="outline-secondary"
+                  className="rounded-circle p-0 d-flex align-items-center justify-content-center"
+                  style={{
+                    width: '20px',
+                    height: '20px',
+                    color: '#064497',
+                    borderColor: '#D7DAEA',
+                    backgroundColor: '#D7DAEA'
+                  }}
+                >
+                  ?
+                </Button>
+              </OverlayTrigger>
             </div>
-            <div className="d-flex gap-3">
+            <div className="d-flex gap-3 ms-auto">
               <Form.Check
                 inline
                 type="radio"
@@ -317,18 +492,27 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData })
               />
             </div>
           </div>
+          {showValidation && getFieldError('Gewerbefläche vorhanden') && (
+            <div className="text-danger mt-1">
+              Bitte geben Sie an, ob eine Gewerbefläche vorhanden ist
+            </div>
+          )}
 
           {formData.objektDetailsAllgemein.gewerbeflaeche.hasGewerbeflaeche && (
-            <div className="row g-3 mt-1">
+            <div className="row g-3">
               <div className="col-12">
                 <Form.Floating>
                   <Form.Control
                     type="number"
-                    placeholder="Gewerbefläche"
+                    placeholder="Größe der Gewerbefläche"
                     value={formData.objektDetailsAllgemein.gewerbeflaeche.flaeche}
                     onChange={(e) => handleNestedInputChange('objektDetailsAllgemein', 'gewerbeflaeche', 'flaeche', e.target.value)}
+                    isInvalid={getFieldError('Größe der Gewerbefläche')}
                   />
-                  <label>Gewerbefläche (m²)</label>
+                  <label>Größe der Gewerbefläche (m²)</label>
+                  <Form.Control.Feedback type="invalid">
+                    Bitte geben Sie die Größe der Gewerbefläche ein
+                  </Form.Control.Feedback>
                 </Form.Floating>
               </div>
             </div>
@@ -338,10 +522,28 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData })
         {/* Erträge and Wood Construction Loan */}
         <div className="mt-4">
           <div className="d-flex align-items-center mb-3">
-            <div className="flex-grow-1">
-              <Form.Label>Werden durch das Förderobjekt Erträge erwirtschaftet?</Form.Label>
+            <div className="d-flex align-items-center gap-2">
+              <Form.Label className="mb-0">Werden durch das Förderobjekt Erträge erwirtschaftet?</Form.Label>
+              <OverlayTrigger
+                placement="right"
+                overlay={renderTooltip("Geben Sie an, ob durch das Förderobjekt Erträge erwirtschaftet werden")}
+              >
+                <Button
+                  variant="outline-secondary"
+                  className="rounded-circle p-0 d-flex align-items-center justify-content-center"
+                  style={{
+                    width: '20px',
+                    height: '20px',
+                    color: '#064497',
+                    borderColor: '#D7DAEA',
+                    backgroundColor: '#D7DAEA'
+                  }}
+                >
+                  ?
+                </Button>
+              </OverlayTrigger>
             </div>
-            <div className="d-flex gap-3">
+            <div className="d-flex gap-3 ms-auto">
               <Form.Check
                 inline
                 type="radio"
@@ -362,6 +564,11 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData })
               />
             </div>
           </div>
+          {showValidation && getFieldError('Erträge vorhanden') && (
+            <div className="text-danger mt-1">
+              Bitte geben Sie an, ob Erträge vorhanden sind
+            </div>
+          )}
 
           {formData.objektDetailsAllgemein.ertraege.hasErtraege && (
             <div className="row g-3">
@@ -371,6 +578,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData })
                   onChange={(value) => handleNestedInputChange('objektDetailsAllgemein', 'ertraege', 'vermieteteWohnung', value)}
                   placeholder="Vermietete zweite Wohnung"
                   label="Vermietete zweite Wohnung (€/Jahr)"
+                  isInvalid={getFieldError('Ertragswert')}
                 />
               </div>
               <div className="col-md-6">
@@ -379,16 +587,40 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData })
                   onChange={(value) => handleNestedInputChange('objektDetailsAllgemein', 'ertraege', 'vermieteteGarage', value)}
                   placeholder="Vermietete Garage/Stellplatz"
                   label="Vermietete Garage/Stellplatz (€/Jahr)"
+                  isInvalid={getFieldError('Ertragswert')}
                 />
               </div>
+              {showValidation && getFieldError('Ertragswert') && (
+                <div className="text-danger mt-1">
+                  Bitte geben Sie mindestens einen Ertragswert ein (vermietete Wohnung oder Garage)
+                </div>
+              )}
             </div>
           )}
 
           <div className="d-flex align-items-center mb-3 mt-4">
-            <div className="flex-grow-1">
-              <Form.Label>Wird ein Zusatzdarlehen für Bauen mit Holz beantragt?</Form.Label>
+            <div className="d-flex align-items-center gap-2">
+              <Form.Label className="mb-0">Wird ein Zusatzdarlehen für Bauen mit Holz beantragt?</Form.Label>
+              <OverlayTrigger
+                placement="right"
+                overlay={renderTooltip("Geben Sie an, ob ein Zusatzdarlehen für Bauen mit Holz beantragt wird")}
+              >
+                <Button
+                  variant="outline-secondary"
+                  className="rounded-circle p-0 d-flex align-items-center justify-content-center"
+                  style={{
+                    width: '20px',
+                    height: '20px',
+                    color: '#064497',
+                    borderColor: '#D7DAEA',
+                    backgroundColor: '#D7DAEA'
+                  }}
+                >
+                  ?
+                </Button>
+              </OverlayTrigger>
             </div>
-            <div className="d-flex gap-3">
+            <div className="d-flex gap-3 ms-auto">
               <Form.Check
                 inline
                 type="radio"
@@ -409,6 +641,11 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData })
               />
             </div>
           </div>
+          {showValidation && getFieldError('Zusatzdarlehen für Bauen mit Holz') && (
+            <div className="text-danger mt-1">
+              Bitte geben Sie an, ob Sie ein Zusatzdarlehen für Bauen mit Holz beantragen
+            </div>
+          )}
         </div>
       </div>
 
@@ -419,31 +656,31 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData })
         <div className="mb-5">
           <div className="d-flex align-items-center gap-2 mb-4">
             <h4 className="mb-0 text-[#000000] font-semibold italic">Objektdetails Neubau/Ersterwerb</h4>
-            <OverlayTrigger
-              placement="right"
-              overlay={renderTooltip("Details zum Neubau oder Ersterwerb")}
-            >
-              <Button
-                variant="outline-secondary"
-                className="rounded-circle p-0 d-flex align-items-center justify-content-center"
-                style={{
-                  width: '20px',
-                  height: '20px',
-                  color: '#064497',
-                  borderColor: '#D7DAEA',
-                  backgroundColor: '#D7DAEA'
-                }}
-              >
-                ?
-              </Button>
-            </OverlayTrigger>
           </div>
 
           <div className="d-flex align-items-center mb-3">
-            <div className="flex-grow-1">
-              <Form.Label>Das Objekt ist barrierefrei</Form.Label>
+            <div className="d-flex align-items-center gap-2">
+              <Form.Label className="mb-0">Das Objekt ist barrierefrei</Form.Label>
+              <OverlayTrigger
+                placement="right"
+                overlay={renderTooltip("Geben Sie an, ob das Objekt barrierefrei ist")}
+              >
+                <Button
+                  variant="outline-secondary"
+                  className="rounded-circle p-0 d-flex align-items-center justify-content-center"
+                  style={{
+                    width: '20px',
+                    height: '20px',
+                    color: '#064497',
+                    borderColor: '#D7DAEA',
+                    backgroundColor: '#D7DAEA'
+                  }}
+                >
+                  ?
+                </Button>
+              </OverlayTrigger>
             </div>
-            <div className="d-flex gap-3">
+            <div className="d-flex gap-3 ms-auto">
               <Form.Check
                 inline
                 type="radio"
@@ -464,12 +701,35 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData })
               />
             </div>
           </div>
+          {showValidation && getFieldError('barrierefrei') && (
+            <div className="text-danger mt-1">
+              Bitte geben Sie an, ob das Objekt barrierefrei ist
+            </div>
+          )}
 
           <div className="d-flex align-items-center mb-3">
-            <div className="flex-grow-1">
-              <Form.Label>Das Objekt entspricht dem BEG Effizienzhaus 40 Standard</Form.Label>
+            <div className="d-flex align-items-center gap-2">
+              <Form.Label className="mb-0">Das Objekt entspricht dem BEG Effizienzhaus 40 Standard</Form.Label>
+              <OverlayTrigger
+                placement="right"
+                overlay={renderTooltip("Geben Sie an, ob das Objekt dem BEG Effizienzhaus 40 Standard entspricht")}
+              >
+                <Button
+                  variant="outline-secondary"
+                  className="rounded-circle p-0 d-flex align-items-center justify-content-center"
+                  style={{
+                    width: '20px',
+                    height: '20px',
+                    color: '#064497',
+                    borderColor: '#D7DAEA',
+                    backgroundColor: '#D7DAEA'
+                  }}
+                >
+                  ?
+                </Button>
+              </OverlayTrigger>
             </div>
-            <div className="d-flex gap-3">
+            <div className="d-flex gap-3 ms-auto">
               <Form.Check
                 inline
                 type="radio"
@@ -490,12 +750,35 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData })
               />
             </div>
           </div>
+          {showValidation && getFieldError('BEG Effizienzhaus 40 Standard') && (
+            <div className="text-danger mt-1">
+              Bitte geben Sie an, ob das Objekt dem BEG Effizienzhaus 40 Standard entspricht
+            </div>
+          )}
 
           <div className="d-flex align-items-center mb-3">
-            <div className="flex-grow-1">
-              <Form.Label>Wird ein Zusatzdarlehen für standortbedingte Mehrkosten beantragt?</Form.Label>
+            <div className="d-flex align-items-center gap-2">
+              <Form.Label className="mb-0">Wird ein Zusatzdarlehen für standortbedingte Mehrkosten beantragt?</Form.Label>
+              <OverlayTrigger
+                placement="right"
+                overlay={renderTooltip("Geben Sie an, ob ein Zusatzdarlehen für standortbedingte Mehrkosten beantragt wird")}
+              >
+                <Button
+                  variant="outline-secondary"
+                  className="rounded-circle p-0 d-flex align-items-center justify-content-center"
+                  style={{
+                    width: '20px',
+                    height: '20px',
+                    color: '#064497',
+                    borderColor: '#D7DAEA',
+                    backgroundColor: '#D7DAEA'
+                  }}
+                >
+                  ?
+                </Button>
+              </OverlayTrigger>
             </div>
-            <div className="d-flex gap-3">
+            <div className="d-flex gap-3 ms-auto">
               <Form.Check
                 inline
                 type="radio"
@@ -516,12 +799,35 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData })
               />
             </div>
           </div>
+          {showValidation && getFieldError('standortbedingte Mehrkosten') && (
+            <div className="text-danger mt-1">
+              Bitte geben Sie an, ob Sie ein Zusatzdarlehen für standortbedingte Mehrkosten beantragen
+            </div>
+          )}
 
           <div className="d-flex align-items-center mb-3">
-            <div className="flex-grow-1">
-              <Form.Label>Baugenehmigung ist erforderlich</Form.Label>
+            <div className="d-flex align-items-center gap-2">
+              <Form.Label className="mb-0">Ist eine Baugenehmigung erforderlich?</Form.Label>
+              <OverlayTrigger
+                placement="right"
+                overlay={renderTooltip("Geben Sie an, ob eine Baugenehmigung erforderlich ist")}
+              >
+                <Button
+                  variant="outline-secondary"
+                  className="rounded-circle p-0 d-flex align-items-center justify-content-center"
+                  style={{
+                    width: '20px',
+                    height: '20px',
+                    color: '#064497',
+                    borderColor: '#D7DAEA',
+                    backgroundColor: '#D7DAEA'
+                  }}
+                >
+                  ?
+                </Button>
+              </OverlayTrigger>
             </div>
-            <div className="d-flex gap-3">
+            <div className="d-flex gap-3 ms-auto">
               <Form.Check
                 inline
                 type="radio"
@@ -542,6 +848,11 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData })
               />
             </div>
           </div>
+          {showValidation && getFieldError('Baugenehmigung erforderlich') && (
+            <div className="text-danger mt-1">
+              Bitte geben Sie an, ob eine Baugenehmigung erforderlich ist
+            </div>
+          )}
 
           {formData.objektDetailsNeubauErsterwerb.baugenehmigungErforderlich && (
             <>
@@ -562,161 +873,210 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData })
                   onChange={() => handleNestedInputChange('objektDetailsNeubauErsterwerb', 'baugenehmigung', 'wurdeErteilt', true)}
                   className="custom-radio"
                 />
-
-                {formData.objektDetailsNeubauErsterwerb.baugenehmigung.wurdeErteilt && (
-                  <div className="row g-3 mt-2">
-                    <div className="col-md-4">
-                      <Form.Floating>
-                        <Form.Control
-                          type="date"
-                          value={formData.objektDetailsNeubauErsterwerb.baugenehmigung.erteilungsDatum}
-                          onChange={(e) => handleNestedInputChange('objektDetailsNeubauErsterwerb', 'baugenehmigung', 'erteilungsDatum', e.target.value)}
-                        />
-                        <label>Datum</label>
-                      </Form.Floating>
-                    </div>
-                    <div className="col-md-4">
-                      <Form.Floating>
-                        <Form.Control
-                          type="text"
-                          placeholder="Aktenzeichen"
-                          value={formData.objektDetailsNeubauErsterwerb.baugenehmigung.aktenzeichen}
-                          onChange={(e) => handleNestedInputChange('objektDetailsNeubauErsterwerb', 'baugenehmigung', 'aktenzeichen', e.target.value)}
-                        />
-                        <label>Aktenzeichen</label>
-                      </Form.Floating>
-                    </div>
-                    <div className="col-md-4">
-                      <Form.Floating>
-                        <Form.Control
-                          type="text"
-                          placeholder="von"
-                          value={formData.objektDetailsNeubauErsterwerb.baugenehmigung.erteilungsBehoerde}
-                          onChange={(e) => handleNestedInputChange('objektDetailsNeubauErsterwerb', 'baugenehmigung', 'erteilungsBehoerde', e.target.value)}
-                        />
-                        <label>von</label>
-                      </Form.Floating>
-                    </div>
+                {showValidation && getFieldError('Baugenehmigung erteilt') && (
+                  <div className="text-danger mt-1">
+                    Bitte geben Sie an, ob die Baugenehmigung erteilt wurde
                   </div>
                 )}
               </div>
+
+              {formData.objektDetailsNeubauErsterwerb.baugenehmigung.wurdeErteilt && (
+                <div className="row g-3 mt-3">
+                  <div className="col-md-4">
+                    <Form.Floating>
+                      <Form.Control
+                        type="date"
+                        placeholder="Erteilungsdatum"
+                        value={formData.objektDetailsNeubauErsterwerb.baugenehmigung.erteilungsDatum}
+                        onChange={(e) => handleNestedInputChange('objektDetailsNeubauErsterwerb', 'baugenehmigung', 'erteilungsDatum', e.target.value)}
+                        isInvalid={getFieldError('Erteilungsdatum der Baugenehmigung')}
+                      />
+                      <label>Erteilungsdatum</label>
+                      <Form.Control.Feedback type="invalid">
+                        Bitte geben Sie das Erteilungsdatum der Baugenehmigung ein
+                      </Form.Control.Feedback>
+                    </Form.Floating>
+                  </div>
+                  <div className="col-md-4">
+                    <Form.Floating>
+                      <Form.Control
+                        type="text"
+                        placeholder="Aktenzeichen"
+                        value={formData.objektDetailsNeubauErsterwerb.baugenehmigung.aktenzeichen}
+                        onChange={(e) => handleNestedInputChange('objektDetailsNeubauErsterwerb', 'baugenehmigung', 'aktenzeichen', e.target.value)}
+                        isInvalid={getFieldError('Aktenzeichen der Baugenehmigung')}
+                      />
+                      <label>Aktenzeichen</label>
+                      <Form.Control.Feedback type="invalid">
+                        Bitte geben Sie das Aktenzeichen der Baugenehmigung ein
+                      </Form.Control.Feedback>
+                    </Form.Floating>
+                  </div>
+                  <div className="col-md-4">
+                    <Form.Floating>
+                      <Form.Control
+                        type="text"
+                        placeholder="Erteilende Behörde"
+                        value={formData.objektDetailsNeubauErsterwerb.baugenehmigung.erteilungsBehoerde}
+                        onChange={(e) => handleNestedInputChange('objektDetailsNeubauErsterwerb', 'baugenehmigung', 'erteilungsBehoerde', e.target.value)}
+                        isInvalid={getFieldError('erteilende Behörde der Baugenehmigung')}
+                      />
+                      <label>Erteilende Behörde</label>
+                      <Form.Control.Feedback type="invalid">
+                        Bitte geben Sie die erteilende Behörde der Baugenehmigung ein
+                      </Form.Control.Feedback>
+                    </Form.Floating>
+                  </div>
+                </div>
+              )}
             </>
           )}
 
-          <div className="mt-4">
-            <div className="d-flex align-items-center mb-3">
-              <div className="flex-grow-1">
-                <Form.Label>Bauanzeige/Bauantrag wurde eingereicht</Form.Label>
-              </div>
-              <div className="d-flex gap-3">
-                <Form.Check
-                  inline
-                  type="radio"
-                  label="Ja"
-                  name="bauanzeigeEingereicht"
-                  checked={formData.objektDetailsNeubauErsterwerb.bauanzeige.wurdeEingereicht === true}
-                  onChange={() => handleNestedInputChange('objektDetailsNeubauErsterwerb', 'bauanzeige', 'wurdeEingereicht', true)}
-                  className="custom-radio"
-                />
-                <Form.Check
-                  inline
-                  type="radio"
-                  label="Nein"
-                  name="bauanzeigeEingereicht"
-                  checked={formData.objektDetailsNeubauErsterwerb.bauanzeige.wurdeEingereicht === false}
-                  onChange={() => handleNestedInputChange('objektDetailsNeubauErsterwerb', 'bauanzeige', 'wurdeEingereicht', false)}
-                  className="custom-radio"
-                />
+          <div className="d-flex align-items-center mb-3 mt-4">
+            <div className="d-flex align-items-center gap-2">
+              <Form.Label className="mb-0">Wurde eine Bauanzeige eingereicht?</Form.Label>
+              <OverlayTrigger
+                placement="right"
+                overlay={renderTooltip("Geben Sie an, ob eine Bauanzeige eingereicht wurde")}
+              >
+                <Button
+                  variant="outline-secondary"
+                  className="rounded-circle p-0 d-flex align-items-center justify-content-center"
+                  style={{
+                    width: '20px',
+                    height: '20px',
+                    color: '#064497',
+                    borderColor: '#D7DAEA',
+                    backgroundColor: '#D7DAEA'
+                  }}
+                >
+                  ?
+                </Button>
+              </OverlayTrigger>
+            </div>
+            <div className="d-flex gap-3 ms-auto">
+              <Form.Check
+                inline
+                type="radio"
+                label="Ja"
+                name="bauanzeigeEingereicht"
+                checked={formData.objektDetailsNeubauErsterwerb.bauanzeige.wurdeEingereicht === true}
+                onChange={() => handleNestedInputChange('objektDetailsNeubauErsterwerb', 'bauanzeige', 'wurdeEingereicht', true)}
+                className="custom-radio"
+              />
+              <Form.Check
+                inline
+                type="radio"
+                label="Nein"
+                name="bauanzeigeEingereicht"
+                checked={formData.objektDetailsNeubauErsterwerb.bauanzeige.wurdeEingereicht === false}
+                onChange={() => handleNestedInputChange('objektDetailsNeubauErsterwerb', 'bauanzeige', 'wurdeEingereicht', false)}
+                className="custom-radio"
+              />
+            </div>
+          </div>
+          {showValidation && getFieldError('Bauanzeige eingereicht') && (
+            <div className="text-danger mt-1">
+              Bitte geben Sie an, ob eine Bauanzeige eingereicht wurde
+            </div>
+          )}
+
+          {formData.objektDetailsNeubauErsterwerb.bauanzeige.wurdeEingereicht && (
+            <div className="row g-3">
+              <div className="col-12">
+                <Form.Floating>
+                  <Form.Control
+                    type="date"
+                    placeholder="Einreichungsdatum"
+                    value={formData.objektDetailsNeubauErsterwerb.bauanzeige.einreichungsDatum}
+                    onChange={(e) => handleNestedInputChange('objektDetailsNeubauErsterwerb', 'bauanzeige', 'einreichungsDatum', e.target.value)}
+                    isInvalid={getFieldError('Einreichungsdatum der Bauanzeige')}
+                  />
+                  <label>Einreichungsdatum</label>
+                  <Form.Control.Feedback type="invalid">
+                    Bitte geben Sie das Einreichungsdatum der Bauanzeige ein
+                  </Form.Control.Feedback>
+                </Form.Floating>
               </div>
             </div>
+          )}
 
-            {formData.objektDetailsNeubauErsterwerb.bauanzeige.wurdeEingereicht && (
-              <div className="row g-3">
-                <div className="col-12">
-                  <Form.Floating>
-                    <Form.Control
-                      type="date"
-                      placeholder="wurde eingereicht am"
-                      value={formData.objektDetailsNeubauErsterwerb.bauanzeige.einreichungsDatum}
-                      onChange={(e) => handleNestedInputChange('objektDetailsNeubauErsterwerb', 'bauanzeige', 'einreichungsDatum', e.target.value)}
-                    />
-                    <label>wurde eingereicht am</label>
-                  </Form.Floating>
-                </div>
-              </div>
-            )}
+          <div className="d-flex align-items-center mb-3 mt-4">
+            <div className="d-flex align-items-center gap-2">
+              <Form.Label className="mb-0">Wurden die Bauarbeiten bereits begonnen?</Form.Label>
+              <OverlayTrigger
+                placement="right"
+                overlay={renderTooltip("Geben Sie an, ob die Bauarbeiten bereits begonnen wurden")}
+              >
+                <Button
+                  variant="outline-secondary"
+                  className="rounded-circle p-0 d-flex align-items-center justify-content-center"
+                  style={{
+                    width: '20px',
+                    height: '20px',
+                    color: '#064497',
+                    borderColor: '#D7DAEA',
+                    backgroundColor: '#D7DAEA'
+                  }}
+                >
+                  ?
+                </Button>
+              </OverlayTrigger>
+            </div>
+            <div className="d-flex gap-3 ms-auto">
+              <Form.Check
+                inline
+                type="radio"
+                label="Ja"
+                name="bauarbeitenBegonnen"
+                checked={formData.objektDetailsNeubauErsterwerb.bauarbeiten.wurdeBegonnen === true}
+                onChange={() => handleNestedInputChange('objektDetailsNeubauErsterwerb', 'bauarbeiten', 'wurdeBegonnen', true)}
+                className="custom-radio"
+              />
+              <Form.Check
+                inline
+                type="radio"
+                label="Nein"
+                name="bauarbeitenBegonnen"
+                checked={formData.objektDetailsNeubauErsterwerb.bauarbeiten.wurdeBegonnen === false}
+                onChange={() => handleNestedInputChange('objektDetailsNeubauErsterwerb', 'bauarbeiten', 'wurdeBegonnen', false)}
+                className="custom-radio"
+              />
+            </div>
           </div>
+          {showValidation && getFieldError('Bauarbeiten begonnen') && (
+            <div className="text-danger mt-1">
+              Bitte geben Sie an, ob die Bauarbeiten begonnen wurden
+            </div>
+          )}
 
-          <div className="mt-4">
-            <div className="d-flex align-items-center mb-3">
-              <div className="flex-grow-1">
-                <Form.Label>mit den Bauarbeiten wurde begonnen</Form.Label>
-              </div>
-              <div className="d-flex gap-3">
-                <Form.Check
-                  inline
-                  type="radio"
-                  label="Ja"
-                  name="bauarbeitenBegonnen"
-                  checked={formData.objektDetailsNeubauErsterwerb.bauarbeiten.wurdeBegonnen === true}
-                  onChange={() => handleNestedInputChange('objektDetailsNeubauErsterwerb', 'bauarbeiten', 'wurdeBegonnen', true)}
-                  className="custom-radio"
-                />
-                <Form.Check
-                  inline
-                  type="radio"
-                  label="Nein"
-                  name="bauarbeitenBegonnen"
-                  checked={formData.objektDetailsNeubauErsterwerb.bauarbeiten.wurdeBegonnen === false}
-                  onChange={() => handleNestedInputChange('objektDetailsNeubauErsterwerb', 'bauarbeiten', 'wurdeBegonnen', false)}
-                  className="custom-radio"
-                />
+          {formData.objektDetailsNeubauErsterwerb.bauarbeiten.wurdeBegonnen && (
+            <div className="row g-3">
+              <div className="col-12">
+                <Form.Floating>
+                  <Form.Control
+                    type="date"
+                    placeholder="Datum Baubeginn"
+                    value={formData.objektDetailsNeubauErsterwerb.bauarbeiten.beginnDatum}
+                    onChange={(e) => handleNestedInputChange('objektDetailsNeubauErsterwerb', 'bauarbeiten', 'beginnDatum', e.target.value)}
+                    isInvalid={getFieldError('Datum des Baubeginns')}
+                  />
+                  <label>Datum Baubeginn</label>
+                  <Form.Control.Feedback type="invalid">
+                    Bitte geben Sie das Datum des Baubeginns ein
+                  </Form.Control.Feedback>
+                </Form.Floating>
               </div>
             </div>
-
-            {formData.objektDetailsNeubauErsterwerb.bauarbeiten.wurdeBegonnen && (
-              <div className="row g-3">
-                <div className="col-12">
-                  <Form.Floating>
-                    <Form.Control
-                      type="date"
-                      placeholder="Datum Baubeginn"
-                      value={formData.objektDetailsNeubauErsterwerb.bauarbeiten.beginnDatum}
-                      onChange={(e) => handleNestedInputChange('objektDetailsNeubauErsterwerb', 'bauarbeiten', 'beginnDatum', e.target.value)}
-                    />
-                    <label>Datum Baubeginn</label>
-                  </Form.Floating>
-                </div>
-              </div>
-            )}
-          </div>
+          )}
         </div>
       )}
 
       {/* Objektdetails Eigentumswohnung */}
-      {(formData.foerderVariante === 'ersterwerb-wohnung' || 
-        formData.foerderVariante === 'bestandserwerb-wohnung') && (
+      {formData.foerderVariante?.includes('wohnung') && (
         <div className="mb-5">
           <div className="d-flex align-items-center gap-2 mb-4">
             <h4 className="mb-0 text-[#000000] font-semibold italic">Objektdetails Eigentumswohnung</h4>
-            <OverlayTrigger
-              placement="right"
-              overlay={renderTooltip("Details zur Eigentumswohnung")}
-            >
-              <Button
-                variant="outline-secondary"
-                className="rounded-circle p-0 d-flex align-items-center justify-content-center"
-                style={{
-                  width: '20px',
-                  height: '20px',
-                  color: '#064497',
-                  borderColor: '#D7DAEA',
-                  backgroundColor: '#D7DAEA'
-                }}
-              >
-                ?
-              </Button>
-            </OverlayTrigger>
           </div>
 
           <div className="row g-3">
@@ -727,8 +1087,12 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData })
                   placeholder="Anzahl Vollgeschosse"
                   value={formData.objektDetailsEigentumswohnung.anzahlVollgeschosse}
                   onChange={(e) => handleNestedInputChange('objektDetailsEigentumswohnung', '', 'anzahlVollgeschosse', e.target.value)}
+                  isInvalid={getFieldError('Anzahl der Vollgeschosse')}
                 />
                 <label>Anzahl Vollgeschosse</label>
+                <Form.Control.Feedback type="invalid">
+                  Bitte geben Sie die Anzahl der Vollgeschosse ein
+                </Form.Control.Feedback>
               </Form.Floating>
             </div>
             <div className="col-md-6">
@@ -738,8 +1102,12 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData })
                   placeholder="Wohnungen am Hauseingang"
                   value={formData.objektDetailsEigentumswohnung.wohnungenAmHauseingang}
                   onChange={(e) => handleNestedInputChange('objektDetailsEigentumswohnung', '', 'wohnungenAmHauseingang', e.target.value)}
+                  isInvalid={getFieldError('Anzahl der Wohnungen am Hauseingang')}
                 />
                 <label>Wohnungen am Hauseingang</label>
+                <Form.Control.Feedback type="invalid">
+                  Bitte geben Sie die Anzahl der Wohnungen am Hauseingang ein
+                </Form.Control.Feedback>
               </Form.Floating>
             </div>
           </div>
@@ -752,8 +1120,12 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData })
                   placeholder="Lage im Gebäude"
                   value={formData.objektDetailsEigentumswohnung.lageImGebaeude}
                   onChange={(e) => handleNestedInputChange('objektDetailsEigentumswohnung', '', 'lageImGebaeude', e.target.value)}
+                  isInvalid={getFieldError('Lage im Gebäude')}
                 />
                 <label>Lage im Gebäude (z. B. EG, 1. OG)</label>
+                <Form.Control.Feedback type="invalid">
+                  Bitte geben Sie die Lage im Gebäude ein
+                </Form.Control.Feedback>
               </Form.Floating>
             </div>
             <div className="col-md-6">
@@ -763,8 +1135,12 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData })
                   placeholder="Lage im Geschoss"
                   value={formData.objektDetailsEigentumswohnung.lageImGeschoss}
                   onChange={(e) => handleNestedInputChange('objektDetailsEigentumswohnung', '', 'lageImGeschoss', e.target.value)}
+                  isInvalid={getFieldError('Lage im Geschoss')}
                 />
                 <label>Lage im Geschoss (z. B. links)</label>
+                <Form.Control.Feedback type="invalid">
+                  Bitte geben Sie die Lage im Geschoss ein
+                </Form.Control.Feedback>
               </Form.Floating>
             </div>
           </div>
@@ -779,7 +1155,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData })
             <h4 className="mb-0 text-[#000000] font-semibold italic">Objektdetails Bestandserwerb</h4>
             <OverlayTrigger
               placement="right"
-              overlay={renderTooltip("Details zum Bestandserwerb")}
+              overlay={renderTooltip("Geben Sie das Baujahr des Förderobjekts ein")}
             >
               <Button
                 variant="outline-secondary"
@@ -802,11 +1178,15 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData })
               <Form.Floating>
                 <Form.Control
                   type="number"
-                  placeholder="Baujahr des Förderobjekts"
+                  placeholder="Baujahr"
                   value={formData.objektDetailsBestandserwerb.baujahr}
                   onChange={(e) => handleNestedInputChange('objektDetailsBestandserwerb', '', 'baujahr', e.target.value)}
+                  isInvalid={getFieldError('Baujahr')}
                 />
                 <label>Baujahr des Förderobjekts</label>
+                <Form.Control.Feedback type="invalid">
+                  Bitte geben Sie das Baujahr ein
+                </Form.Control.Feedback>
               </Form.Floating>
             </div>
           </div>
