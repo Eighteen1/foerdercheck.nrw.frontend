@@ -1228,13 +1228,8 @@ const HauptantragContainer: React.FC = () => {
         errors[3].push('Bitte geben Sie mindestens einen Ertragswert ein (vermietete Wohnung oder Garage)');
       }
     }
-
-    // Barrierefrei and BEG validation
-    if (formData.step3.objektDetailsAllgemein.barrierefrei === null) {
-      errors[3].push('Bitte geben Sie an, ob das Objekt barrierefrei ist');
-    }
-    if (formData.step3.objektDetailsAllgemein.begEffizienzhaus40Standard === null) {
-      errors[3].push('Bitte geben Sie an, ob das Objekt dem BEG Effizienzhaus 40 Standard entspricht');
+    if (formData.step3.objektDetailsAllgemein.hasWoodConstructionLoan === null) {
+      errors[3].push('Bitte geben Sie an, ob Sie ein Zusatzdarlehen für Bauen mit Holz beantragen');
     }
 
     // Eigentumswohnung validation
@@ -1247,6 +1242,16 @@ const HauptantragContainer: React.FC = () => {
 
     // Neubau/Ersterwerb validation
     if (formData.step3.foerderVariante?.includes('neubau') || formData.step3.foerderVariante?.includes('ersterwerb')) {
+        // Barrierefrei and BEG validation
+      if (formData.step3.objektDetailsAllgemein.barrierefrei === null) {
+        errors[3].push('Bitte geben Sie an, ob das Objekt barrierefrei ist');
+      }
+      if (formData.step3.objektDetailsAllgemein.begEffizienzhaus40Standard === null) {
+        errors[3].push('Bitte geben Sie an, ob das Objekt dem BEG Effizienzhaus 40 Standard entspricht');
+      }
+      if (formData.step3.objektDetailsAllgemein.hasLocationCostLoan === null) {
+        errors[3].push('Bitte geben Sie an, ob Sie ein Zusatzdarlehen für standortbedingte Mehrkosten beantragen');
+      }
       if (formData.step3.objektDetailsNeubauErsterwerb.baugenehmigungErforderlich === null) {
         errors[3].push('Bitte geben Sie an, ob eine Baugenehmigung erforderlich ist');
       }
