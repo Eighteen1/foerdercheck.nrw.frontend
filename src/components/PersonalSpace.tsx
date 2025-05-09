@@ -12,6 +12,11 @@ const PersonalSpace: React.FC = () => {
   const [emailInput, setEmailInput] = useState('');
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [eligibilityData, setEligibilityData] = useState<any>(null);
+  const [formProgress, setFormProgress] = useState<{ [key: string]: number }>({
+    hauptantrag: 0,
+    einkommenserklarung: 0,
+    selbstauskunft: 0
+  });
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -28,8 +33,36 @@ const PersonalSpace: React.FC = () => {
           setShowRegistrationModal(true);
         }
       }
+    } else if (user?.id) {
+      // Fetch progress data from the database
+      const fetchProgress = async () => {
+        try {
+          const { data, error } = await supabase
+            .from('user_data')
+            .select('hauptantrag_progress, einkommenserklarung_progress, selbstauskunft_progress')
+            .eq('id', user.id)
+            .single();
+
+          if (error) {
+            console.error('Error fetching progress:', error);
+            return;
+          }
+
+          if (data) {
+            setFormProgress({
+              hauptantrag: data.hauptantrag_progress || 0,
+              einkommenserklarung: data.einkommenserklarung_progress || 0,
+              selbstauskunft: data.selbstauskunft_progress || 0
+            });
+          }
+        } catch (error) {
+          console.error('Error in fetchProgress:', error);
+        }
+      };
+
+      fetchProgress();
     }
-  }, [isAuthenticated, location.state]);
+  }, [isAuthenticated, location.state, user?.id]);
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -135,17 +168,17 @@ const PersonalSpace: React.FC = () => {
   const formSections = [
     { 
       title: "HAUPTANTRAG", 
-      progress: 0,
+      progress: formProgress.hauptantrag,
       onClick: handleHauptantrag
     },
     { 
       title: "EINKOMMENSERKLÄRUNG", 
-      progress: 0,
+      progress: formProgress.einkommenserklarung,
       onClick: () => {} // To be implemented
     },
     { 
       title: "SELBSTAUSKUNFT", 
-      progress: 0,
+      progress: formProgress.selbstauskunft,
       onClick: () => {} // To be implemented
     }
   ];
