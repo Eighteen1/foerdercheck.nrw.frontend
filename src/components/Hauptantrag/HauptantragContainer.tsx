@@ -1228,8 +1228,13 @@ const HauptantragContainer: React.FC = () => {
         errors[3].push('Bitte geben Sie mindestens einen Ertragswert ein (vermietete Wohnung oder Garage)');
       }
     }
-    if (formData.step3.objektDetailsAllgemein.hasWoodConstructionLoan === null) {
-      errors[3].push('Bitte geben Sie an, ob Sie ein Zusatzdarlehen für Bauen mit Holz beantragen');
+
+    // Barrierefrei and BEG validation
+    if (formData.step3.objektDetailsAllgemein.barrierefrei === null) {
+      errors[3].push('Bitte geben Sie an, ob das Objekt barrierefrei ist');
+    }
+    if (formData.step3.objektDetailsAllgemein.begEffizienzhaus40Standard === null) {
+      errors[3].push('Bitte geben Sie an, ob das Objekt dem BEG Effizienzhaus 40 Standard entspricht');
     }
 
     // Eigentumswohnung validation
@@ -1242,17 +1247,6 @@ const HauptantragContainer: React.FC = () => {
 
     // Neubau/Ersterwerb validation
     if (formData.step3.foerderVariante?.includes('neubau') || formData.step3.foerderVariante?.includes('ersterwerb')) {
-
-        // Barrierefrei and BEG validation
-      if (formData.step3.objektDetailsAllgemein.barrierefrei === null) {
-        errors[3].push('Bitte geben Sie an, ob das Objekt barrierefrei ist');
-      }
-      if (formData.step3.objektDetailsAllgemein.begEffizienzhaus40Standard === null) {
-        errors[3].push('Bitte geben Sie an, ob das Objekt dem BEG Effizienzhaus 40 Standard entspricht');
-      }
-      if (formData.step3.objektDetailsAllgemein.hasLocationCostLoan === null) {
-        errors[3].push('Bitte geben Sie an, ob Sie ein Zusatzdarlehen für standortbedingte Mehrkosten beantragen');
-      }
       if (formData.step3.objektDetailsNeubauErsterwerb.baugenehmigungErforderlich === null) {
         errors[3].push('Bitte geben Sie an, ob eine Baugenehmigung erforderlich ist');
       }
@@ -1428,27 +1422,24 @@ const HauptantragContainer: React.FC = () => {
         errors[6].push('Bitte geben Sie den Nennbetrag des Familienbonus ein');
       }
 
-     
+      // Validate Barrierefreiheit if barrierefrei is true
+      if (formData.step3.objektDetailsAllgemein.barrierefrei === true && !formData.step6.darlehenNRWBank.zusatzdarlehen.barrierefreiheit.nennbetrag) {
+        errors[6].push('Bitte geben Sie den Nennbetrag für Barrierefreiheit ein');
+      }
 
       // Validate Bauen mit Holz
-      if (formData.step3.objektDetailsAllgemein.hasWoodConstructionLoan === true && !formData.step6.darlehenNRWBank.zusatzdarlehen.bauenMitHolz.nennbetrag) {
+      if (!formData.step6.darlehenNRWBank.zusatzdarlehen.bauenMitHolz.nennbetrag) {
         errors[6].push('Bitte geben Sie den Nennbetrag für Bauen mit Holz ein');
       }
 
-      if (formData.step3.foerderVariante?.includes('neubau') || formData.step3.foerderVariante?.includes('ersterwerb')) {
-        // Validate Barrierefreiheit if barrierefrei is true
-        if (formData.step3.objektDetailsAllgemein.barrierefrei === true && !formData.step6.darlehenNRWBank.zusatzdarlehen.barrierefreiheit.nennbetrag) {
-          errors[6].push('Bitte geben Sie den Nennbetrag für Barrierefreiheit ein');
-        }
-         // Validate BEG Effizienzhaus 40 Standard if begEffizienzhaus40Standard is true
-        if (formData.step3.objektDetailsAllgemein.begEffizienzhaus40Standard === true && !formData.step6.darlehenNRWBank.zusatzdarlehen.begEffizienzhaus40Standard.nennbetrag) {
-          errors[6].push('Bitte geben Sie den Nennbetrag für BEG Effizienzhaus 40 Standard ein');
-        }
-        // Validate Standortbedingte Mehrkosten
-        if (formData.step3.objektDetailsAllgemein.hasLocationCostLoan === true && !formData.step6.darlehenNRWBank.zusatzdarlehen.standortbedingteMehrkosten.nennbetrag) {
-          errors[6].push('Bitte geben Sie den Nennbetrag für standortbedingte Mehrkosten ein');
-        }
-        
+      // Validate Standortbedingte Mehrkosten
+      if (!formData.step6.darlehenNRWBank.zusatzdarlehen.standortbedingteMehrkosten.nennbetrag) {
+        errors[6].push('Bitte geben Sie den Nennbetrag für standortbedingte Mehrkosten ein');
+      }
+
+      // Validate BEG Effizienzhaus 40 Standard if begEffizienzhaus40Standard is true
+      if (formData.step3.objektDetailsAllgemein.begEffizienzhaus40Standard === true && !formData.step6.darlehenNRWBank.zusatzdarlehen.begEffizienzhaus40Standard.nennbetrag) {
+        errors[6].push('Bitte geben Sie den Nennbetrag für BEG Effizienzhaus 40 Standard ein');
       }
     }
 
