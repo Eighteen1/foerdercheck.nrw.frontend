@@ -902,8 +902,6 @@ const HauptantragContainer: React.FC = () => {
           subsidyfilenumber: formData.step2.hasDoubleSubsidy ? formData.step2.subsidyFileNumber || null : null,
           subsidyauthority: formData.step2.hasDoubleSubsidy ? formData.step2.subsidyAuthority || null : null,
           hassupplementaryloan: formData.step2.hasSupplementaryLoan,
-          haslocationcostloan: (formData.step3.foerderVariante === 'neubau' || formData.step3.foerderVariante?.includes('ersterwerb')) ? formData.step3.objektDetailsAllgemein.hasLocationCostLoan : null,
-          haswoodconstructionloan: formData.step3.objektDetailsAllgemein.hasWoodConstructionLoan,
           
           updated_at: new Date().toISOString()
         })
@@ -917,6 +915,8 @@ const HauptantragContainer: React.FC = () => {
         .upsert({
           user_id: user.id,
           // Step 3 data
+          haslocationcostloan: (formData.step3.foerderVariante === 'neubau' || formData.step3.foerderVariante?.includes('ersterwerb')) ? formData.step3.objektDetailsAllgemein.hasLocationCostLoan : null,
+          haswoodconstructionloan: formData.step3.objektDetailsAllgemein.hasWoodConstructionLoan,
           obj_street: formData.step3.address.street || null,
           obj_house_number: formData.step3.address.houseNumber || null,
           obj_postal_code: formData.step3.address.postalCode || null,
