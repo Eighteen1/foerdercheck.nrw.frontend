@@ -220,12 +220,12 @@ const PersonalSpace: React.FC = () => {
               <div key={index} className="d-flex align-items-center mb-4">
                 <Button
                   className="flex-grow-1 py-3 me-3"
-                  style={{ backgroundColor: '#064497', border: 'none' }}
+                  style={{ backgroundColor: '#064497', border: 'none', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}
                   onClick={section.onClick}
                 >
                   {section.title}
                 </Button>
-                <div className="border rounded-circle p-2 d-flex align-items-center justify-content-center" style={{ width: '45px', height: '45px' }}>
+                <div className="border rounded-circle p-2 d-flex align-items-center justify-content-center" style={{ width: '55px', height: '55px', color: '#064497', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}>
                   {section.progress}%
                 </div>
               </div>
@@ -238,20 +238,52 @@ const PersonalSpace: React.FC = () => {
               <div className="d-flex align-items-center justify-content-center mb-4">
                 <Button
                   className="flex-grow-1 py-3 me-3"
-                  style={{ backgroundColor: '#064497', border: 'none' }}
+                  style={{ backgroundColor: '#064497', border: 'none', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}
                   onClick={handleDocumentUpload}
                 >
                   DOKUMENTE HOCHLADEN
                 </Button>
-                <div className="border rounded-circle p-2 d-flex align-items-center justify-content-center" style={{ width: '45px', height: '45px' }}>
+                <div className="border rounded-circle p-2 d-flex align-items-center justify-content-center" style={{ width: '55px', height: '55px', color: '#064497', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}>
                   0%
                 </div>
               </div>
 
-              <div className="mt-5">
-                <p className="mb-4">
-                  Ihre E-Mail-Adresse: <strong>{email}</strong>
-                </p>
+              <div 
+                className="border rounded p-4 mb-4" 
+                style={{ 
+                  boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+                  backgroundColor: '#ffffff'
+                }}
+              >
+                {isAuthenticated ? (
+                  <>
+                    <h6 className="text-start mb-3" style={{ color: '#064497' }}>Ihr Konto</h6>
+                    <p className="text-start mb-3">
+                      Ihre E-Mail-Adresse: <strong>{email}</strong>
+                    </p>
+                    <Button
+                      onClick={logout}
+                      className="w-100 py-2"
+                      style={{ backgroundColor: '#808080', border: 'none', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}
+                    >
+                      Abmelden
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <h6 className="text-start mb-3" style={{ color: '#064497' }}>Konto erstellen</h6>
+                    <p className="text-start mb-3">
+                      Erstellen Sie ein Konto, um alle Funktionen nutzen zu können.
+                    </p>
+                    <Button
+                      onClick={() => setShowRegistrationModal(true)}
+                      className="w-100 py-2"
+                      style={{ backgroundColor: '#064497', border: 'none', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}
+                    >
+                      Konto erstellen
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
           </Col>
