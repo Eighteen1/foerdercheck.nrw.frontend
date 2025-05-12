@@ -1506,261 +1506,362 @@ const HauptantragContainer: React.FC = () => {
   };
 
   const calculateProgress = () => {
-    // Get all potential validation errors without showing them
-    const errors: Record<number, string[]> = {};
-    
-    // Validate Step 1
-    errors[1] = [];
-    formData.step1.persons.forEach((person, index) => {
-      if (!person.title) errors[1].push(`Person ${index + 1}: Titel ist erforderlich`);
-      if (!person.firstName) errors[1].push(`Person ${index + 1}: Vorname ist erforderlich`);
-      if (!person.lastName) errors[1].push(`Person ${index + 1}: Name ist erforderlich`);
-      if (!person.birthDate) errors[1].push(`Person ${index + 1}: Geburtsdatum ist erforderlich`);
-      if (!person.nationality) errors[1].push(`Person ${index + 1}: Staatsangehörigkeit ist erforderlich`);
-      if (!person.street) errors[1].push(`Person ${index + 1}: Straße ist erforderlich`);
-      if (!person.houseNumber) errors[1].push(`Person ${index + 1}: Hausnummer ist erforderlich`);
-      if (!person.postalCode) errors[1].push(`Person ${index + 1}: Postleitzahl ist erforderlich`);
-      if (!person.city) errors[1].push(`Person ${index + 1}: Ort ist erforderlich`);
-      if (!person.phone) errors[1].push(`Person ${index + 1}: Telefonnummer ist erforderlich`);
-      if (!person.email) errors[1].push(`Person ${index + 1}: E-Mail ist erforderlich`);
-      if (!person.employment.type) errors[1].push(`Person ${index + 1}: Beschäftigungsart ist erforderlich`);
-      if ((person.employment.type == 'sole-trader' || person.employment.type == 'business-owner' || person.employment.type == 'freelancer' || person.employment.type == 'farmer' || person.employment.type == 'private-income') && !person.employment.details) errors[1].push(`Person ${index + 1}: Branche ist erforderlich`);
-    });
-    if (formData.step1.representative.hasRepresentative === null) errors[1].push('Bitte geben Sie an, ob Sie einen Bevollmächtigten angeben wollen');
-    if (formData.step1.representative.isCompany === null && formData.step1.representative.hasRepresentative == true) errors[1].push('Bitte geben Sie an, ob es sich um eine Firma handelt');
-    // Representative Company Info
-    if (!formData.step1.representative.companyName && formData.step1.representative.isCompany == true) errors[1].push('Bitte geben Sie den Namen der Bevollmächtigten Firma ein');
-    if (!formData.step1.representative.postboxCity && formData.step1.representative.isCompany == true) errors[1].push('Bitte geben Sie den Ort des Postfachs der Bevollmächtigten Firma ein');
-    if (!formData.step1.representative.postboxPostcode && formData.step1.representative.isCompany == true) errors[1].push('Bitte geben Sie die Postleitzahl des Postfachs der Bevollmächtigten Firma ein');
-    // Representative Personal Info
-    if (!formData.step1.representative.title && formData.step1.representative.isCompany == false) errors[1].push('Bitte geben Sie den Titel des Bevollmächtigten ein');
-    if (!formData.step1.representative.firstName && formData.step1.representative.isCompany == false) errors[1].push('Bitte geben Sie den Vornamen des Bevollmächtigten ein');
-    if (!formData.step1.representative.lastName && formData.step1.representative.isCompany == false) errors[1].push('Bitte geben Sie den Nachnamen des Bevollmächtigten ein');
-    if (!formData.step1.representative.street && formData.step1.representative.isCompany == false) errors[1].push('Bitte geben Sie die Straße des Bevollmächtigten ein');
-    if (!formData.step1.representative.houseNumber && formData.step1.representative.isCompany == false) errors[1].push('Bitte geben Sie die Hausnummer des Bevollmächtigten ein');
-    if (!formData.step1.representative.postalCode && formData.step1.representative.isCompany == false) errors[1].push('Bitte geben Sie die Postleitzahl des Bevollmächtigten ein');
-    if (!formData.step1.representative.city && formData.step1.representative.isCompany == false) errors[1].push('Bitte geben Sie die Stadt des Bevollmächtigten ein');
-    if (!formData.step1.representative.phone && formData.step1.representative.isCompany == false) errors[1].push('Bitte geben Sie die Telefonnummer des Bevollmächtigten ein');
-    if (!formData.step1.representative.email && formData.step1.representative.isCompany == false) errors[1].push('Bitte geben Sie die E-Mail des Bevollmächtigten ein');
+    let totalPotentialFields = 0;
+    let actualErrors = 0;
 
-    // Validate Step 2
-    errors[2] = [];
-    if (!formData.step2.adultCount) errors[2].push('Bitte geben Sie die Anzahl der Erwachsenen ein');
-    if (parseInt(formData.step2.adultCount) < 0) errors[2].push('Die Anzahl der Erwachsenen darf nicht negativ sein');
-    if (parseInt(formData.step2.adultCount) === 0) errors[2].push('Die Anzahl der Erwachsenen darf nicht 0 sein');
-    if (!formData.step2.childCount) errors[2].push('Bitte geben Sie die Anzahl der Kinder ein');
-    if (parseInt(formData.step2.childCount) < 0) errors[2].push('Die Anzahl der Kinder darf nicht negativ sein');
-    if (parseInt(formData.step2.childCount) > 0 && !formData.step2.childrenAges) errors[2].push('Bitte geben Sie das Alter der Kinder ein');
-    if (formData.step2.childrenAges) {
-      const ages = formData.step2.childrenAges.split(',').map(age => parseInt(age.trim()));
-      if (ages.some(age => age > 17)) {
-        errors[2].push('Volljährige Personen zählen als Erwachsene');
+    // Step 1: Personal Information
+    // Count required fields for each person (12 base fields + 1 conditional)
+    formData.step1.persons.forEach(person => {
+      // Base required fields (12)
+      totalPotentialFields += 12;
+      if (!person.title) actualErrors++;
+      if (!person.firstName) actualErrors++;
+      if (!person.lastName) actualErrors++;
+      if (!person.birthDate) actualErrors++;
+      if (!person.nationality) actualErrors++;
+      if (!person.street) actualErrors++;
+      if (!person.houseNumber) actualErrors++;
+      if (!person.postalCode) actualErrors++;
+      if (!person.city) actualErrors++;
+      if (!person.phone) actualErrors++;
+      if (!person.email) actualErrors++;
+      if (!person.employment.type) actualErrors++;
+
+      // Conditional field (employment.details)
+      if (['sole-trader', 'business-owner', 'freelancer', 'farmer', 'private-income'].includes(person.employment.type)) {
+        totalPotentialFields++;
+        if (!person.employment.details) actualErrors++;
+      }
+    });
+
+    // Representative fields
+    // hasRepresentative is always required
+    totalPotentialFields++;
+    if (formData.step1.representative.hasRepresentative === null) actualErrors++;
+
+    if (formData.step1.representative.hasRepresentative) {
+      // isCompany is required if hasRepresentative is true
+      totalPotentialFields++;
+      if (formData.step1.representative.isCompany === null) actualErrors++;
+
+      if (formData.step1.representative.isCompany) {
+        // Company fields (3 required)
+        totalPotentialFields += 3;
+        if (!formData.step1.representative.companyName) actualErrors++;
+        if (!formData.step1.representative.postboxCity) actualErrors++;
+        if (!formData.step1.representative.postboxPostcode) actualErrors++;
+      } else {
+        // Personal representative fields (11 required)
+        totalPotentialFields += 11;
+        if (!formData.step1.representative.title) actualErrors++;
+        if (!formData.step1.representative.firstName) actualErrors++;
+        if (!formData.step1.representative.lastName) actualErrors++;
+        if (!formData.step1.representative.street) actualErrors++;
+        if (!formData.step1.representative.houseNumber) actualErrors++;
+        if (!formData.step1.representative.postalCode) actualErrors++;
+        if (!formData.step1.representative.city) actualErrors++;
+        if (!formData.step1.representative.phone) actualErrors++;
+        if (!formData.step1.representative.email) actualErrors++;
       }
     }
-    if (formData.step2.isDisabled == null) errors[2].push('Bitte geben Sie an, ob behinderte Menschen in dem Haushalt leben');
-    if (formData.step2.isDisabled === true) {
+
+    // Step 2: Household Information
+    // Base required fields (4)
+    totalPotentialFields += 4;
+    if (!formData.step2.adultCount) actualErrors++;
+    if (!formData.step2.childCount) actualErrors++;
+    if (formData.step2.isDisabled === null) actualErrors++;
+    if (formData.step2.isMarried === null) actualErrors++;
+
+    // Conditional fields based on childCount
+    if (parseInt(formData.step2.childCount) > 0) {
+      totalPotentialFields++;
+      if (!formData.step2.childrenAges) actualErrors++;
+    }
+
+    // Conditional fields based on isDisabled
+    if (formData.step2.isDisabled) {
       const totalDisabled = parseInt(formData.step2.disabledAdultsCount || '0') + parseInt(formData.step2.disabledChildrenCount || '0');
       const totalHousehold = parseInt(formData.step2.adultCount || '0') + parseInt(formData.step2.childCount || '0');
-      if (totalDisabled <= 0) {
-        errors[2].push('Bitte geben Sie die Anzahl der behinderten Menschen in ihrem Haushalt ein');
-      }
-      if (totalDisabled > totalHousehold) {
-        errors[2].push('Die Anzahl der behinderten Menschen kann nicht größer sein als die Gesamtanzahl der Haushaltsmitglieder');
-      }
-    }
-    if (formData.step2.isMarried === null) {
-      errors[2].push('Bitte geben Sie an, ob Sie verheiratet sind oder in einer eingetragenen Lebenspartnerschaft leben');
-    }
-    if (formData.step2.hasAdditionalAssets === null) {
-      errors[2].push('Bitte geben Sie an, ob weiteres Vermögen vorhanden ist');
-    }
-    if (formData.step2.hasAdditionalAssets === true && !formData.step2.additionalAssetsDetails) {
-      errors[2].push('Bitte beschreiben Sie das weitere Vermögen');
-    }
-    if (formData.step2.hasDoubleSubsidy === null) {
-      errors[2].push('Bitte geben Sie an, ob Sie bereits Eigentümer eines geförderten Eigenheims oder einer geförderten Eigentumswohnung sind/waren');
-    }
-    if (formData.step2.hasDoubleSubsidy === true) {
-      if (formData.step2.hasRepaidSubsidy === null) {
-        errors[2].push('Bitte geben Sie an, ob die Fördermittel bereits zurückgezahlt wurden');
-      }
-      if (!formData.step2.subsidyAmount) {
-        errors[2].push('Bitte geben Sie den Betrag der Fördermittel ein');
-      }
-      if (!formData.step2.subsidyFileNumber) {
-        errors[2].push('Bitte geben Sie das Aktenzeichen ein');
-      }
-      if (!formData.step2.subsidyAuthority) {
-        errors[2].push('Bitte geben Sie die Bewilligungsbehörde ein');
-      }
+      totalPotentialFields += 1;
+      if (totalDisabled <= 0 || totalDisabled > totalHousehold) actualErrors++;
     }
 
-    // Validate Step 3
-    errors[3] = [];
-    if (!formData.step3.address.street) errors[3].push('Bitte geben Sie die Straße ein');
-    if (!formData.step3.address.houseNumber) errors[3].push('Bitte geben Sie die Hausnummer ein');
-    if (!formData.step3.address.postalCode) errors[3].push('Bitte geben Sie die Postleitzahl ein');
+    // Additional assets
+    totalPotentialFields++;
+    if (formData.step2.hasAdditionalAssets === null) actualErrors++;
+    if (formData.step2.hasAdditionalAssets) {
+      totalPotentialFields++;
+      if (!formData.step2.additionalAssetsDetails) actualErrors++;
+    }
+
+    // Double subsidy
+    totalPotentialFields++;
+    if (formData.step2.hasDoubleSubsidy === null) actualErrors++;
+    if (formData.step2.hasDoubleSubsidy) {
+      totalPotentialFields += 4;
+      if (formData.step2.hasRepaidSubsidy === null) actualErrors++;
+      if (!formData.step2.subsidyAmount) actualErrors++;
+      if (!formData.step2.subsidyFileNumber) actualErrors++;
+      if (!formData.step2.subsidyAuthority) actualErrors++;
+    }
+
+    // Supplementary loan
+    totalPotentialFields++;
+    if (formData.step2.hasSupplementaryLoan === null) actualErrors++;
+
+    // Step 3: Object Details
+    // Base address fields (4)
+    totalPotentialFields += 4;
+    if (!formData.step3.address.street) actualErrors++;
+    if (!formData.step3.address.houseNumber) actualErrors++;
+    if (!formData.step3.address.postalCode) actualErrors++;
     else {
       const postalCode = formData.step3.address.postalCode;
       const validStartNumbers = ['32', '33', '34', '37', '40', '41', '42', '44', '45', '46', '47', '48', '49', '50', '51', '52', '53', '57', '58', '59'];
       
-      if (!/^\d{5}$/.test(postalCode)) {
-        errors[3].push('Die Postleitzahl muss aus genau 5 Ziffern bestehen');
-      } else if (!validStartNumbers.includes(postalCode.substring(0, 2))) {
-        errors[3].push('Die Postleitzahl muss sich in Nordrhein-Westfalen befinden');
+      if (!/^\d{5}$/.test(postalCode)){ actualErrors++;
+      }else if(!validStartNumbers.includes(postalCode.substring(0, 2))){  actualErrors++;
       }
     }
-    if (!formData.step3.address.city) errors[3].push('Bitte geben Sie die Stadt ein');
-    if (!formData.step3.foerderVariante) {
-      errors[3].push('Bitte wählen Sie eine Förderungsvariante aus');
-    }
-    if (!formData.step3.objektDetailsAllgemein.wohnflaecheSelbstgenutzt) errors[3].push('Bitte geben Sie die selbstgenutzte Wohnfläche ein');
-    if (!formData.step3.objektDetailsAllgemein.gesamtWohnflaeche) errors[3].push('Bitte geben Sie die Gesamtwohnfläche ein');
-    if (!formData.step3.objektDetailsAllgemein.anzahlZimmer) errors[3].push('Bitte geben Sie die Anzahl der Zimmer ein');
-    if (!formData.step3.objektDetailsAllgemein.anzahlGaragen) errors[3].push('Bitte geben Sie die Anzahl der Garagen ein');
-    if (formData.step3.objektDetailsAllgemein.gewerbeflaeche.hasGewerbeflaeche === null) {
-      errors[3].push('Bitte geben Sie an, ob eine Gewerbefläche vorhanden ist');
-    }
-    if (formData.step3.objektDetailsAllgemein.gewerbeflaeche.hasGewerbeflaeche === true && !formData.step3.objektDetailsAllgemein.gewerbeflaeche.flaeche) {
-      errors[3].push('Bitte geben Sie die Größe der Gewerbefläche ein');
-    }
-    if (formData.step3.objektDetailsAllgemein.ertraege.hasErtraege === null) {
-      errors[3].push('Bitte geben Sie an, ob Erträge vorhanden sind');
-    }
-    if (formData.step3.objektDetailsAllgemein.ertraege.hasErtraege === true) {
-      if (!formData.step3.objektDetailsAllgemein.ertraege.vermieteteWohnung && !formData.step3.objektDetailsAllgemein.ertraege.vermieteteGarage) {
-        errors[3].push('Bitte geben Sie mindestens einen Ertragswert ein (vermietete Wohnung oder Garage)');
-      }
-    }
-    if (formData.step3.objektDetailsAllgemein.hasWoodConstructionLoan === null) {
-      errors[3].push('Bitte geben Sie an, ob Sie ein Zusatzdarlehen für Bauen mit Holz beantragen');
+    if (!formData.step3.address.city) actualErrors++;
+
+    // FoerderVariante is always required
+    totalPotentialFields++;
+    if (!formData.step3.foerderVariante) actualErrors++;
+
+    // Base object details (4)
+    totalPotentialFields += 4;
+    if (!formData.step3.objektDetailsAllgemein.wohnflaecheSelbstgenutzt) actualErrors++;
+    if (!formData.step3.objektDetailsAllgemein.gesamtWohnflaeche) actualErrors++;
+    if (!formData.step3.objektDetailsAllgemein.anzahlZimmer) actualErrors++;
+    if (!formData.step3.objektDetailsAllgemein.anzahlGaragen) actualErrors++;
+
+    // Gewerbefläche
+    totalPotentialFields++;
+    if (formData.step3.objektDetailsAllgemein.gewerbeflaeche.hasGewerbeflaeche === null) actualErrors++;
+    if (formData.step3.objektDetailsAllgemein.gewerbeflaeche.hasGewerbeflaeche) {
+      totalPotentialFields++;
+      if (!formData.step3.objektDetailsAllgemein.gewerbeflaeche.flaeche) actualErrors++;
     }
 
-    // Validate Step 4
-    errors[4] = [];
-    if (formData.step4.eigentumsverhaeltnis === null) {
-      errors[4].push('Bitte geben Sie an, ob das Objekt im Eigentum der antragstellenden Person(en) ist');
+    // Erträge
+    totalPotentialFields++;
+    if (formData.step3.objektDetailsAllgemein.ertraege.hasErtraege === null) actualErrors++;
+    if (formData.step3.objektDetailsAllgemein.ertraege.hasErtraege) {
+      totalPotentialFields += 1;
+      if (!formData.step3.objektDetailsAllgemein.ertraege.vermieteteWohnung && !formData.step3.objektDetailsAllgemein.ertraege.vermieteteGarage) actualErrors++;
     }
-    if (formData.step4.eigentumsverhaeltnis === false) {
-      if (formData.step4.kaufvertrag.wurdeAbgeschlossen === null) {
-        errors[4].push('Bitte geben Sie an, ob der Kaufvertrag abgeschlossen wurde');
-      }
-      if (formData.step4.kaufvertrag.wurdeAbgeschlossen === true && !formData.step4.kaufvertrag.abschlussDatum) {
-        errors[4].push('Bitte geben Sie das Abschlussdatum des Kaufvertrags ein');
-      }
+
+    // Wood construction loan
+    totalPotentialFields++;
+    if (formData.step3.objektDetailsAllgemein.hasWoodConstructionLoan === null) actualErrors++;
+
+    // Conditional fields based on foerderVariante
+    if (formData.step3.foerderVariante?.includes('wohnung')) {
+      totalPotentialFields += 4;
+      if (!formData.step3.objektDetailsEigentumswohnung.anzahlVollgeschosse) actualErrors++;
+      if (!formData.step3.objektDetailsEigentumswohnung.wohnungenAmHauseingang) actualErrors++;
+      if (!formData.step3.objektDetailsEigentumswohnung.lageImGebaeude) actualErrors++;
+      if (!formData.step3.objektDetailsEigentumswohnung.lageImGeschoss) actualErrors++;
     }
-    if (formData.step4.eigentumsverhaeltnis === true) {
-      if (formData.step4.erbbaurecht === null) {
-        errors[4].push('Bitte geben Sie an, ob Erbbaurecht vorhanden ist');
+
+    if (formData.step3.foerderVariante?.includes('neubau') || formData.step3.foerderVariante?.includes('ersterwerb')) {
+      totalPotentialFields += 3;
+      if (formData.step3.objektDetailsAllgemein.barrierefrei === null) actualErrors++;
+      if (formData.step3.objektDetailsAllgemein.begEffizienzhaus40Standard === null) actualErrors++;
+      if (formData.step3.objektDetailsAllgemein.hasLocationCostLoan === null) actualErrors++;
+
+      // Baugenehmigung
+      totalPotentialFields++;
+      if (formData.step3.objektDetailsNeubauErsterwerb.baugenehmigungErforderlich === null) actualErrors++;
+      if (formData.step3.objektDetailsNeubauErsterwerb.baugenehmigungErforderlich) {
+        totalPotentialFields++;
+        if (formData.step3.objektDetailsNeubauErsterwerb.baugenehmigung.wurdeErteilt === null) actualErrors++;
+        if (formData.step3.objektDetailsNeubauErsterwerb.baugenehmigung.wurdeErteilt) {
+          totalPotentialFields += 3;
+          if (!formData.step3.objektDetailsNeubauErsterwerb.baugenehmigung.erteilungsDatum) actualErrors++;
+          if (!formData.step3.objektDetailsNeubauErsterwerb.baugenehmigung.aktenzeichen) actualErrors++;
+          if (!formData.step3.objektDetailsNeubauErsterwerb.baugenehmigung.erteilungsBehoerde) actualErrors++;
+        }
       }
-      if (formData.step4.erbbaurecht === true && !formData.step4.restlaufzeitErbbaurecht) {
-        errors[4].push('Bitte geben Sie die Restlaufzeit des Erbbaurechts ein');
+
+      // Bauanzeige
+      totalPotentialFields++;
+      if (formData.step3.objektDetailsNeubauErsterwerb.bauanzeige.wurdeEingereicht === null) actualErrors++;
+      if (formData.step3.objektDetailsNeubauErsterwerb.bauanzeige.wurdeEingereicht) {
+        totalPotentialFields++;
+        if (!formData.step3.objektDetailsNeubauErsterwerb.bauanzeige.einreichungsDatum) actualErrors++;
+      }
+
+      // Bauarbeiten
+      totalPotentialFields++;
+      if (formData.step3.objektDetailsNeubauErsterwerb.bauarbeiten.wurdeBegonnen === null) actualErrors++;
+      if (formData.step3.objektDetailsNeubauErsterwerb.bauarbeiten.wurdeBegonnen) {
+        totalPotentialFields++;
+        if (!formData.step3.objektDetailsNeubauErsterwerb.bauarbeiten.beginnDatum) actualErrors++;
       }
     }
 
-    // Validate Step 5
-    errors[5] = [];
+    if (formData.step3.foerderVariante?.includes('bestandserwerb')) {
+      totalPotentialFields++;
+      if (!formData.step3.objektDetailsBestandserwerb.baujahr) actualErrors++;
+    }
+
+    // Step 4: Ownership
+    totalPotentialFields++;
+    if (formData.step4.eigentumsverhaeltnis === null) actualErrors++;
+
+    if (!formData.step4.eigentumsverhaeltnis) {
+      totalPotentialFields++;
+      if (formData.step4.kaufvertrag.wurdeAbgeschlossen === null) actualErrors++;
+      if (formData.step4.kaufvertrag.wurdeAbgeschlossen) {
+        totalPotentialFields++;
+        if (!formData.step4.kaufvertrag.abschlussDatum) actualErrors++;
+      }
+    } else {
+      totalPotentialFields++;
+      if (formData.step4.erbbaurecht === null) actualErrors++;
+      if (formData.step4.erbbaurecht) {
+        totalPotentialFields++;
+        if (!formData.step4.restlaufzeitErbbaurecht) actualErrors++;
+      }
+
+      // Grundbuch (9 fields)
+      totalPotentialFields += 8;
+      if (!formData.step4.grundbuch.type) actualErrors++;
+      if (!formData.step4.grundbuch.amtsgericht) actualErrors++;
+      if (!formData.step4.grundbuch.ortGrundbuch) actualErrors++;
+      if (!formData.step4.grundbuch.gemarkung) actualErrors++;
+      if (!formData.step4.grundbuch.blatt) actualErrors++;
+      if (!formData.step4.grundbuch.flur) actualErrors++;
+      if (!formData.step4.grundbuch.flurstueck) actualErrors++;
+      if (!formData.step4.grundbuch.grundstuecksgroesse) actualErrors++;
+    }
+
+    // Baulasten
+    totalPotentialFields++;
+    if (formData.step4.baulasten.vorhanden === null) actualErrors++;
+    if (formData.step4.baulasten.vorhanden) {
+      totalPotentialFields++;
+      if (!formData.step4.baulasten.art) actualErrors++;
+    }
+
+    // Altlasten
+    totalPotentialFields++;
+    if (formData.step4.altlasten.vorhanden === null) actualErrors++;
+    if (formData.step4.altlasten.vorhanden) {
+      totalPotentialFields++;
+      if (!formData.step4.altlasten.art) actualErrors++;
+    }
+
+    // Step 5: Costs
     if (formData.step3.foerderVariante === 'neubau') {
-      if (!formData.step5.baugrundstuck.kaufpreis) errors[5].push('Bitte geben Sie den Kaufpreis des Baugrundstücks ein (0,00€ wenn nicht vorhanden)');
-      if (!formData.step5.baugrundstuck.wert) errors[5].push('Bitte geben Sie den Wert des Baugrundstücks ein (0,00€ wenn nicht vorhanden)');
-      if (!formData.step5.baugrundstuck.erschliessungskosten) errors[5].push('Bitte geben Sie die Erschließungskosten ein (0,00€ wenn nicht vorhanden)');
-      if (!formData.step5.baugrundstuck.standortbedingteMehrkosten) errors[5].push('Bitte geben Sie die standortbedingten Mehrkosten ein (0,00€ wenn nicht vorhanden)');
+      totalPotentialFields += 4;
+      if (!formData.step5.baugrundstuck.kaufpreis) actualErrors++;
+      if (!formData.step5.baugrundstuck.wert) actualErrors++;
+      if (!formData.step5.baugrundstuck.erschliessungskosten) actualErrors++;
+      if (!formData.step5.baugrundstuck.standortbedingteMehrkosten) actualErrors++;
     }
-    if (formData.step3.foerderVariante?.includes('bestandserwerb') || formData.step3.foerderVariante?.includes('ersterwerb')) {
-      if (!formData.step5.kaufpreis.kaufpreis) errors[5].push('Bitte geben Sie den Kaufpreis ein');
-    }
-    if (formData.step3.foerderVariante === 'neubau' || formData.step3.foerderVariante === 'nutzungsaenderung') {
-      if (formData.step3.foerderVariante === 'neubau' && !formData.step5.baukosten.kostenGebaeude) {
-        errors[5].push('Bitte geben Sie die Kosten des Gebäudes ein');
-      }
-      if (!formData.step5.baukosten.besondereBauausfuhrung) errors[5].push('Bitte geben Sie die besondere Bauausführung ein (0,00€ wenn nicht vorhanden)');
-      if (!formData.step5.baukosten.wertVorhandenerGebaude) errors[5].push('Bitte geben Sie den Wert vorhandener Gebäudeteile ein (0,00€ wenn nicht vorhanden)');
-      if (!formData.step5.baukosten.kostenAussenanlagen) errors[5].push('Bitte geben Sie die Kosten der Außenanlagen ein (0,00€ wenn nicht vorhanden)');
-      if (!formData.step5.baukosten.kostenArchitekt) errors[5].push('Bitte geben Sie die Kosten der Architekten- und Ingenieurleistungen ein (0,00€ wenn nicht vorhanden)');
-    }
-    if (!formData.step5.nebenkosten.erwerbsnebenkosten) errors[5].push('Bitte geben Sie die Erwerbsnebenkosten ein (0,00€ wenn nicht vorhanden)');
-    if (!formData.step5.nebenkosten.verwaltungsleistungen) errors[5].push('Bitte geben Sie die Kosten der Verwaltungsleistungen ein (0,00€ wenn nicht vorhanden)');
-    if (!formData.step5.nebenkosten.beschaffungDauerfinanzierung) errors[5].push('Bitte geben Sie die Kosten der Beschaffung der Dauerfinanzierungsmittel ein (0,00€ wenn nicht vorhanden)');
-    if (!formData.step5.nebenkosten.beschaffungZwischenfinanzierung) errors[5].push('Bitte geben Sie die Kosten der Beschaffung und Verzinsung der Zwischenfinanzierung ein (0,00€ wenn nicht vorhanden)');
-    if (!formData.step5.nebenkosten.sonstigeNebenkosten) errors[5].push('Bitte geben Sie die sonstigen Nebenkosten ein (0,00€ wenn nicht vorhanden)');
-    if (!formData.step5.nebenkosten.zusatzlicheKosten) errors[5].push('Bitte geben Sie die zusätzlichen Kosten ein (0,00€ wenn nicht vorhanden)');
 
-    // Validate Step 6
-    errors[6] = [];
-    formData.step6.fremddarlehen.forEach((darlehen, index) => {
+    if (formData.step3.foerderVariante?.includes('bestandserwerb') || formData.step3.foerderVariante?.includes('ersterwerb')) {
+      totalPotentialFields++;
+      if (!formData.step5.kaufpreis.kaufpreis) actualErrors++;
+    }
+
+    if (formData.step3.foerderVariante === 'neubau' || formData.step3.foerderVariante === 'nutzungsaenderung') {
+      totalPotentialFields += 4;
+      if (!formData.step5.baukosten.besondereBauausfuhrung) actualErrors++;
+      if (!formData.step5.baukosten.wertVorhandenerGebaude) actualErrors++;
+      if (!formData.step5.baukosten.kostenAussenanlagen) actualErrors++;
+      if (!formData.step5.baukosten.kostenArchitekt) actualErrors++;
+    }
+    if (formData.step3.foerderVariante === 'neubau'){
+      totalPotentialFields += 1;
+      if(!formData.step5.baukosten.kostenGebaeude) actualErrors++;
+    }
+
+    // Nebenkosten (always required)
+    totalPotentialFields += 6;
+    if (!formData.step5.nebenkosten.erwerbsnebenkosten) actualErrors++;
+    if (!formData.step5.nebenkosten.verwaltungsleistungen) actualErrors++;
+    if (!formData.step5.nebenkosten.beschaffungDauerfinanzierung) actualErrors++;
+    if (!formData.step5.nebenkosten.beschaffungZwischenfinanzierung) actualErrors++;
+    if (!formData.step5.nebenkosten.sonstigeNebenkosten) actualErrors++;
+    if (!formData.step5.nebenkosten.zusatzlicheKosten) actualErrors++;
+
+    // Step 6: Financing
+    // Check each Fremddarlehen
+    formData.step6.fremddarlehen.forEach(darlehen => {
       const hasAnyValue = Object.entries(darlehen)
         .filter(([key]) => key !== 'id')
         .some(([_, value]) => value !== '');
+      
       if (hasAnyValue) {
-        if (!darlehen.darlehenGeber) errors[6].push(`Fremddarlehen ${index + 1}: Bitte geben Sie den Darlehensgeber ein`);
-        if (!darlehen.nennbetrag) errors[6].push(`Fremddarlehen ${index + 1}: Bitte geben Sie den Nennbetrag ein`);
-        if (!darlehen.zinssatz) errors[6].push(`Fremddarlehen ${index + 1}: Bitte geben Sie den Zinssatz ein`);
-        if (!darlehen.auszahlung) errors[6].push(`Fremddarlehen ${index + 1}: Bitte geben Sie die Auszahlung ein`);
-        if (!darlehen.tilgung) errors[6].push(`Fremddarlehen ${index + 1}: Bitte geben Sie die Tilgung ein`);
+        totalPotentialFields += 5;
+        if (!darlehen.darlehenGeber) actualErrors++;
+        if (!darlehen.nennbetrag) actualErrors++;
+        if (!darlehen.zinssatz) actualErrors++;
+        if (!darlehen.auszahlung) actualErrors++;
+        if (!darlehen.tilgung) actualErrors++;
       }
     });
-    if (formData.step2.hasSupplementaryLoan === true) {
-      if (!formData.step6.ergaenzungsdarlehen.nennbetrag) {
-        errors[6].push('Bitte geben Sie den Nennbetrag des Ergänzungsdarlehens ein');
-      }
+
+    if (formData.step2.hasSupplementaryLoan) {
+      totalPotentialFields++;
+      if (!formData.step6.ergaenzungsdarlehen.nennbetrag) actualErrors++;
     } else {
-      if (!formData.step6.darlehenNRWBank.grunddarlehen.nennbetrag) {
-        errors[6].push('Bitte geben Sie den Nennbetrag des Grunddarlehens ein');
+      totalPotentialFields++;
+      if (!formData.step6.darlehenNRWBank.grunddarlehen.nennbetrag) actualErrors++;
+
+      // Conditional Zusatzdarlehen fields
+      if (parseInt(formData.step2.childCount) > 0) {
+        totalPotentialFields++;
+        if (!formData.step6.darlehenNRWBank.zusatzdarlehen.familienbonus.nennbetrag) actualErrors++;
       }
-      if (parseInt(formData.step2.childCount) > 0 && !formData.step6.darlehenNRWBank.zusatzdarlehen.familienbonus.nennbetrag) {
-        errors[6].push('Bitte geben Sie den Nennbetrag des Familienbonus ein (0,00€ wenn nicht vorhanden)');
-      }
-      if (formData.step3.objektDetailsAllgemein.hasWoodConstructionLoan === true && !formData.step6.darlehenNRWBank.zusatzdarlehen.bauenMitHolz.nennbetrag) {
-        errors[6].push('Bitte geben Sie den Nennbetrag für Bauen mit Holz ein (0,00€ wenn nicht vorhanden)');
+      if (formData.step3.objektDetailsAllgemein.hasWoodConstructionLoan) {
+        totalPotentialFields++;
+        if (!formData.step6.darlehenNRWBank.zusatzdarlehen.bauenMitHolz.nennbetrag) actualErrors++;
       }
       if ((formData.step3.foerderVariante === 'neubau' || formData.step3.foerderVariante?.includes('ersterwerb')) && 
-          formData.step3.objektDetailsAllgemein.barrierefrei === true && 
-          !formData.step6.darlehenNRWBank.zusatzdarlehen.barrierefreiheit.nennbetrag) {
-        errors[6].push('Bitte geben Sie den Nennbetrag für Barrierefreiheit ein (0,00€ wenn nicht vorhanden)');
+          formData.step3.objektDetailsAllgemein.barrierefrei) {
+        totalPotentialFields++;
+        if (!formData.step6.darlehenNRWBank.zusatzdarlehen.barrierefreiheit.nennbetrag) actualErrors++;
       }
       if ((formData.step3.foerderVariante === 'neubau' || formData.step3.foerderVariante?.includes('ersterwerb')) && 
-          formData.step3.objektDetailsAllgemein.hasLocationCostLoan === true && 
-          !formData.step6.darlehenNRWBank.zusatzdarlehen.standortbedingteMehrkosten.nennbetrag) {
-        errors[6].push('Bitte geben Sie den Nennbetrag für standortbedingte Mehrkosten ein (0,00€ wenn nicht vorhanden)');
+          formData.step3.objektDetailsAllgemein.hasLocationCostLoan) {
+        totalPotentialFields++;
+        if (!formData.step6.darlehenNRWBank.zusatzdarlehen.standortbedingteMehrkosten.nennbetrag) actualErrors++;
       }
       if ((formData.step3.foerderVariante === 'neubau' || formData.step3.foerderVariante?.includes('ersterwerb')) && 
-          formData.step3.objektDetailsAllgemein.begEffizienzhaus40Standard === true && 
-          !formData.step6.darlehenNRWBank.zusatzdarlehen.begEffizienzhaus40Standard.nennbetrag) {
-        errors[6].push('Bitte geben Sie den Nennbetrag für BEG Effizienzhaus 40 Standard ein (0,00€ wenn nicht vorhanden)');
+          formData.step3.objektDetailsAllgemein.begEffizienzhaus40Standard) {
+        totalPotentialFields++;
+        if (!formData.step6.darlehenNRWBank.zusatzdarlehen.begEffizienzhaus40Standard.nennbetrag) actualErrors++;
       }
     }
-    if (!formData.step6.eigenleistung.eigeneGeldmittel) errors[6].push('Bitte geben Sie die eigenen Geldmittel ein (0,00€ wenn nicht vorhanden)');
-    if (!formData.step6.eigenleistung.zuschüsse) errors[6].push('Bitte geben Sie die Zuschüsse ein (0,00€ wenn nicht vorhanden)');
-    if (!formData.step6.eigenleistung.selbsthilfe) errors[6].push('Bitte geben Sie die Selbsthilfe ein (0,00€ wenn nicht vorhanden)');
-    if (formData.step3.foerderVariante === 'neubau' && !formData.step6.eigenleistung.wertBaugrundstück) {
-      errors[6].push('Bitte geben Sie den Wert des Baugrundstücks ein (0,00€ wenn nicht vorhanden)');
+
+    // Eigenleistung base fields (3)
+    totalPotentialFields += 3;
+    if (!formData.step6.eigenleistung.eigeneGeldmittel) actualErrors++;
+    if (!formData.step6.eigenleistung.zuschüsse) actualErrors++;
+    if (!formData.step6.eigenleistung.selbsthilfe) actualErrors++;
+
+    // Conditional Eigenleistung fields
+    if (formData.step3.foerderVariante === 'neubau') {
+      totalPotentialFields++;
+      if (!formData.step6.eigenleistung.wertBaugrundstück) actualErrors++;
     }
-    if ((formData.step3.foerderVariante === 'neubau' || formData.step3.foerderVariante === 'nutzungsaenderung') && !formData.step6.eigenleistung.wertVorhandenerGebaeudeteile) {
-      errors[6].push('Bitte geben Sie den Wert vorhandener Gebäudeteile ein (0,00€ wenn nicht vorhanden)');
+    if (formData.step3.foerderVariante === 'neubau' || formData.step3.foerderVariante === 'nutzungsaenderung') {
+      totalPotentialFields++;
+      if (!formData.step6.eigenleistung.wertVorhandenerGebaeudeteile) actualErrors++;
     }
 
-    // Calculate total potential errors and actual errors
-    let totalPotentialErrors = 0;
-    let actualErrors = 0;
+    console.log('Total potential fields:', totalPotentialFields);
+    console.log('Total actual errors:', actualErrors);
 
-    Object.entries(errors).forEach(([step, stepErrors]) => {
-      console.log(`Step ${step} - Total potential errors: ${stepErrors.length}`);
-      totalPotentialErrors += stepErrors.length;
-      
-      const stepActualErrors = stepErrors.filter(error => {
-        return error.includes('ist erforderlich') || error.includes('Bitte geben Sie') || error.includes('Bitte wählen Sie');
-      }).length;
-      
-      actualErrors += stepActualErrors;
-      console.log(`Step ${step} - Actual errors: ${stepActualErrors}`);
-    });
-
-    console.log('Total potential errors across all steps:', totalPotentialErrors);
-    console.log('Total actual errors across all steps:', actualErrors);
-
-    // Calculate hauptantrag progress percentage
-    const hauptantragProgress = totalPotentialErrors > 0 
-      ? Math.round(((totalPotentialErrors - actualErrors) / totalPotentialErrors) * 100)
+    // Calculate progress percentage
+    const hauptantragProgress = totalPotentialFields > 0 
+      ? Math.round(((totalPotentialFields - actualErrors) / totalPotentialFields) * 100)
       : 100;
 
     console.log('Calculated hauptantrag progress:', hauptantragProgress, '%');
