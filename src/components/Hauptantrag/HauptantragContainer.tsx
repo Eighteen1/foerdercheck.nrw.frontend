@@ -1975,11 +1975,11 @@ const HauptantragContainer: React.FC = () => {
       {isLoading && (
         <div className="position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center" 
              style={{ 
-               backgroundColor: 'rgba(255, 255, 255, 0.8)', 
+               backgroundColor: 'rgba(255, 255, 255, 0.9)', 
                zIndex: 9999 
              }}>
           <div className="text-center">
-            <Spinner animation="border" role="status" variant="primary" style={{ width: '3rem', height: '3rem' }}>
+            <Spinner animation="border" role="status" style={{ width: '3rem', height: '3rem', color: '#064497' }}>
               <span className="visually-hidden">Loading...</span>
             </Spinner>
             <div className="mt-3 text-primary">Bitte warten...</div>
