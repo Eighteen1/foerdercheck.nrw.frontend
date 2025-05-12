@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Button, Modal } from 'react-bootstrap';
+import { Container, Button, Modal, Spinner } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
@@ -255,6 +255,7 @@ const HauptantragContainer: React.FC = () => {
   const [validationErrors, setValidationErrors] = useState<{ [key: number]: string[] }>({});
   const [showValidation, setShowValidation] = useState(false);
   const [hasValidatedOnce, setHasValidatedOnce] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState<FormData>({
     step1: {
       representative: {
@@ -476,6 +477,7 @@ const HauptantragContainer: React.FC = () => {
     const loadSavedData = async () => {
       if (!user?.id) return;
 
+      setIsLoading(true);
       try {
         const { data: userData, error: userError } = await supabase
           .from('user_data')
@@ -484,7 +486,10 @@ const HauptantragContainer: React.FC = () => {
           .single();
 
         if (userError) throw userError;
-        if (!userData) return;
+        if (!userData) {
+          setIsLoading(false);
+          return;
+        }
 
         const { data: objectData, error: objectError } = await supabase
           .from('object_data')
@@ -793,6 +798,8 @@ const HauptantragContainer: React.FC = () => {
         setFormData(loadedFormData);
       } catch (error) {
         console.error('Error loading saved data:', error);
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -827,6 +834,7 @@ const HauptantragContainer: React.FC = () => {
       return;
     }
 
+    setIsLoading(true);
     try {
       console.log('Calculating hauptantrag progress...');
       // Calculate hauptantrag progress
@@ -1098,6 +1106,8 @@ const HauptantragContainer: React.FC = () => {
       // Fallback to local storage if Supabase save fails
       localStorage.setItem('hauptantragFormData', JSON.stringify(formData));
       // Don't navigate on error
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -1961,6 +1971,22 @@ const HauptantragContainer: React.FC = () => {
 
   return (
     <div className="relative min-h-screen bg-white">
+      {/* Loading Overlay */}
+      {isLoading && (
+        <div className="position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center" 
+             style={{ 
+               backgroundColor: 'rgba(255, 255, 255, 0.8)', 
+               zIndex: 9999 
+             }}>
+          <div className="text-center">
+            <Spinner animation="border" role="status" variant="primary" style={{ width: '3rem', height: '3rem' }}>
+              <span className="visually-hidden">Loading...</span>
+            </Spinner>
+            <div className="mt-3 text-primary">Bitte warten...</div>
+          </div>
+        </div>
+      )}
+
       {/* Header ellipse */}
       <div className="absolute top-[-170px] left-[-25%] w-[70%] h-[300px] bg-[#064497] rounded-[50%]"></div>
       
