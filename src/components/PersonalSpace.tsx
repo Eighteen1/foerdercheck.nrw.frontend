@@ -196,28 +196,21 @@ const PersonalSpace: React.FC = () => {
       </div>
 
       {/* Main content */}
-      <Container className="pt-32">
-        <div className="d-flex justify-content-between align-items-center mb-4">
+      <Container className="pt-20">
+        <div className="d-flex justify-content-end align-items-center mb-4">
           <h2 className="text-[#064497] text-3xl mb-0">Wilkommen In Ihrem Persönlichem Bereich</h2>
-          <Button
-            onClick={logout}
-            className="px-4 py-2"
-            style={{ backgroundColor: '#808080', border: 'none' }}
-          >
-            Abmelden
-          </Button>
         </div>
         
         <p className="text-right italic mb-5">
           Hier können Sie die erforderlichen Dokumente hochladen, die Antragsformulare bearbeiten und abschicken.
         </p>
 
-        <Row className="mt-5">
+        <Row className="mt-16">
           <Col md={6}>
             <h5 className="mb-4">Klicken Sie auf die Schaltflächen, um zu den jeweiligen Formularen zu gelangen:</h5>
             
             {formSections.map((section, index) => (
-              <div key={index} className="d-flex align-items-center mb-4">
+              <div key={index} className="d-flex align-items-center mb-12">
                 <Button
                   className="flex-grow-1 py-3 me-3"
                   style={{ backgroundColor: '#064497', border: 'none', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}
@@ -235,7 +228,7 @@ const PersonalSpace: React.FC = () => {
           <Col md={6}>
             <div className="text-center">
               <h5 className="mb-4">Klicken Sie hier um ihre Dokumentente hochzuladen und zu verwalten:</h5>
-              <div className="d-flex align-items-center justify-content-center mb-4">
+              <div className="d-flex align-items-center justify-content-center mb-12">
                 <Button
                   className="flex-grow-1 py-3 me-3"
                   style={{ backgroundColor: '#064497', border: 'none', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}
@@ -252,7 +245,8 @@ const PersonalSpace: React.FC = () => {
                 className="border rounded p-4 mb-4" 
                 style={{ 
                   boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-                  backgroundColor: '#ffffff'
+                  backgroundColor: '#ffffff',
+                  //marginRight: '71px'  // 55px (progress indicator) + 16px (me-3)
                 }}
               >
                 {isAuthenticated ? (
@@ -292,7 +286,7 @@ const PersonalSpace: React.FC = () => {
         <div className="text-center mt-5">
           <Button
             className="px-5 py-2"
-            style={{ backgroundColor: '#808080', border: 'none' }}
+            style={{ backgroundColor: '#808080', border: 'none', width: '300px' }}
           >
             PRÜFEN
           </Button>

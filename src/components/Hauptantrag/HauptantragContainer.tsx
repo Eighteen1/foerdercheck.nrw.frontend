@@ -1087,10 +1087,17 @@ const HauptantragContainer: React.FC = () => {
 
       // Also save to local storage as backup
       localStorage.setItem('hauptantragFormData', JSON.stringify(formData));
+
+      // If we get here, all saves were successful
+      console.log('All saves completed successfully');
+      
+      // Navigate to personal space
+      navigate('/personal-space');
     } catch (error) {
       console.error('Error saving form data:', error);
       // Fallback to local storage if Supabase save fails
       localStorage.setItem('hauptantragFormData', JSON.stringify(formData));
+      // Don't navigate on error
     }
   };
 
