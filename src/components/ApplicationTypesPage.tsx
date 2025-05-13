@@ -1,71 +1,174 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Container, Row, Col, Card, Button } from 'react-bootstrap';
+import { Button } from 'react-bootstrap';
 
 const ApplicationTypesPage: React.FC = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="min-vh-100 d-flex align-items-center justify-content-center bg-light p-4">
-      <Container className="max-w-4xl">
-        <Card className="shadow">
-          <Card.Body className="p-5">
-            <h1 className="h2 fw-bold mb-4">Auswahl der Wohnraumförderung</h1>
-            
-            <p className="mb-4">
-              Bei uns stehen Ihnen zwei unterschiedliche Wohnraumförderungen zur Auswahl. 
-              Bitte wählen Sie die Förderung, die zu Ihrer Situation passt.
-            </p>
+    <div
+      style={{
+        display: 'flex',
+        minHeight: '100vh',
+        width: '100vw',
+        background: '#fff',
+        margin: 0,
+        padding: 0,
+        fontFamily: 'Roboto, Arial, sans-serif',
+      }}
+    >
+      {/* Left Side: Title and Description */}
+      <div
+        style={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          alignItems: 'flex-end',
+          paddingRight: 48,
+          paddingLeft: 0,
+          paddingTop: 0,
+          paddingBottom: 0,
+        }}
+      >
+        <div style={{ maxWidth: 650 }}>
+          <h2 className="display-4 fw-regular text-[#064497] mb-4 font-['Roboto']">
+            Auswahl der Wohnraumförderung
+          </h2>
+          <p
+            className="mb-4 fw-normal"
+            style={{
+              fontSize: 20,
+              marginBottom: 24,
+              color: '#222',
+              fontFamily: 'Roboto, Arial, sans-serif',
+            }}
+          >
+            Bei uns stehen Ihnen zwei unterschiedliche Wohnraumförderungen zur Auswahl. Bitte wählen Sie die Förderung, die zu Ihrer Situation passt.
+          </p>
+          <p
+            className="fw-normal"
+            style={{
+              fontSize: 20,
+              marginBottom: 0,
+              color: '#222',
+              fontFamily: 'Roboto, Arial, sans-serif',
+            }}
+          >
+            Der Antrag zur Förderung von selbstgenutztem Wohneigentum richtet sich an Haushalte mit niedrigem bis mittlerem Einkommen, die Unterstützung bei der Finanzierung eines Eigenheims benötigen.
+          </p>
+          <p
+            className="fw-normal"
+            style={{
+              fontSize: 20,
+              fontStyle: 'italic',
+              marginTop: 32,
+              color: '#222',
+              fontFamily: 'Roboto, Arial, sans-serif',
+            }}
+          >
+            Der Antrag für Mietwohnungen und Gruppenwohnungen wird ab Juli 2025 verfügbar sein. Wir arbeiten intensiv daran, diese Förderung bereitzustellen, damit Sie in Zukunft Unterstützung bei der Schaffung von neuem Wohnraum beantragen können.
+          </p>
+        </div>
+      </div>
 
-            <Row className="g-4">
-              {/* Self-Used Property Card */}
-              <Col md={6}>
-                <Card className="h-100 text-center">
-                  <Card.Body className="p-4">
-                    <h2 className="h4 fw-semibold mb-3">Selbst genutztes Wohneigentum</h2>
-                    <p className="mb-4">
-                      Der Antrag zur Förderung von selbstgenutztem Wohneigentum richtet sich an Haushalte 
-                      mit niedrigem bis mittlerem Einkommen, die Unterstützung bei der Finanzierung eines Eigenheims benötigen.
-                    </p>
-                    <Button 
-                      variant="primary"
-                      size="lg"
-                      onClick={() => navigate('/initial-check')}
-                      className="bg-blue-700 border-0 px-4 py-2"
-                    >
-                      ANTRAG STARTEN
-                    </Button>
-                  </Card.Body>
-                </Card>
-              </Col>
+      {/* Right Side: Two Equal Height Cards */}
+      <div
+        style={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100vh',
+          minWidth: 420,
+          maxWidth: 600,
+        }}
+      >
+        {/* Top Card: Blue */}
+        <div
+          style={{
+            flex: 1,
+            background: '#064497',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#fff',
+            borderBottom: '4px solid #fff',
+            fontFamily: 'Roboto, Arial, sans-serif',
+          }}
+        >
+          <div
+            className="fw-regular"
+            style={{ fontSize: 30, marginBottom: 36, fontWeight: 300, fontFamily: 'Roboto, Arial, sans-serif', textAlign: 'center' }}
+          >
+            Selbst genutztes<br />Wohneigentum
+          </div>
+          <Button
+            variant="light"
+            size="lg"
+            style={{
+              color: '#20468A',
+              background: '#fff',
+              border: 'none',
+              fontWeight: 500,
+              minWidth: 220,
+              fontSize: 18,
+              boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+              fontFamily: 'Roboto, Arial, sans-serif',
+            }}
+            onClick={() => navigate('/initial-check')}
+            className="fw-regular"
+          >
+            ANTRAG STARTEN
+          </Button>
+        </div>
 
-              {/* Rental and Group Housing Card */}
-              <Col md={6}>
-                <Card className="h-100 text-center bg-light">
-                  <Card.Body className="p-4">
-                    <h2 className="h4 fw-semibold mb-3">Mietwohnungen und Gruppenwohnungen</h2>
-                    <p className="mb-4">
-                      Der Antrag für Mietwohnungen und Gruppenwohnungen wird ab Juli 2025 verfügbar sein. 
-                      Wir arbeiten intensiv daran, diese Förderung bereitzustellen.
-                    </p>
-                    <Button 
-                      variant="secondary"
-                      size="lg"
-                      disabled
-                      className="px-4 py-2"
-                    >
-                      ANTRAG STARTEN
-                    </Button>
-                    <p className="small text-muted mt-2 mb-0">
-                      Dieser Antrag steht Ihnen ab Juli 2025 zur Verfügung.
-                    </p>
-                  </Card.Body>
-                </Card>
-              </Col>
-            </Row>
-          </Card.Body>
-        </Card>
-      </Container>
+        {/* Bottom Card: Light Gray */}
+        <div
+          style={{
+            flex: 1,
+            background: '#ECECEC',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#20468A',
+            fontFamily: 'Roboto, Arial, sans-serif',
+          }}
+        >
+          <div
+            className="fw-regular"
+            style={{ fontSize: 30, marginBottom: 36, fontWeight: 300, fontFamily: 'Roboto, Arial, sans-serif', textAlign: 'center' }}
+          >
+            Mietwohnungen und<br />Gruppenwohnungen
+          </div>
+          <Button
+            variant="secondary"
+            size="lg"
+            disabled
+            style={{
+              background: '#B8C2D1',
+              color: '#fff',
+              border: 'none',
+              minWidth: 220,
+              fontSize: 18,
+              fontWeight: 500,
+              opacity: 1,
+              boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+              fontFamily: 'Roboto, Arial, sans-serif',
+            }}
+            className="fw-regular"
+          >
+            ANTRAG STARTEN
+          </Button>
+          <div
+            className="fw-normal"
+            style={{ fontSize: 16, color: '#6B6B6B', marginTop: 22, fontFamily: 'Roboto, Arial, sans-serif' }}
+          >
+            Dieser Antrag steht Ihnen ab Juli 2025 zur Verfügung.
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

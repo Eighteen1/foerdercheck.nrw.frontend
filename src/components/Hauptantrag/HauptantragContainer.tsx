@@ -1982,7 +1982,7 @@ const HauptantragContainer: React.FC = () => {
             <Spinner animation="border" role="status" style={{ width: '3rem', height: '3rem', color: '#064497' }}>
               <span className="visually-hidden">Loading...</span>
             </Spinner>
-            <div className="mt-3 text-primary">Bitte warten...</div>
+            <div className="mt-3" style={{ color: '#064497' }}>Bitte warten...</div>
           </div>
         </div>
       )}

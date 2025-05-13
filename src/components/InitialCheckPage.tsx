@@ -65,7 +65,7 @@ const InitialCheckPage: React.FC = () => {
         </p>
 
         <Form onSubmit={handleCheck}>
-          <div className="d-flex align-items-center gap-4">
+          <div className="d-flex align-items-center gap-2">
             <h3 className="pt-8 mb-4 text-[#000000] font-semibold italic">Angaben zu Ihrem Haushalt</h3>
             <OverlayTrigger
               placement="right"
@@ -150,7 +150,7 @@ const InitialCheckPage: React.FC = () => {
               />
             </Col>
           </Row>
-          <div className="d-flex align-items-center gap-4">
+          <div className="d-flex align-items-center gap-2">
             <h3 className="pt-8 mb-4 text-[#000000] font-semibold italic">Angaben zu Ihrem Haushaltseinkommen</h3>
             <OverlayTrigger
               placement="right"
@@ -197,12 +197,13 @@ const InitialCheckPage: React.FC = () => {
 
           <Button 
             type="submit" 
-            className="w-full bg-[#064497] hover:bg-[#0B66E6] text-white py-2 rounded"
+            className="w-full bg-[#064497] hover:bg-[#0B66E6] text-white py-2 rounded mt-4 mb-12"
           >
             PRÜFEN
           </Button>
         </Form>
       </Container>
+      <div className="pb-4"></div>
     </div>
   );
 };

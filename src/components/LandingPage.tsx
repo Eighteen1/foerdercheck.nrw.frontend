@@ -44,19 +44,25 @@ const LandingPage: React.FC = () => {
             <h2 className="display-4 fw-regulat text-[#064497] mb-4 font-['Roboto']">
               Ihr Weg zur Wohnraumförderung - Jetzt Digital!
             </h2>
-            <p className="text-secondary mb-4 fw-normal font-['Roboto']">
+            <p
+              className="mb-4 fw-normal"
+              style={{
+                fontSize: 20,
+                marginBottom: 24,
+                color: '#222',
+                fontFamily: 'Roboto, Arial, sans-serif',
+              }}
+            >
               Wir vereinfachen den Prozess der Wohnförderung. Füllen Sie Ihren Antrag
               bequem von zu Hause aus und sparen Sie wertvolle Zeit. Unser
               benutzerfreundliches Online-Formular führt Sie Schritt für Schritt
               durch den Antragsprozess.
             </p>
-            <div className="d-flex flex-column gap-3 align-items-center">
+            <div className="d-flex flex-column gap-3">
               <Button
-                variant="primary"
-                size="lg"
                 onClick={() => navigate("/application-types")}
-                className="bg-[#064497] border-0 px-5 py-3 fw-regular font-['Roboto']"
-                style={{ maxWidth: "fit-content" }}
+                className={`border-0 py-3 fw-regular font-['Roboto'] ${isAuthenticated ? 'bg-[#D7DAEA] text-black' : 'bg-[#064497] text-white'}`}
+                style={{ width: '400px' }}
               >
                 ZU DEN ANTRÄGEN
               </Button>
@@ -64,18 +70,18 @@ const LandingPage: React.FC = () => {
               {isAuthenticated ? (
                 <Button 
                   onClick={() => navigate('/personal-space')}
-                  className="w-full max-w-md py-3"
-                  style={{ backgroundColor: '#808080', border: 'none' }}
+                  className="py-3 fw-regular font-['Roboto'] text-white"
+                  style={{ backgroundColor: '#064497', border: 'none', width: '400px' }}
                 >
-                  Zum persönlichen Bereich
+                  ZUM PERSÖNLICHEN BEREICH
                 </Button>
               ) : (
                 <Button 
                   onClick={() => navigate('/login')}
-                  className="w-full max-w-md py-3"
-                  style={{ backgroundColor: '#808080', border: 'none' }}
+                  className="py-3 fw-regular font-['Roboto'] text-black"
+                  style={{ backgroundColor: '#D7DAEA', border: 'none', width: '400px' }}
                 >
-                  Anmelden
+                  ANMELDEN
                 </Button>
               )}
             </div>

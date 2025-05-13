@@ -230,7 +230,7 @@ const ResultPage: React.FC = () => {
 
           <Button 
             onClick={() => navigate('/initial-check')}
-            className={`w-full py-2 rounded focus:outline-none focus:ring-0 focus:ring-offset-0 shadow-md ${
+            className={`w-full py-2 rounded focus:outline-none focus:ring-0 focus:ring-offset-0 shadow-md mb-12 ${
               eligibilityResult.eligible 
                 ? 'bg-[#D7DAEA] hover:bg-[#D7DAEA] text-black'
                 : 'bg-[#064497] hover:bg-[#0B66E6] text-white'
@@ -241,6 +241,7 @@ const ResultPage: React.FC = () => {
           </Button>
         </div>
       </Container>
+      <div className="pb-8"></div>
     </div>
   );
 };
