@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Container, Row, Col, Button, Modal, Form } from "react-bootstrap";
+import { Container, Row, Col, Button, Modal, Form, Spinner } from "react-bootstrap";
 import { useAuth } from "../contexts/AuthContext";
 import { supabase, storeEligibilityData, checkDocumentCheckStatus } from "../lib/supabase";
 
@@ -17,6 +17,7 @@ const PersonalSpace: React.FC = () => {
     einkommenserklarung: 0,
     selbstauskunft: 0
   });
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -36,6 +37,7 @@ const PersonalSpace: React.FC = () => {
     } else if (user?.id) {
       // Fetch progress data from the database
       const fetchProgress = async () => {
+        setIsLoading(true);
         try {
           const { data, error } = await supabase
             .from('user_data')
@@ -57,6 +59,8 @@ const PersonalSpace: React.FC = () => {
           }
         } catch (error) {
           console.error('Error in fetchProgress:', error);
+        } finally {
+          setIsLoading(false);
         }
       };
 
@@ -66,6 +70,7 @@ const PersonalSpace: React.FC = () => {
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoading(true);
     try {
       // Create user through backend
       const createUserResponse = await fetch('https://foerdercheck-backend.onrender.com/api/user/create', {
@@ -128,6 +133,8 @@ const PersonalSpace: React.FC = () => {
         type: 'error',
         text: error instanceof Error ? error.message : 'Ein Fehler ist aufgetreten.'
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -185,6 +192,22 @@ const PersonalSpace: React.FC = () => {
 
   return (
     <div className="relative bg-white flex flex-col">
+      {/* Loading Overlay */}
+      {isLoading && (
+        <div className="position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center" 
+             style={{ 
+               backgroundColor: 'rgba(255, 255, 255, 0.9)', 
+               zIndex: 9999 
+             }}>
+          <div className="text-center">
+            <Spinner animation="border" role="status" style={{ width: '3rem', height: '3rem', color: '#064497' }}>
+              <span className="visually-hidden">Loading...</span>
+            </Spinner>
+            <div className="mt-3" style={{ color: '#064497' }}>Bitte warten...</div>
+          </div>
+        </div>
+      )}
+
       {/* Bottom right quadrant of ellipse */}
       <div className="absolute top-[-170px] left-[-25%] w-[70%] h-[300px] bg-[#064497] rounded-[50%]"></div>
 
