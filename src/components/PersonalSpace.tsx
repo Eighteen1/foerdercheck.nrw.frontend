@@ -184,7 +184,7 @@ const PersonalSpace: React.FC = () => {
   ];
 
   return (
-    <div className="relative min-h-screen bg-white">
+    <div className="relative bg-white flex flex-col">
       {/* Bottom right quadrant of ellipse */}
       <div className="absolute top-[-170px] left-[-25%] w-[70%] h-[300px] bg-[#064497] rounded-[50%]"></div>
 
@@ -213,7 +213,12 @@ const PersonalSpace: React.FC = () => {
               <div key={index} className="d-flex align-items-center mb-12">
                 <Button
                   className="flex-grow-1 py-3 me-3"
-                  style={{ backgroundColor: '#064497', border: 'none', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}
+                  style={{ 
+                    backgroundColor: isAuthenticated ? '#064497' : '#808080', 
+                    border: 'none', 
+                    boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
+                    opacity: isAuthenticated ? 1 : 0.7
+                  }}
                   onClick={section.onClick}
                 >
                   {section.title}
@@ -231,7 +236,12 @@ const PersonalSpace: React.FC = () => {
               <div className="d-flex align-items-center justify-content-center mb-12">
                 <Button
                   className="flex-grow-1 py-3 me-3"
-                  style={{ backgroundColor: '#064497', border: 'none', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}
+                  style={{ 
+                    backgroundColor: isAuthenticated ? '#064497' : '#808080', 
+                    border: 'none', 
+                    boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
+                    opacity: isAuthenticated ? 1 : 0.7
+                  }}
                   onClick={handleDocumentUpload}
                 >
                   DOKUMENTE HOCHLADEN
@@ -242,37 +252,36 @@ const PersonalSpace: React.FC = () => {
               </div>
 
               <div 
-                className="border rounded p-4 mb-4" 
+                className="rounded p-4 mb-4" 
                 style={{ 
-                  boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-                  backgroundColor: '#ffffff',
-                  //marginRight: '71px'  // 55px (progress indicator) + 16px (me-3)
+                  boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.1)',
+                  backgroundColor: '#ECECEC',
                 }}
               >
                 {isAuthenticated ? (
                   <>
-                    <h6 className="text-start mb-3" style={{ color: '#064497' }}>Ihr Konto</h6>
+                    <h6 className="text-start mb-3 fw-medium" style={{ color: '#064497' }}>Ihr Konto</h6>
                     <p className="text-start mb-3">
                       Ihre E-Mail-Adresse: <strong>{email}</strong>
                     </p>
                     <Button
                       onClick={logout}
                       className="w-100 py-2"
-                      style={{ backgroundColor: '#808080', border: 'none', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}
+                      style={{ backgroundColor: '#D7DAEA', color: 'black', border: 'none', boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)' }}
                     >
                       Abmelden
                     </Button>
                   </>
                 ) : (
                   <>
-                    <h6 className="text-start mb-3" style={{ color: '#064497' }}>Konto erstellen</h6>
+                    <h6 className="text-start mb-3 fw-medium" style={{ color: '#064497' }}>Konto erstellen</h6>
                     <p className="text-start mb-3">
                       Erstellen Sie ein Konto, um alle Funktionen nutzen zu können.
                     </p>
                     <Button
                       onClick={() => setShowRegistrationModal(true)}
                       className="w-100 py-2"
-                      style={{ backgroundColor: '#064497', border: 'none', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}
+                      style={{ backgroundColor: '#064497', border: 'none', boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)' }}
                     >
                       Konto erstellen
                     </Button>
@@ -282,16 +291,19 @@ const PersonalSpace: React.FC = () => {
             </div>
           </Col>
         </Row>
+      </Container>
 
-        <div className="text-center mt-5">
+      {/* Footer section with consistent spacing */}
+      <div className="w-100 py-4 mt-auto">
+        <div className="text-center">
           <Button
             className="px-5 py-2"
-            style={{ backgroundColor: '#808080', border: 'none', width: '300px' }}
+            style={{ backgroundColor: '#808080', border: 'none', width: '300px', boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)', opacity: 0.7 }}
           >
             PRÜFEN
           </Button>
         </div>
-      </Container>
+      </div>
 
       <Modal show={showRegistrationModal} onHide={() => setShowRegistrationModal(false)} centered>
         <Modal.Header closeButton>
@@ -314,7 +326,7 @@ const PersonalSpace: React.FC = () => {
                 required
               />
             </Form.Group>
-            <Button type="submit" className="w-100" style={{ backgroundColor: '#064497', border: 'none' }}>
+            <Button type="submit" className="w-100" style={{ backgroundColor: '#064497', border: 'none', boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)' }}>
               Konto erstellen
             </Button>
           </Form>
