@@ -11,6 +11,7 @@ const PersonalSpace: React.FC = () => {
   const [showRegistrationModal, setShowRegistrationModal] = useState(false);
   const [emailInput, setEmailInput] = useState('');
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [emailSubmitted, setEmailSubmitted] = useState(false);
   const [eligibilityData, setEligibilityData] = useState<any>(null);
   const [formProgress, setFormProgress] = useState<{ [key: string]: number }>({
     hauptantrag: 0,
@@ -118,14 +119,11 @@ const PersonalSpace: React.FC = () => {
         
         setMessage({
           type: 'success',
-          text: 'Eine Bestätigungs-E-Mail wurde an Ihre E-Mail-Adresse gesendet. Bitte überprüfen Sie Ihren Posteingang und bestätigen Sie Ihre E-Mail-Adresse.'
+          text: 'Eine Bestätigungs-E-Mail wurde an Ihre E-Mail-Adresse gesendet. Bitte überprüfen Sie Ihren Posteingang oder Spam-Ordnerund bestätigen Sie Ihre E-Mail-Adresse.'
         });
         
-        // Store eligibility data temporarily in localStorage
+        setEmailSubmitted(true);
         localStorage.setItem('pendingEligibilityData', JSON.stringify(eligibilityData));
-        
-        // Close the modal but stay on the current page
-        //setShowRegistrationModal(false);
       }
     } catch (error) {
       console.error('Error during registration:', error);
@@ -136,6 +134,12 @@ const PersonalSpace: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleModalOpen = () => {
+    setShowRegistrationModal(true);
+    setMessage(null);
+    setEmailSubmitted(false);
   };
 
   const handleDocumentUpload = async () => {
@@ -297,16 +301,25 @@ const PersonalSpace: React.FC = () => {
                   </>
                 ) : (
                   <>
-                    <h6 className="text-start mb-3 fw-medium" style={{ color: '#064497' }}>Konto erstellen</h6>
+                    <h6 className="text-start mb-3 fw-medium" style={{ color: '#064497' }}>
+                      {emailSubmitted ? 'Bestätigen Sie ihr Konto' : 'Konto erstellen'}
+                    </h6>
                     <p className="text-start mb-3">
-                      Erstellen Sie ein Konto, um alle Funktionen nutzen zu können.
+                      {emailSubmitted 
+                        ? 'Schauen Sie in ihr E-Mail postfach oder Spam Ordner um fortzufahren'
+                        : 'Erstellen Sie ein Konto, um alle Funktionen nutzen zu können.'}
                     </p>
                     <Button
-                      onClick={() => setShowRegistrationModal(true)}
+                      onClick={handleModalOpen}
                       className="w-100 py-2"
-                      style={{ backgroundColor: '#064497', border: 'none', boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)' }}
+                      style={{ 
+                        backgroundColor: emailSubmitted ? '#808080' : '#064497', 
+                        border: 'none', 
+                        boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
+                        opacity: emailSubmitted ? 0.7 : 1
+                      }}
                     >
-                      Konto erstellen
+                      {emailSubmitted ? 'E-Mail Ändern / Erneut Versuchen' : 'Konto erstellen'}
                     </Button>
                   </>
                 )}
@@ -340,7 +353,7 @@ const PersonalSpace: React.FC = () => {
           )}
           <p>Um fortzufahren, geben Sie bitte Ihre E-Mail-Adresse ein, um ein Konto zu erstellen.</p>
           <Form onSubmit={handleEmailSubmit}>
-            <Form.Group className="mb-3">
+            <Form.Group className="mb-3 mt-3">
               <Form.Control
                 type="email"
                 placeholder="E-Mail-Adresse"
