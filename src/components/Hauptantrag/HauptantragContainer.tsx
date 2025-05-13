@@ -479,41 +479,38 @@ const HauptantragContainer: React.FC = () => {
 
       setIsLoading(true);
       try {
+        // Load user data
         const { data: userData, error: userError } = await supabase
           .from('user_data')
           .select('*')
           .eq('id', user.id)
           .single();
 
-        if (userError) throw userError;
-        if (!userData) {
-          setIsLoading(false);
-          return;
+        if (userError) {
+          console.error('Error loading user data:', userError);
+          return; // Exit if we can't load user data
         }
 
+        // Load object data
         const { data: objectData, error: objectError } = await supabase
           .from('object_data')
           .select('*')
           .eq('user_id', user.id)
           .single();
 
-        if (objectError) throw objectError;
-
+        // Load cost data
         const { data: costData, error: costError } = await supabase
           .from('cost_structure')
           .select('*')
           .eq('user_id', user.id)
           .single();
 
-        if (costError && costError.code !== 'PGRST116') throw costError; // PGRST116 is "no rows returned"
-
+        // Load finance data
         const { data: financeData, error: financeError } = await supabase
           .from('finance_structure')
           .select('*')
           .eq('user_id', user.id)
           .single();
-
-        if (financeError && financeError.code !== 'PGRST116') throw financeError;
 
         // Calculate total costs from cost data
         let totalCosts = 0;
@@ -558,42 +555,42 @@ const HauptantragContainer: React.FC = () => {
           ...formData,
           step1: {
             representative: {
-              hasRepresentative: userData.hasauthorizedperson,
-              isCompany: userData.hasauthorizedperson ? userData.iscompany : null,
-              companyName: userData.bevollmaechtigte?.companyName || '',
-              postboxPostcode: userData.bevollmaechtigte?.postboxPostcode || '',
-              postboxCity: userData.bevollmaechtigte?.postboxCity || '',
-              title: userData.bevollmaechtigte?.title || '',
-              firstName: userData.bevollmaechtigte?.firstName || '',
-              lastName: userData.bevollmaechtigte?.lastName || '',
-              street: userData.bevollmaechtigte?.street || '',
-              houseNumber: userData.bevollmaechtigte?.houseNumber || '',
-              postalCode: userData.bevollmaechtigte?.postalCode || '',
-              city: userData.bevollmaechtigte?.city || '',
-              phone: userData.bevollmaechtigte?.phone || '',
-              email: userData.bevollmaechtigte?.email || ''
+              hasRepresentative: userData?.hasauthorizedperson ?? null,
+              isCompany: userData?.hasauthorizedperson ? userData?.iscompany : null,
+              companyName: userData?.bevollmaechtigte?.companyName || '',
+              postboxPostcode: userData?.bevollmaechtigte?.postboxPostcode || '',
+              postboxCity: userData?.bevollmaechtigte?.postboxCity || '',
+              title: userData?.bevollmaechtigte?.title || '',
+              firstName: userData?.bevollmaechtigte?.firstName || '',
+              lastName: userData?.bevollmaechtigte?.lastName || '',
+              street: userData?.bevollmaechtigte?.street || '',
+              houseNumber: userData?.bevollmaechtigte?.houseNumber || '',
+              postalCode: userData?.bevollmaechtigte?.postalCode || '',
+              city: userData?.bevollmaechtigte?.city || '',
+              phone: userData?.bevollmaechtigte?.phone || '',
+              email: userData?.bevollmaechtigte?.email || ''
             },
             persons: [
               // Main applicant
               {
-                title: userData.title || '',
-                firstName: userData.firstname || '',
-                lastName: userData.lastname || '',
-                nationality: userData.nationality || '',
-                birthDate: userData.birthDate || '',
-                street: userData.person_street || '',
-                houseNumber: userData.person_housenumber || '',
-                postalCode: userData.person_postalcode || '',
-                city: userData.person_city || '',
-                phone: userData.phone || '',
-                email: userData.email || '',
+                title: userData?.title || '',
+                firstName: userData?.firstname || '',
+                lastName: userData?.lastname || '',
+                nationality: userData?.nationality || '',
+                birthDate: userData?.birthDate || '',
+                street: userData?.person_street || '',
+                houseNumber: userData?.person_housenumber || '',
+                postalCode: userData?.person_postalcode || '',
+                city: userData?.person_city || '',
+                phone: userData?.phone || '',
+                email: userData?.email || '',
                 employment: {
-                  type: userData.employment || '',
-                  details: userData.branche || ''
+                  type: userData?.employment || '',
+                  details: userData?.branche || ''
                 }
               },
               // Additional applicants
-              ...(userData.weitere_antragstellende_personen || []).map((person: AdditionalPerson) => ({
+              ...(userData?.weitere_antragstellende_personen || []).map((person: AdditionalPerson) => ({
                 title: person.title || '',
                 firstName: person.firstName || '',
                 lastName: person.lastName || '',
@@ -613,21 +610,21 @@ const HauptantragContainer: React.FC = () => {
             ]
           },
           step2: {
-            adultCount: userData.adult_count || '',
-            childCount: userData.child_count || '',
-            isDisabled: userData.is_disabled,
-            isMarried: userData.is_married,
-            hasAdditionalAssets: userData.hasadditionalassets,
-            hasDoubleSubsidy: userData.hasdoublesubsidy,
-            childrenAges: userData.childrenages || '',
-            disabledAdultsCount: userData.disabledadultscount || '',
-            disabledChildrenCount: userData.disabledchildrencount || '',
-            additionalAssetsDetails: userData.additionalassetsdetails || '',
-            hasRepaidSubsidy: userData.hasrepaidsubsidy,
-            subsidyAmount: formatCurrencyForDisplay(userData.subsidyamount),
-            subsidyFileNumber: userData.subsidyfilenumber || '',
-            subsidyAuthority: userData.subsidyauthority || '',
-            hasSupplementaryLoan: userData.hassupplementaryloan
+            adultCount: userData?.adult_count || '',
+            childCount: userData?.child_count || '',
+            isDisabled: userData?.is_disabled ?? null,
+            isMarried: userData?.is_married ?? null,
+            hasAdditionalAssets: userData?.hasadditionalassets ?? null,
+            hasDoubleSubsidy: userData?.hasdoublesubsidy ?? null,
+            childrenAges: userData?.childrenages || '',
+            disabledAdultsCount: userData?.disabledadultscount || '',
+            disabledChildrenCount: userData?.disabledchildrencount || '',
+            additionalAssetsDetails: userData?.additionalassetsdetails || '',
+            hasRepaidSubsidy: userData?.hasrepaidsubsidy ?? null,
+            subsidyAmount: userData?.subsidyamount ? formatCurrencyForDisplay(userData.subsidyamount) : '',
+            subsidyFileNumber: userData?.subsidyfilenumber || '',
+            subsidyAuthority: userData?.subsidyauthority || '',
+            hasSupplementaryLoan: userData?.hassupplementaryloan ?? null
           },
           step3: {
             address: {
@@ -643,18 +640,18 @@ const HauptantragContainer: React.FC = () => {
               anzahlZimmer: objectData?.anzahl_zimmer || '',
               anzahlGaragen: objectData?.anzahl_garagen || '',
               gewerbeflaeche: {
-                hasGewerbeflaeche: objectData?.has_gewerbeflaeche,
+                hasGewerbeflaeche: objectData?.has_gewerbeflaeche ?? null,
                 flaeche: objectData?.has_gewerbeflaeche ? objectData?.gewerbeflaeche || '' : ''
               },
               ertraege: {
-                hasErtraege: objectData?.has_ertraege,
+                hasErtraege: objectData?.has_ertraege ?? null,
                 vermieteteWohnung: objectData?.has_ertraege ? formatCurrencyForDisplay(objectData?.vermietete_wohnung) || '' : '',
                 vermieteteGarage: objectData?.has_ertraege ? formatCurrencyForDisplay(objectData?.vermietete_garage) || '' : ''
               },
-              barrierefrei: objectData?.barrierefrei,
-              begEffizienzhaus40Standard: objectData?.beg_effizienzhaus_40_standard,
-              hasLocationCostLoan: objectData?.haslocationcostloan,
-              hasWoodConstructionLoan: objectData?.haswoodconstructionloan
+              barrierefrei: objectData?.barrierefrei ?? null,
+              begEffizienzhaus40Standard: objectData?.beg_effizienzhaus_40_standard ?? null,
+              hasLocationCostLoan: objectData?.haslocationcostloan ?? null,
+              hasWoodConstructionLoan: objectData?.haswoodconstructionloan ?? null
             },
             objektDetailsEigentumswohnung: {
               anzahlVollgeschosse: (objectData?.foerderVariante === 'bestandserwerb-wohnung' || objectData?.foerderVariante === 'ersterwerb-wohnung') ? objectData?.anzahl_vollgeschosse || '' : '',
@@ -684,12 +681,12 @@ const HauptantragContainer: React.FC = () => {
             }
           },
           step4: {
-            eigentumsverhaeltnis: objectData?.eigentumsverhaeltnis,
+            eigentumsverhaeltnis: objectData?.eigentumsverhaeltnis ?? null,
             kaufvertrag: {
-              wurdeAbgeschlossen: objectData?.kaufvertrag_wurde_abgeschlossen,
+              wurdeAbgeschlossen: objectData?.kaufvertrag_wurde_abgeschlossen ?? null,
               abschlussDatum: objectData?.kaufvertrag_abschluss_datum || ''
             },
-            erbbaurecht: objectData?.erbbaurecht,
+            erbbaurecht: objectData?.erbbaurecht ?? null,
             restlaufzeitErbbaurecht: objectData?.restlaufzeit_erbbaurecht || '',
             grundbuch: {
               type: objectData?.grundbuch_type || '',
@@ -703,11 +700,11 @@ const HauptantragContainer: React.FC = () => {
               grundstuecksgroesse: objectData?.grundstuecksgroesse || ''
             },
             baulasten: {
-              vorhanden: objectData?.baulasten_vorhanden,
+              vorhanden: objectData?.baulasten_vorhanden ?? null,
               art: objectData?.baulasten_art || ''
             },
             altlasten: {
-              vorhanden: objectData?.altlasten_vorhanden,
+              vorhanden: objectData?.altlasten_vorhanden ?? null,
               art: objectData?.altlasten_art || ''
             }
           },
