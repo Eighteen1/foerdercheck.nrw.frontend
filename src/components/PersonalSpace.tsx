@@ -313,10 +313,9 @@ const PersonalSpace: React.FC = () => {
                       onClick={handleModalOpen}
                       className="w-100 py-2"
                       style={{ 
-                        backgroundColor: emailSubmitted ? '#808080' : '#064497', 
+                        backgroundColor: '#064497',
                         border: 'none', 
-                        boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
-                        opacity: emailSubmitted ? 0.7 : 1
+                        boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)'
                       }}
                     >
                       {emailSubmitted ? 'E-Mail Ändern / Erneut Versuchen' : 'Konto erstellen'}
@@ -360,9 +359,20 @@ const PersonalSpace: React.FC = () => {
                 value={emailInput}
                 onChange={(e) => setEmailInput(e.target.value)}
                 required
+                disabled={emailSubmitted}
               />
             </Form.Group>
-            <Button type="submit" className="w-100" style={{ backgroundColor: '#064497', border: 'none', boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)' }}>
+            <Button 
+              type="submit" 
+              className="w-100" 
+              style={{ 
+                backgroundColor: emailSubmitted ? '#808080' : '#064497', 
+                border: 'none', 
+                boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
+                opacity: emailSubmitted ? 0.7 : 1
+              }}
+              disabled={emailSubmitted}
+            >
               Konto erstellen
             </Button>
           </Form>
