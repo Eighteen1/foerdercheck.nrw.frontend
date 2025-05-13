@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Container, Form, Button, Alert } from 'react-bootstrap';
+import { Container, Form, Button, Alert, Spinner } from 'react-bootstrap';
 import { useAuth } from '../contexts/AuthContext';
 
 const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { login } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoading(true);
     try {
       await login(email);
       setMessage({
@@ -22,11 +24,29 @@ const LoginPage: React.FC = () => {
         type: 'error',
         text: error instanceof Error ? error.message : 'Ein Fehler ist aufgetreten.'
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
     <div className="relative min-h-screen bg-white">
+      {/* Loading Overlay */}
+      {isLoading && (
+        <div className="position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center" 
+             style={{ 
+               backgroundColor: 'rgba(255, 255, 255, 0.9)', 
+               zIndex: 9999 
+             }}>
+          <div className="text-center">
+            <Spinner animation="border" role="status" style={{ width: '3rem', height: '3rem', color: '#064497' }}>
+              <span className="visually-hidden">Loading...</span>
+            </Spinner>
+            <div className="mt-3" style={{ color: '#064497' }}>Bitte warten...</div>
+          </div>
+        </div>
+      )}
+
       {/* Bottom right quadrant of ellipse */}
       <div className="absolute top-[-170px] left-[-25%] w-[70%] h-[300px] bg-[#064497] rounded-[50%]"></div>
 
@@ -63,6 +83,7 @@ const LoginPage: React.FC = () => {
             <Button 
               type="submit" 
               className="w-full bg-[#064497] hover:bg-[#0B66E6] text-white py-2 rounded"
+              disabled={isLoading}
             >
               Anmelden
             </Button>

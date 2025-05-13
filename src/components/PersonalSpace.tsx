@@ -267,7 +267,7 @@ const PersonalSpace: React.FC = () => {
                     <Button
                       onClick={logout}
                       className="w-100 py-2"
-                      style={{ backgroundColor: '#D7DAEA', color: 'black', border: 'none', boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)' }}
+                      style={{ backgroundColor: '#D7DAEA', color: '#064497', border: 'none', boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)' }}
                     >
                       Abmelden
                     </Button>
