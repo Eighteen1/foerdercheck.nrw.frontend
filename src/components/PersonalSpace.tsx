@@ -120,7 +120,7 @@ const PersonalSpace: React.FC = () => {
         localStorage.setItem('pendingEligibilityData', JSON.stringify(eligibilityData));
         
         // Close the modal but stay on the current page
-        setShowRegistrationModal(false);
+        //setShowRegistrationModal(false);
       }
     } catch (error) {
       console.error('Error during registration:', error);
