@@ -494,6 +494,7 @@ const HauptantragContainer: React.FC = () => {
         // Set showValidation based on shouldShowErrorHaupt from database
         setShowValidation(userData?.shouldShowErrorHaupt || false);
         setHasValidatedOnce(userData?.shouldShowErrorHaupt || false);
+        console.log(userData?.shouldShowErrorHaupt);
 
         // Load object data
         const { data: objectData, error: objectError } = await supabase
