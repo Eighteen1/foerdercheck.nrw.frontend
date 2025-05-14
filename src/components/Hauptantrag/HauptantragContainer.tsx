@@ -491,10 +491,14 @@ const HauptantragContainer: React.FC = () => {
           return; // Exit if we can't load user data
         }
 
+        console.log('Loaded user data:', userData);
+        
         // Set showValidation based on shouldShowErrorHaupt from database
-        setShowValidation(userData?.shouldShowErrorHaupt || false);
-        setHasValidatedOnce(userData?.shouldShowErrorHaupt || false);
-        console.log(userData?.shouldShowErrorHaupt);
+        // Default to false if undefined
+        const shouldShowError = userData?.should_show_error_haupt ?? false;
+        console.log('Setting shouldShowError to:', shouldShowError);
+        setShowValidation(shouldShowError);
+        setHasValidatedOnce(shouldShowError);
 
         // Load object data
         const { data: objectData, error: objectError } = await supabase
@@ -1983,12 +1987,24 @@ const HauptantragContainer: React.FC = () => {
     
     if (user?.id) {
       try {
-        await supabase
+        console.log('Updating shouldShowErrorHaupt to:', newShowValidation);
+        const { error } = await supabase
           .from('user_data')
-          .update({ shouldShowErrorHaupt: newShowValidation })
+          .update({ 
+            should_show_error_haupt: newShowValidation,
+            updated_at: new Date().toISOString()
+          })
           .eq('id', user.id);
+
+        if (error) {
+          console.error('Error updating shouldShowErrorHaupt:', error);
+          // Revert the state if the update failed
+          setShowValidation(!newShowValidation);
+        }
       } catch (error) {
-        console.error('Error updating shouldShowErrorHaupt:', error);
+        console.error('Error in handleToggleValidation:', error);
+        // Revert the state if the update failed
+        setShowValidation(!newShowValidation);
       }
     }
   };
