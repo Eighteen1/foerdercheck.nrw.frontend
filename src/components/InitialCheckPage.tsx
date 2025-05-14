@@ -48,6 +48,14 @@ const InitialCheckPage: React.FC = () => {
 
   return (
     <div className="relative min-h-screen bg-white">
+      <style>
+        {`
+          .form-check-input:checked {
+            background-color: #064497 !important;
+            border-color: #064497 !important;
+          }
+        `}
+      </style>
       {/* Bottom right quadrant of ellipse */}
       <div className="absolute top-[-170px] left-[-25%] w-[70%] h-[300px] bg-[#064497] rounded-[50%]"></div>
       
@@ -125,6 +133,7 @@ const InitialCheckPage: React.FC = () => {
                 label="Sind einige der Personen schwerbehindert?"
                 checked={isDisabled}
                 onChange={(e) => setIsDisabled(e.target.checked)}
+                className="custom-checkbox"
               />
             </Col>
           </Row>
@@ -136,6 +145,7 @@ const InitialCheckPage: React.FC = () => {
                 label="Antragstellende sind verheiratet/leben in einer eingetragenen Lebenspartnerschaft"
                 checked={isMarried}
                 onChange={(e) => setIsMarried(e.target.checked)}
+                className="custom-checkbox"
               />
             </Col>
           </Row>
@@ -147,6 +157,7 @@ const InitialCheckPage: React.FC = () => {
                 label="Befinden Sie sich in Rente?"
                 checked={isRetired}
                 onChange={(e) => setIsRetired(e.target.checked)}
+                className="custom-checkbox"
               />
             </Col>
           </Row>

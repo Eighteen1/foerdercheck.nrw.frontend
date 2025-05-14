@@ -12,6 +12,7 @@ const PersonalSpace: React.FC = () => {
   const [emailInput, setEmailInput] = useState('');
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [emailSubmitted, setEmailSubmitted] = useState(false);
+  const [agbAccepted, setAgbAccepted] = useState(false);
   const [eligibilityData, setEligibilityData] = useState<any>(null);
   const [formProgress, setFormProgress] = useState<{ [key: string]: number }>({
     hauptantrag: 0,
@@ -71,6 +72,13 @@ const PersonalSpace: React.FC = () => {
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!agbAccepted) {
+      setMessage({
+        type: 'error',
+        text: 'Bitte akzeptieren Sie die AGB, um fortzufahren.'
+      });
+      return;
+    }
     setIsLoading(true);
     try {
       // Create user through backend
@@ -196,6 +204,14 @@ const PersonalSpace: React.FC = () => {
 
   return (
     <div className="relative bg-white flex flex-col">
+      <style>
+        {`
+          .form-check-input:checked {
+            background-color: #064497 !important;
+            border-color: #064497 !important;
+          }
+        `}
+      </style>
       {/* Loading Overlay */}
       {isLoading && (
         <div className="position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center" 
@@ -360,6 +376,30 @@ const PersonalSpace: React.FC = () => {
                 onChange={(e) => setEmailInput(e.target.value)}
                 required
                 disabled={emailSubmitted}
+              />
+            </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Check
+                type="checkbox"
+                id="agb-checkbox"
+                label={
+                  <span>
+                    Ich habe die{' '}
+                    <a 
+                      href="https://www.xn--frdercheck-nrw-vpb.com/datenschutzerklarung/" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      style={{ color: '#064497', textDecoration: 'underline' }}
+                    >
+                      Allgemeine Geschäftsbedingungen
+                    </a>
+                    {' '}gelesen und bin mit ihnen einverstanden
+                  </span>
+                }
+                checked={agbAccepted}
+                onChange={(e) => setAgbAccepted(e.target.checked)}
+                disabled={emailSubmitted}
+                className="custom-checkbox"
               />
             </Form.Group>
             <Button 
