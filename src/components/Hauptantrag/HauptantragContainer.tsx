@@ -10,7 +10,10 @@ import Step3_Objektdetails from './Steps/Step3_Objektdetails';
 import Step4_Eigentumsverhaeltnisse from './Steps/Step4_Eigentumsverhaeltnisse';
 import Step5_Kostenaufstellung from './Steps/Step5_Kostenaufstellung';
 import Step6_Finanzierungsmittel, { Fremddarlehen } from './Steps/Step6_Finanzierungsmittel';
-// Import other steps as they are created
+// Import search icon
+import { FaSearch } from 'react-icons/fa';
+import { IconType } from 'react-icons';
+import { IconBaseProps } from 'react-icons';
 
 interface FormData {
   step1: {
@@ -247,6 +250,11 @@ interface AdditionalPerson {
   };
 }
 
+interface SearchResult {
+  step: number;
+  matches: string[];
+}
+
 const HauptantragContainer: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -471,6 +479,124 @@ const HauptantragContainer: React.FC = () => {
       gesamtbetraege: ''
     }
   });
+
+  const [showSearchModal, setShowSearchModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+
+  // Search terms for each step
+  const stepSearchTerms = {
+    1: [
+      "Persönliche Angaben",
+      "Antragsteller",
+      "Bevollmächtigter",
+      "Firma",
+      "Name",
+      "Adresse",
+      "Telefon",
+      "E-Mail",
+      "Beschäftigung"
+    ],
+    2: [
+      "Persönliche Verhältnisse",
+      "Haushalt",
+      "Erwachsene",
+      "Kinder",
+      "Behinderung",
+      "Ehe",
+      "Vermögen",
+      "Fördermittel",
+      "Doppelförderung",
+      "Ergänzungsdarlehen"
+    ],
+    3: [
+      "Objektdetails",
+      "Adresse",
+      "Wohnfläche",
+      "Zimmer",
+      "Garage",
+      "Gewerbefläche",
+      "Erträge",
+      "Barrierefrei",
+      "Baugenehmigung",
+      "Bauanzeige",
+      "Bauarbeiten",
+      "Baujahr",
+      "Bauen mit Holz",
+      "Standortbedingte Mehrkosten",
+      "BEG Effizienzhaus 40 Standard",
+      "Neubau Eigenheim",
+      "Bestandserwerb Eigentumswohnung",
+      "Ersterwerb Eigentumswohnung",
+      "Bestandserwerb Eigenheim",
+      "Ersterwerb Eigenheim",
+      "Nutzungsänderung"
+    ],
+    4: [
+      "Eigentumsverhältnisse",
+      "Eigentum",
+      "Kaufvertrag",
+      "Erbbaurecht",
+      "Grundbuch",
+      "Baulasten",
+      "Altlasten"
+    ],
+    5: [
+      "Kostenaufstellung",
+      "Baugrundstück",
+      "Kaufpreis",
+      "Baukosten",
+      "Nebenkosten",
+      "Erschließungskosten",
+      "Architektenkosten"
+    ],
+    6: [
+      "Finanzierungsmittel",
+      "Fremddarlehen",
+      "Grunddarlehen",
+      "Zusatzdarlehen",
+      "Eigenleistung",
+      "Familienbonus",
+      "Barrierefreiheit",
+      "Holzbau"
+    ]
+  };
+
+  const handleSearch = (query: string) => {
+    if (query.length < 3) {
+      setSearchResults([]);
+      return;
+    }
+
+    const results: SearchResult[] = [];
+    const lowerQuery = query.toLowerCase();
+
+    Object.entries(stepSearchTerms).forEach(([step, terms]) => {
+      const matches = terms.filter(term => 
+        term.toLowerCase().includes(lowerQuery)
+      );
+
+      if (matches.length > 0) {
+        results.push({
+          step: parseInt(step),
+          matches
+        });
+      }
+    });
+
+    setSearchResults(results);
+  };
+
+  const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setSearchQuery(value);
+    handleSearch(value);
+  };
+
+  const navigateToStep = (step: number) => {
+    setCurrentStep(step);
+    setShowSearchModal(false);
+  };
 
   // Load saved data from Supabase
   useEffect(() => {
@@ -834,7 +960,7 @@ const HauptantragContainer: React.FC = () => {
           setShowValidation(true);
           setHasValidatedOnce(true);
         } catch (error) {
-          console.error('Error updating should_show_error_haupt:', error);
+          console.error('Error updating shouldShowErrorHaupt:', error);
         }
       }
     } else {
@@ -2029,7 +2155,15 @@ const HauptantragContainer: React.FC = () => {
   };
 
   return (
-    <div className="relative min-h-screen bg-white">
+    <div className="hauptantrag-container">
+      <style>
+        {`
+          .search-modal {
+            max-width: 800px;
+            width: 90%;
+          }
+        `}
+      </style>
       {/* Loading Overlay */}
       {isLoading && (
         <div className="position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center" 
@@ -2056,10 +2190,23 @@ const HauptantragContainer: React.FC = () => {
         </h1>
       </div>
 
-      {/* Toggle Switch */}
+      {/* Toggle Switch and Search Icon */}
       <div className="absolute top-12 end-9">
-        <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 border border-white/20">
-          <div className="d-flex align-items-center gap-3">
+        <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 d-flex">
+          <Button
+            variant="link"
+            className="p-3"
+            onClick={() => setShowSearchModal(true)}
+            style={{ color: '#064497' }}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M21 21L15 15M17 10C17 13.866 13.866 17 10 17C6.13401 17 3 13.866 3 10C3 6.13401 6.13401 3 10 3C13.866 3 17 6.13401 17 10Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </Button>
+          
+          <div className="border-start border-white/20" style={{ margin: '0.5rem 0' }}></div>
+          
+          <div className="d-flex align-items-center gap-3 px-3">
             <Form.Check
               type="switch"
               id="validation-toggle"
@@ -2192,6 +2339,69 @@ const HauptantragContainer: React.FC = () => {
         <Modal.Footer>
           <Button 
             onClick={() => setShowValidationModal(false)}
+            style={{ backgroundColor: '#064497', border: 'none' }}
+          >
+            Schließen
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Search Modal */}
+      <Modal show={showSearchModal} onHide={() => setShowSearchModal(false)} centered dialogClassName="search-modal">
+        <Modal.Header closeButton>
+          <Modal.Title>Suchen</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form.Group className="mb-4">
+            <Form.Control
+              type="text"
+              placeholder="Suchen Sie nach Begriffen..."
+              value={searchQuery}
+              onChange={handleSearchInputChange}
+              className="form-control"
+              style={{ fontSize: '0.9rem' }}
+            />
+            {searchQuery.length > 0 && searchQuery.length < 3 && (
+              <Form.Text className="text-muted">
+                Bitte geben Sie mindestens 3 Zeichen ein
+              </Form.Text>
+            )}
+          </Form.Group>
+
+          {searchResults.length > 0 ? (
+            <div className="search-results">
+              {searchResults.map((result) => (
+                <div key={result.step} className="mb-3 p-3 border rounded">
+                  <div className="d-flex justify-content-between align-items-center mb-2">
+                    <h5 className="mb-0">Schritt {result.step}: {getStepTitle(result.step)}</h5>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => navigateToStep(result.step)}
+                      style={{ backgroundColor: '#064497', border: 'none' }}
+                    >
+                      Zum Schritt
+                    </Button>
+                  </div>
+                  <div className="matches">
+                    {result.matches.map((match, index) => (
+                      <span key={index} className="badge bg-light text-dark me-2 mb-2">
+                        {match}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : searchQuery.length >= 3 ? (
+            <div className="text-center text-muted">
+              Keine Ergebnisse gefunden
+            </div>
+          ) : null}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button 
+            onClick={() => setShowSearchModal(false)}
             style={{ backgroundColor: '#064497', border: 'none' }}
           >
             Schließen
