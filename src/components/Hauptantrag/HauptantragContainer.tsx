@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Button, Modal, Spinner } from 'react-bootstrap';
+import { Container, Button, Modal, Spinner, Form } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
@@ -490,6 +490,10 @@ const HauptantragContainer: React.FC = () => {
           console.error('Error loading user data:', userError);
           return; // Exit if we can't load user data
         }
+
+        // Set showValidation based on shouldShowErrorHaupt from database
+        setShowValidation(userData?.shouldShowErrorHaupt || false);
+        setHasValidatedOnce(userData?.shouldShowErrorHaupt || false);
 
         // Load object data
         const { data: objectData, error: objectError } = await supabase
@@ -1972,6 +1976,22 @@ const HauptantragContainer: React.FC = () => {
     }
   };
 
+  const handleToggleValidation = async () => {
+    const newShowValidation = !showValidation;
+    setShowValidation(newShowValidation);
+    
+    if (user?.id) {
+      try {
+        await supabase
+          .from('user_data')
+          .update({ shouldShowErrorHaupt: newShowValidation })
+          .eq('id', user.id);
+      } catch (error) {
+        console.error('Error updating shouldShowErrorHaupt:', error);
+      }
+    }
+  };
+
   return (
     <div className="relative min-h-screen bg-white">
       {/* Loading Overlay */}
@@ -1998,6 +2018,40 @@ const HauptantragContainer: React.FC = () => {
         <h1 className="display-6 fw-regular text-[#ffffff] mb-2 font-['Roboto']">
           Hauptantrag
         </h1>
+      </div>
+
+      {/* Toggle Switch */}
+      <div className="absolute top-12 end-9">
+        <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 border border-white/20">
+          <div className="d-flex align-items-center gap-3">
+            <Form.Check
+              type="switch"
+              id="validation-toggle"
+              checked={showValidation}
+              onChange={handleToggleValidation}
+              className="mb-0"
+              style={{
+                '--bs-form-switch-bg': 'rgba(255, 255, 255, 0.3)',
+                '--bs-form-switch-color': '#064497',
+                '--bs-form-switch-checked-bg': '#064497',
+                '--bs-form-switch-checked-color': '#ffffff',
+                '--bs-form-switch-width': '3em',
+                '--bs-form-switch-height': '1.5em',
+                '--bs-form-switch-padding-start': '2.5em',
+                '--bs-form-switch-padding-end': '0.5em',
+                '--bs-form-switch-border-radius': '2em',
+                '--bs-form-switch-transition': 'all 0.2s ease-in-out'
+              } as React.CSSProperties}
+            />
+            <label 
+              htmlFor="validation-toggle" 
+              className="text-black mb-0 fw-medium"
+              style={{ fontSize: '0.9rem', userSelect: 'none' }}
+            >
+              Fehler anzeigen
+            </label>
+          </div>
+        </div>
       </div>
 
       <Container className="pt-32">
