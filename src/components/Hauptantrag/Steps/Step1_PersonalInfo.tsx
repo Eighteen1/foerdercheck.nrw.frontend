@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Form, Button, OverlayTrigger, Tooltip } from 'react-bootstrap';
+import AddressInput from '../../common/AddressInput';
 
 // Add styles
 const styles = `
@@ -456,6 +457,12 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
     if (!person.street) errors.push('Straße ist erforderlich');
     if (!person.houseNumber) errors.push('Hausnummer ist erforderlich');
     if (!person.postalCode) errors.push('Postleitzahl ist erforderlich');
+    else {
+      const postalCode = person.postalCode;
+      if (!/^\d{5}$/.test(postalCode)) {
+        errors.push('Die Postleitzahl muss aus genau 5 Ziffern bestehen');
+      }
+    }
     if (!person.city) errors.push('Ort ist erforderlich');
     if (!person.phone) errors.push('Telefonnummer ist erforderlich');
     if (!person.email) errors.push('E-Mail ist erforderlich');
@@ -526,7 +533,11 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
   }, [formData, showValidation]);
 
   const getFieldError = (index: number, fieldName: string): boolean => {
-    return !!validationErrors[`person_${index}`]?.includes(`${fieldName} ist erforderlich`);
+    const errors = validationErrors[`person_${index}`] || [];
+    if (fieldName === 'Postleitzahl') {
+      return errors.some(error => error.includes('Postleitzahl') || error.includes('Die Postleitzahl muss aus genau 5 Ziffern bestehen'));
+    }
+    return errors.some(error => error.includes(fieldName));
   };
 
   const renderPersonForm = (person: Person, index: number) => (
@@ -714,71 +725,40 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
           </OverlayTrigger>
         </div>
 
-        <div className="row g-3">
-          <div className="col-md-8">
-            <Form.Floating>
-              <Form.Control
-                type="text"
-                placeholder="Straße"
-                value={person.street}
-                onChange={(e) => handlePersonChange(index, 'street', e.target.value)}
-                isInvalid={getFieldError(index, 'Straße')}
-              />
-              <label>Straße</label>
-              <Form.Control.Feedback type="invalid">
-                Straße ist erforderlich
-              </Form.Control.Feedback>
-            </Form.Floating>
-          </div>
-          <div className="col-md-4">
-            <Form.Floating>
-              <Form.Control
-                type="text"
-                placeholder="Hausnummer"
-                value={person.houseNumber}
-                onChange={(e) => handlePersonChange(index, 'houseNumber', e.target.value)}
-                isInvalid={getFieldError(index, 'Hausnummer')}
-              />
-              <label>Hausnummer</label>
-              <Form.Control.Feedback type="invalid">
-                Hausnummer ist erforderlich
-              </Form.Control.Feedback>
-            </Form.Floating>
-          </div>
-        </div>
-
-        <div className="row g-3 mt-1">
-          <div className="col-md-4">
-            <Form.Floating>
-              <Form.Control
-                type="text"
-                placeholder="Postleitzahl"
-                value={person.postalCode}
-                onChange={(e) => handlePersonChange(index, 'postalCode', e.target.value)}
-                isInvalid={getFieldError(index, 'Postleitzahl')}
-              />
-              <label>Postleitzahl</label>
-              <Form.Control.Feedback type="invalid">
-                Postleitzahl ist erforderlich
-              </Form.Control.Feedback>
-            </Form.Floating>
-          </div>
-          <div className="col-md-8">
-            <Form.Floating>
-              <Form.Control
-                type="text"
-                placeholder="Ort"
-                value={person.city}
-                onChange={(e) => handlePersonChange(index, 'city', e.target.value)}
-                isInvalid={getFieldError(index, 'Ort')}
-              />
-              <label>Ort</label>
-              <Form.Control.Feedback type="invalid">
-                Ort ist erforderlich
-              </Form.Control.Feedback>
-            </Form.Floating>
-          </div>
-        </div>
+        <AddressInput
+          value={{
+            street: person.street,
+            houseNumber: person.houseNumber,
+            postalCode: person.postalCode,
+            city: person.city
+          }}
+          onChange={(address) => {
+            const updatedPersons = [...formData.persons];
+            updatedPersons[index] = {
+              ...updatedPersons[index],
+              street: address.street,
+              houseNumber: address.houseNumber,
+              postalCode: address.postalCode,
+              city: address.city
+            };
+            updateFormData({
+              ...formData,
+              persons: updatedPersons
+            });
+          }}
+          isInvalid={{
+            street: getFieldError(index, 'Straße'),
+            houseNumber: getFieldError(index, 'Hausnummer'),
+            postalCode: getFieldError(index, 'Postleitzahl'),
+            city: getFieldError(index, 'Ort')
+          }}
+          errorMessages={{
+            street: validationErrors[`person_${index}`]?.find(error => error.includes('Straße')) || '',
+            houseNumber: validationErrors[`person_${index}`]?.find(error => error.includes('Hausnummer')) || '',
+            postalCode: validationErrors[`person_${index}`]?.find(error => error.includes('Postleitzahl')) || '',
+            city: validationErrors[`person_${index}`]?.find(error => error.includes('Ort')) || ''
+          }}
+        />
       </div>
 
       <div className="mb-4">

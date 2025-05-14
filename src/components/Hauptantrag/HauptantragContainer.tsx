@@ -1131,6 +1131,12 @@ const HauptantragContainer: React.FC = () => {
       if (!person.street) errors[1].push(`Person ${index + 1}: Straße ist erforderlich`);
       if (!person.houseNumber) errors[1].push(`Person ${index + 1}: Hausnummer ist erforderlich`);
       if (!person.postalCode) errors[1].push(`Person ${index + 1}: Postleitzahl ist erforderlich`);
+      else {
+        if (!/^\d{5}$/.test(person.postalCode)) {
+          errors[1].push(`Person ${index + 1}: Die Postleitzahl muss aus genau 5 Ziffern bestehen`);
+        } 
+      }
+
       if (!person.city) errors[1].push(`Person ${index + 1}: Ort ist erforderlich`);
       if (!person.phone) errors[1].push(`Person ${index + 1}: Telefonnummer ist erforderlich`);
       if (!person.email) errors[1].push(`Person ${index + 1}: E-Mail ist erforderlich`);
