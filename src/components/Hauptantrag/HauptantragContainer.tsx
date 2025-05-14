@@ -11,7 +11,6 @@ import Step4_Eigentumsverhaeltnisse from './Steps/Step4_Eigentumsverhaeltnisse';
 import Step5_Kostenaufstellung from './Steps/Step5_Kostenaufstellung';
 import Step6_Finanzierungsmittel, { Fremddarlehen } from './Steps/Step6_Finanzierungsmittel';
 // Import search icon
-import { FaSearch } from 'react-icons/fa';
 import { IconType } from 'react-icons';
 import { IconBaseProps } from 'react-icons';
 
