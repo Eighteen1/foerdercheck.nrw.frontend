@@ -814,10 +814,29 @@ const HauptantragContainer: React.FC = () => {
 
   const totalSteps = 6;
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (currentStep === totalSteps) {
       // If we're on the last step, validate the form
       validateForm();
+      
+      // If validation is triggered, save should_show_error_haupt to true
+      if (user?.id) {
+        try {
+          await supabase
+            .from('user_data')
+            .update({ 
+              should_show_error_haupt: true,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', user.id);
+          
+          // Update local state
+          setShowValidation(true);
+          setHasValidatedOnce(true);
+        } catch (error) {
+          console.error('Error updating should_show_error_haupt:', error);
+        }
+      }
     } else {
       // For all other steps, just move to next step
       setCurrentStep(currentStep + 1);
