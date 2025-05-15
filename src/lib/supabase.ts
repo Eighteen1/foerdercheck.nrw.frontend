@@ -42,7 +42,7 @@ export const storeEligibilityData = async (userId: string, data: any) => {
     });
 
   if (error) {
-    console.error('Error storing eligibility data:', error);
+    console.error('Error storing eligibility dataa:', error);
     throw error;
   }
 };
