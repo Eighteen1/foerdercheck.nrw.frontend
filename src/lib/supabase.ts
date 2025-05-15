@@ -54,8 +54,6 @@ export const storeDocumentCheckData = async (userId: string, documentCheckData: 
       .from('user_data')
       .update({
         hasinheritanceright: documentCheckData.answers.hasInheritanceRight,
-        haslocationcostloan: documentCheckData.answers.hasLocationCostLoan,
-        haswoodconstructionloan: documentCheckData.answers.hasWoodConstructionLoan,
         hasbegstandardloan: documentCheckData.answers.hasBEGStandardLoan,
         ispregnant: documentCheckData.answers.isPregnant,
         hasauthorizedperson: documentCheckData.answers.hasAuthorizedPerson,
@@ -70,12 +68,14 @@ export const storeDocumentCheckData = async (userId: string, documentCheckData: 
 
     if (userError) throw userError;
 
-    // Update or insert the foerderVariante in object_data
+    // Update or insert the foerderVariante and loan-related fields in object_data
     const { data: objectData, error: objectError } = await supabase
       .from('object_data')
       .upsert({
         user_id: userId,
-        foerderVariante: documentCheckData.foerderVariante
+        foerderVariante: documentCheckData.foerderVariante,
+        haslocationcostloan: documentCheckData.answers.hasLocationCostLoan,
+        haswoodconstructionloan: documentCheckData.answers.hasWoodConstructionLoan
       })
       .select()
       .single();
@@ -96,8 +96,6 @@ export const getDocumentCheckData = async (userId: string) => {
       .from('user_data')
       .select(`
         hasinheritanceright,
-        haslocationcostloan,
-        haswoodconstructionloan,
         hasbegstandardloan,
         ispregnant,
         hasauthorizedperson,
@@ -113,7 +111,11 @@ export const getDocumentCheckData = async (userId: string) => {
     // Get foerderVariante from object_data table
     const { data: objectData, error: objectError } = await supabase
       .from('object_data')
-      .select('foerderVariante')
+      .select(`
+        foerderVariante,
+        haslocationcostloan,
+        haswoodconstructionloan
+        `)
       .eq('user_id', userId)
       .single();
 
@@ -127,8 +129,8 @@ export const getDocumentCheckData = async (userId: string) => {
       foerderVariante: objectData?.foerderVariante || '',
       answers: {
         hasInheritanceRight: userData.hasinheritanceright,
-        hasLocationCostLoan: userData.haslocationcostloan,
-        hasWoodConstructionLoan: userData.haswoodconstructionloan,
+        hasLocationCostLoan: objectData?.haslocationcostloan,
+        hasWoodConstructionLoan: objectData?.haswoodconstructionloan,
         hasBEGStandardLoan: userData.hasbegstandardloan,
         isPregnant: userData.ispregnant,
         hasAuthorizedPerson: userData.hasauthorizedperson,
