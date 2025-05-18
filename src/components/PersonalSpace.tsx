@@ -298,7 +298,7 @@ const PersonalSpace: React.FC = () => {
                 className="rounded p-4 mb-4" 
                 style={{ 
                   boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.1)',
-                  backgroundColor: '#ECECEC',
+                  backgroundColor: '#f8f9fa',
                 }}
               >
                 {isAuthenticated ? (
@@ -310,7 +310,7 @@ const PersonalSpace: React.FC = () => {
                     <Button
                       onClick={logout}
                       className="w-100 py-2"
-                      style={{ backgroundColor: '#064497', color: '#FFFFFF', border: 'none', boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)' }}
+                      style={{ backgroundColor: '#D7DAEA', color: '#000000', border: 'none', boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.2)' }}
                     >
                       Abmelden
                     </Button>
@@ -345,11 +345,34 @@ const PersonalSpace: React.FC = () => {
       </Container>
 
       {/* Footer section with consistent spacing */}
-      <div className="w-100 py-4 mt-auto">
-        <div className="text-center">
+      <div className="w-100 py-5 mt-auto" style={{ 
+        backgroundColor: '#f8f9fa',
+        boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.05)'
+      }}>
+        <div className="text-center px-4">
+          <h3 className="text-[#064497] mb-3 fw-semibold" style={{ textShadow: '0 1px 2px rgba(0, 0, 0, 0.1)' }}>
+            Bereit Zum Einreichen?
+          </h3>
+          <p className="text-dark mb-4" style={{ 
+            fontSize: '1.1rem',
+            lineHeight: '1.6',
+            maxWidth: '800px',
+            margin: '0 auto'
+          }}>
+            Überprüfen Sie jetzt alle Ihre Angaben und Dokumente auf Vollständigkeit. 
+            Sie erhalten eine detaillierte Übersicht über vollständige und fehlende Angaben.
+            Die Prüfung ist unverbindlich und führt nicht zur automatischen Einreichung. Sie können ihre Angaben jederzeit ändern und belibig oft prüfen.
+          </p>
           <Button
-            className="px-5 py-2"
-            style={{ backgroundColor: '#808080', border: 'none', width: '300px', boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)', opacity: 0.7 }}
+            className="px-5 py-2 fw-regular text-[#FFFFFF]"
+            style={{ 
+              backgroundColor: '#064497', 
+              border: '2px solid #064497', 
+              width: '300px', 
+              boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.2)',
+              opacity: 1,
+              fontSize: '1.1rem'
+            }}
           >
             PRÜFEN
           </Button>
