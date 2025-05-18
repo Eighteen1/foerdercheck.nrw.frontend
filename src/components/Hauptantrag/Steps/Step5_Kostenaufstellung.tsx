@@ -25,7 +25,7 @@ interface Step5Data {
     beschaffungDauerfinanzierung: string;
     beschaffungZwischenfinanzierung: string;
     sonstigeNebenkosten: string;
-    zusatzlicheKosten: string;
+    zusaetzlicheKosten: string;
   };
   gesamtkosten: string;
 }
@@ -213,7 +213,7 @@ const Step5_Kostenaufstellung: React.FC<Step5Props> = ({ formData, updateFormDat
     if (!formData.nebenkosten.beschaffungDauerfinanzierung) nebenkostenErrors.push('Bitte geben Sie die Kosten der Beschaffung der Dauerfinanzierungsmittel ein (0,00€ wenn nicht vorhanden)');
     if (!formData.nebenkosten.beschaffungZwischenfinanzierung) nebenkostenErrors.push('Bitte geben Sie die Kosten der Beschaffung und Verzinsung der Zwischenfinanzierung ein (0,00€ wenn nicht vorhanden)');
     if (!formData.nebenkosten.sonstigeNebenkosten) nebenkostenErrors.push('Bitte geben Sie die sonstigen Nebenkosten ein (0,00€ wenn nicht vorhanden)');
-    if (!formData.nebenkosten.zusatzlicheKosten) nebenkostenErrors.push('Bitte geben Sie die zusätzlichen Kosten ein (0,00€ wenn nicht vorhanden)');
+    if (!formData.nebenkosten.zusaetzlicheKosten) nebenkostenErrors.push('Bitte geben Sie die zusätzlichen Kosten ein (0,00€ wenn nicht vorhanden)');
     if (nebenkostenErrors.length > 0) {
       errors['nebenkosten'] = nebenkostenErrors;
     }
@@ -526,8 +526,8 @@ const Step5_Kostenaufstellung: React.FC<Step5Props> = ({ formData, updateFormDat
           </div>
           <div className="col-12">
             <CurrencyInput
-              value={formData.nebenkosten.zusatzlicheKosten}
-              onChange={(value) => handleInputChange('nebenkosten', 'zusatzlicheKosten', value)}
+              value={formData.nebenkosten.zusaetzlicheKosten}
+              onChange={(value) => handleInputChange('nebenkosten', 'zusaetzlicheKosten', value)}
               placeholder="Zusätzliche Kosten (Modernisierung, Instandsetzung, Schönheitsreparaturen)"
               label="Zusätzliche Kosten (Modernisierung, Instandsetzung, Schönheitsreparaturen)"
               isInvalid={showValidation && validationErrors['nebenkosten']?.includes('Bitte geben Sie die zusätzlichen Kosten ein')}

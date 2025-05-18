@@ -172,7 +172,7 @@ interface FormData {
       beschaffungDauerfinanzierung: string;
       beschaffungZwischenfinanzierung: string;
       sonstigeNebenkosten: string;
-      zusatzlicheKosten: string;
+      zusaetzlicheKosten: string;
     };
     gesamtkosten: string;
   };
@@ -421,7 +421,7 @@ const HauptantragContainer: React.FC = () => {
         beschaffungDauerfinanzierung: '',
         beschaffungZwischenfinanzierung: '',
         sonstigeNebenkosten: '',
-        zusatzlicheKosten: ''
+        zusaetzlicheKosten: ''
       },
       gesamtkosten: ''
     },
@@ -482,6 +482,8 @@ const HauptantragContainer: React.FC = () => {
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   // Search terms for each step
   const stepSearchTerms = {
@@ -865,7 +867,7 @@ const HauptantragContainer: React.FC = () => {
               beschaffungDauerfinanzierung: costData?.beschaffung_dauerfinanzierung ? formatCurrencyForDisplay(costData.beschaffung_dauerfinanzierung) : '',
               beschaffungZwischenfinanzierung: costData?.beschaffung_zwischenfinanzierung ? formatCurrencyForDisplay(costData.beschaffung_zwischenfinanzierung) : '',
               sonstigeNebenkosten: costData?.sonstige_nebenkosten ? formatCurrencyForDisplay(costData.sonstige_nebenkosten) : '',
-              zusatzlicheKosten: costData?.zusaetzliche_kosten ? formatCurrencyForDisplay(costData.zusaetzliche_kosten) : ''
+              zusaetzlicheKosten: costData?.zusaetzliche_kosten ? formatCurrencyForDisplay(costData.zusaetzliche_kosten) : ''
             },
             gesamtkosten: formatCurrencyForDisplay(totalCosts)
           },
@@ -1183,7 +1185,7 @@ const HauptantragContainer: React.FC = () => {
           beschaffung_dauerfinanzierung: formatCurrencyForDatabase(formData.step5.nebenkosten.beschaffungDauerfinanzierung),
           beschaffung_zwischenfinanzierung: formatCurrencyForDatabase(formData.step5.nebenkosten.beschaffungZwischenfinanzierung),
           sonstige_nebenkosten: formatCurrencyForDatabase(formData.step5.nebenkosten.sonstigeNebenkosten),
-          zusaetzliche_kosten: formatCurrencyForDatabase(formData.step5.nebenkosten.zusatzlicheKosten),
+          zusaetzliche_kosten: formatCurrencyForDatabase(formData.step5.nebenkosten.zusaetzlicheKosten),
           
           updated_at: new Date().toISOString()
         })
@@ -1297,21 +1299,27 @@ const HauptantragContainer: React.FC = () => {
       if ((person.employment.type == 'sole-trader' || person.employment.type == 'business-owner' || person.employment.type == 'freelancer' || person.employment.type == 'farmer' || person.employment.type == 'private-income') && !person.employment.details) errors[1].push(`Person ${index + 1}: Branche ist erforderlich`);
     });
     if (formData.step1.representative.hasRepresentative === null) errors[1].push('Bitte geben Sie an, ob Sie einen Bevollmächtigten angeben wollen');
-    if (formData.step1.representative.isCompany === null && formData.step1.representative.hasRepresentative == true) errors[1].push('Bitte geben Sie an, ob es sich um eine Firma handelt');
-    // Representative Company Info
-    if (!formData.step1.representative.companyName && formData.step1.representative.isCompany == true) errors[1].push('Bitte geben Sie den Namen der Bevollmächtigten Firma ein');
-    if (!formData.step1.representative.postboxCity && formData.step1.representative.isCompany == true) errors[1].push('Bitte geben Sie den Ort des Postfachs der Bevollmächtigten Firma ein');
-    if (!formData.step1.representative.postboxPostcode && formData.step1.representative.isCompany == true) errors[1].push('Bitte geben Sie die Postleitzahl des Postfachs der Bevollmächtigten Firma ein');
-    // Representative Personal Info
-    if (!formData.step1.representative.title && formData.step1.representative.isCompany == false) errors[1].push('Bitte geben Sie den Titel des Bevollmächtigten ein');
-    if (!formData.step1.representative.firstName && formData.step1.representative.isCompany == false) errors[1].push('Bitte geben Sie den Vornamen des Bevollmächtigten ein');
-    if (!formData.step1.representative.lastName && formData.step1.representative.isCompany == false) errors[1].push('Bitte geben Sie den Nachnamen des Bevollmächtigten ein');
-    if (!formData.step1.representative.street && formData.step1.representative.isCompany == false) errors[1].push('Bitte geben Sie die Straße des Bevollmächtigten ein');
-    if (!formData.step1.representative.houseNumber && formData.step1.representative.isCompany == false) errors[1].push('Bitte geben Sie die Hausnummer des Bevollmächtigten ein');
-    if (!formData.step1.representative.postalCode && formData.step1.representative.isCompany == false) errors[1].push('Bitte geben Sie die Postleitzahl des Bevollmächtigten ein');
-    if (!formData.step1.representative.city && formData.step1.representative.isCompany == false) errors[1].push('Bitte geben Sie die Stadt des Bevollmächtigten ein');
-    if (!formData.step1.representative.phone && formData.step1.representative.isCompany == false) errors[1].push('Bitte geben Sie die Telefonnummer des Bevollmächtigten ein');
-    if (!formData.step1.representative.email && formData.step1.representative.isCompany == false) errors[1].push('Bitte geben Sie die E-Mail des Bevollmächtigten ein');
+    if (formData.step1.representative.hasRepresentative === true) {
+      if (formData.step1.representative.isCompany === null) errors[1].push('Bitte geben Sie an, ob es sich um eine Firma handelt');
+      // Representative Company Info
+      if (formData.step1.representative.isCompany === true) {
+        if (!formData.step1.representative.companyName) errors[1].push('Bitte geben Sie den Namen der Bevollmächtigten Firma ein');
+        if (!formData.step1.representative.postboxCity) errors[1].push('Bitte geben Sie den Ort des Postfachs der Bevollmächtigten Firma ein');
+        if (!formData.step1.representative.postboxPostcode) errors[1].push('Bitte geben Sie die Postleitzahl des Postfachs der Bevollmächtigten Firma ein');
+      }
+      // Representative Personal Info
+      if (formData.step1.representative.isCompany === false) {
+        if (!formData.step1.representative.title) errors[1].push('Bitte geben Sie den Titel des Bevollmächtigten ein');
+        if (!formData.step1.representative.firstName) errors[1].push('Bitte geben Sie den Vornamen des Bevollmächtigten ein');
+        if (!formData.step1.representative.lastName) errors[1].push('Bitte geben Sie den Nachnamen des Bevollmächtigten ein');
+        if (!formData.step1.representative.street) errors[1].push('Bitte geben Sie die Straße des Bevollmächtigten ein');
+        if (!formData.step1.representative.houseNumber) errors[1].push('Bitte geben Sie die Hausnummer des Bevollmächtigten ein');
+        if (!formData.step1.representative.postalCode) errors[1].push('Bitte geben Sie die Postleitzahl des Bevollmächtigten ein');
+        if (!formData.step1.representative.city) errors[1].push('Bitte geben Sie die Stadt des Bevollmächtigten ein');
+        if (!formData.step1.representative.phone) errors[1].push('Bitte geben Sie die Telefonnummer des Bevollmächtigten ein');
+        if (!formData.step1.representative.email) errors[1].push('Bitte geben Sie die E-Mail des Bevollmächtigten ein');
+      }
+    }
 
     // Validate Step 2
     errors[2] = [];
@@ -1588,7 +1596,7 @@ const HauptantragContainer: React.FC = () => {
     if (!formData.step5.nebenkosten.beschaffungDauerfinanzierung) errors[5].push('Bitte geben Sie die Kosten der Beschaffung der Dauerfinanzierungsmittel ein (0,00€ wenn nicht vorhanden)');
     if (!formData.step5.nebenkosten.beschaffungZwischenfinanzierung) errors[5].push('Bitte geben Sie die Kosten der Beschaffung und Verzinsung der Zwischenfinanzierung ein (0,00€ wenn nicht vorhanden)');
     if (!formData.step5.nebenkosten.sonstigeNebenkosten) errors[5].push('Bitte geben Sie die sonstigen Nebenkosten ein (0,00€ wenn nicht vorhanden)');
-    if (!formData.step5.nebenkosten.zusatzlicheKosten) errors[5].push('Bitte geben Sie die zusätzlichen Kosten ein (0,00€ wenn nicht vorhanden)');
+    if (!formData.step5.nebenkosten.zusaetzlicheKosten) errors[5].push('Bitte geben Sie die zusätzlichen Kosten ein (0,00€ wenn nicht vorhanden)');
 
     // Validate Step 6
     errors[6] = [];
@@ -1675,6 +1683,7 @@ const HauptantragContainer: React.FC = () => {
       return false;
     }
 
+    setShowSuccessModal(true);
     return true;
   };
 
@@ -1723,7 +1732,9 @@ const HauptantragContainer: React.FC = () => {
         if (!formData.step1.representative.companyName) actualErrors++;
         if (!formData.step1.representative.postboxCity) actualErrors++;
         if (!formData.step1.representative.postboxPostcode) actualErrors++;
-      } else {
+      } 
+      
+      if (formData.step1.representative.isCompany === false){
         // Personal representative fields (11 required)
         totalPotentialFields += 11;
         if (!formData.step1.representative.title) actualErrors++;
@@ -1961,7 +1972,7 @@ const HauptantragContainer: React.FC = () => {
     if (!formData.step5.nebenkosten.beschaffungDauerfinanzierung) actualErrors++;
     if (!formData.step5.nebenkosten.beschaffungZwischenfinanzierung) actualErrors++;
     if (!formData.step5.nebenkosten.sonstigeNebenkosten) actualErrors++;
-    if (!formData.step5.nebenkosten.zusatzlicheKosten) actualErrors++;
+    if (!formData.step5.nebenkosten.zusaetzlicheKosten) actualErrors++;
 
     // Step 6: Financing
     // Check each Fremddarlehen
@@ -2316,7 +2327,22 @@ const HauptantragContainer: React.FC = () => {
             <div className="error-list">
               {Object.entries(validationErrors).map(([step, errors], index) => (
                 <div key={step} className="mb-3">
-                  <h5 className="text-danger mb-2">Schritt {step}:</h5>
+                  <div className="d-flex justify-content-between align-items-center mb-2">
+                    <h5 className="text-danger mb-0">Schritt {step}:</h5>
+                    <Button
+                      variant="outline-primary"
+                      size="sm"
+                      onClick={() => {
+                        setShowValidationModal(false);
+                        navigateToStep(parseInt(step));
+                      }}
+                      style={{ borderColor: '#FFFFFF', color: '#064497' }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#FFFFFF'}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                    >
+                      Zum Schritt {step} springen
+                    </Button>
+                  </div>
                   <ul className="mb-0 ps-3">
                     {errors.map((error, errorIndex) => (
                       <li key={errorIndex} className="mb-2">
@@ -2342,6 +2368,32 @@ const HauptantragContainer: React.FC = () => {
           >
             Schließen
           </Button>
+        </Modal.Footer>
+      </Modal>
+
+      <Modal show={showSuccessModal} onHide={() => setShowSuccessModal(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Glückwunsch!</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <div className="alert alert-success mb-0">
+            <p className="mb-3">Ihre Eingaben sind vollständig und stimmen mit den regulären Anforderungen überein.</p>
+            <p className="mb-3">Sie können Ihre ausgefüllten Formulare im persönlichen Bereich querprüfen und anschließend einreichen.</p>
+            <p className="text-muted small mb-0">Hinweis: Wir sind per Gesetz verpflichtet, das Einreichen aller Anträge zu ermöglichen, auch wenn diese Fehler enthalten.</p>
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <div className="d-flex justify-content-center align-items-center w-100">
+            <Button 
+              onClick={() => {
+                setShowSuccessModal(false);
+                handleSave();
+              }}
+              style={{ backgroundColor: '#064497', border: 'none' }}
+            >
+              Speichern und zum persönlichen Bereich
+            </Button>
+          </div>
         </Modal.Footer>
       </Modal>
 
