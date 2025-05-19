@@ -2172,8 +2172,60 @@ const HauptantragContainer: React.FC = () => {
             max-width: 800px;
             width: 90%;
           }
+          .blue-corner {
+            position: absolute;
+            top: -170px;
+            left: -10%;
+            width: 55%;
+            height: 300px;
+            background: #064497;
+            border-radius: 50%;
+            z-index: 2;
+            pointer-events: none;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            overflow: visible;
+          }
+          .blue-corner-text {
+            pointer-events: auto;
+            text-align: center;
+            color: #ffffff;
+            font-weight: 300;
+            width: 100%;
+            position: relative;
+            font-weight: 300;
+            font-family: 'Roboto';
+            font-style: normal;
+            margin-top: 200px;
+            font-size: 30px;
+            display: block;
+          }
+          @media (max-width: 750px) {
+            .blue-corner {
+              width: 35%;
+              height: 140px;
+              top: -50px;
+              left: -5%;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            }
+            .blue-corner-text {
+              margin-top: 0;
+              margin-bottom: 0;
+              position: relative;
+              font-weight: 300;
+            }
+          }
+          @media (max-width: 750px) {
+            .blue-corner {
+              display: none;
+            }
+          }
         `}
       </style>
+
       {/* Loading Overlay */}
       {isLoading && (
         <div className="position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center" 
@@ -2191,15 +2243,12 @@ const HauptantragContainer: React.FC = () => {
       )}
 
       {/* Header ellipse */}
-      <div className="absolute top-[-170px] left-[-25%] w-[70%] h-[300px] bg-[#064497] rounded-[50%]"></div>
-      
-      {/* Main heading */}
-      <div className="absolute top-12 start-9">
-        <h1 className="display-6 fw-regular text-[#ffffff] mb-2 font-['Roboto']">
-          Hauptantrag
-        </h1>
+      <div className="blue-corner">
+        <span className="blue-corner-text">HAUPTANTRAG</span>
       </div>
-
+      
+      {/* Main heading - Removing this as it's now part of the blue corner */}
+      
       {/* Toggle Switch and Search Icon */}
       <div className="absolute top-12 end-9">
         <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 d-flex">

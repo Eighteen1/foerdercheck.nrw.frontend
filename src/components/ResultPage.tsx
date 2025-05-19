@@ -117,6 +117,76 @@ const ResultPage: React.FC = () => {
     navigate('/personal-space', { state });
   };
 
+  const blueCornerStyle = `
+    .blue-corner {
+      position: absolute;
+      top: -170px;
+      left: -10%;
+      width: 55%;
+      height: 300px;
+      background: #064497;
+      border-radius: 50%;
+      z-index: 2;
+      pointer-events: none;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      overflow: visible;
+    }
+    .blue-corner-text {
+      pointer-events: auto;
+      text-align: center;
+      color: #ffffff;
+      font-weight: 300;
+      width: 100%;
+      position: relative;
+      font-weight: 300;
+      font-family: 'Roboto';
+      font-style: normal;
+    }
+    .blue-corner-text.long {
+      margin-top: 200px;
+      font-size: 30px;
+      display: block;
+      font-weight: 300;
+      font-family: 'Roboto';
+      text-align: center;
+    }
+    .blue-corner-text.short {
+      display: none;
+      margin-top: 50px;
+      font-size: 28px;
+      font-weight: 300;
+      font-family: 'Roboto';
+      text-align: center;
+    }
+    @media (max-width: 980px) {
+      .blue-corner {
+        width: 35%;
+        height: 140px;
+        top: -50px;
+        left: -5%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .blue-corner-text.long {
+        display: none !important;
+      }
+      .blue-corner-text.short {
+        display: block !important;
+        margin-bottom: 0;
+        position: relative;
+        font-weight: 300;
+      }
+    }
+    @media (max-width: 600px) {
+      .blue-corner {
+        display: none;
+      }
+    }
+  `;
+
   if (loading) {
     return (
       <div className="relative min-h-screen bg-white">
@@ -168,12 +238,10 @@ const ResultPage: React.FC = () => {
 
   return (
     <div className="relative min-h-screen bg-white">
-      <div className="absolute top-[-170px] left-[-25%] w-[70%] h-[300px] bg-[#064497] rounded-[50%]"></div>
-      
-      <div className="absolute top-12 start-9">
-        <h1 className="display-6 fw-regular text-[#ffffff] mb-2 font-['Roboto']">
-          Fördercheck.NRW
-        </h1>
+      <style>{blueCornerStyle}</style>
+      <div className="blue-corner">
+        <span className="blue-corner-text long">FÖRDERCHECK.NRW</span>
+        <span className="blue-corner-text short">FC.NRW</span>
       </div>
 
       <Container className="relative z-10 pt-40 px-4 text-center">

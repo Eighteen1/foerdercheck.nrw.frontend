@@ -9,14 +9,128 @@ const LandingPage: React.FC = () => {
 
   return (
     <div className="relative min-h-screen bg-white">
-      {/* Bottom right quadrant of ellipse */}
-      <div className="absolute top-[-170px] left-[-25%] w-[70%] h-[300px] bg-[#064497] rounded-[50%]"></div>
+      <style>
+        {`
+          .blue-corner {
+            position: absolute;
+            top: -170px;
+            left: -10%;
+            width: 55%;
+            height: 300px;
+            background: #064497;
+            border-radius: 50%;
+            z-index: 2;
+            pointer-events: none;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            overflow: visible;
+          }
+          .blue-corner-text {
+            pointer-events: auto;
+            text-align: center;
+            color: #ffffff;
+            font-weight: 300;
+            width: 100%;
+            position: relative;
+            font-weight: 300;
+            font-family: 'Roboto';
+            font-style: normal;
+          }
+          .blue-corner-text.long {
+            margin-top: 200px;
+            font-size: 30px;
+            display: block;
+            font-weight: 300;
+            font-family: 'Roboto';
+            text-align: center;
+          }
+          .blue-corner-text.short {
+            display: none;
+            margin-top: 50px;
+            font-size: 28px;
+            font-weight: 300;
+            font-family: 'Roboto';
+            text-align: center;
+          }
+          @media (max-width: 980px) {
+            .blue-corner {
+              width: 35%;
+              height: 140px;
+              top: -50px;
+              left: -5%;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            }
+            .blue-corner-text.long {
+              display: none !important;
+            }
+            .blue-corner-text.short {
+              display: block !important;
+              margin-bottom: 0;
+              position: relative;
+              font-weight: 300;
+            }
+          }
+          @media (max-width: 600px) {
+            .blue-corner {
+              display: none;
+            }
+          }
+          
+          /* Responsive styles for the landing page */
+          @media (max-width: 991px) {
+            .landing-image-col {
+              display: none;
+            }
+            .landing-text-col {
+              width: 100%;
+              text-align: center;
+              padding: 0 20px;
+            }
+            .landing-button-container {
+              align-items: center;
+            }
+            .landing-button {
+              width: 100% !important;
+              max-width: 400px;
+            }
+          }
+          
+          /* Add spacing between image and text */
+          @media (min-width: 992px) and (max-width: 1050px) {
+            .landing-text-col {
+              padding-left: 40px !important;
+            }
+            .landing-image-col {
+              padding-right: 0;
+            }
+            .landing-text-col h2,
+            .landing-text-col p {
+              padding-left: 0;
+            }
+          }
+          
+          @media (min-width: 1051px) {
+            .landing-text-col {
+              padding-left: 30px;
+            }
+            .landing-image-col {
+              padding-right: 30px;
+            }
+            /* Ensure all text content respects the spacing */
+            .landing-text-col h2,
+            .landing-text-col p {
+              padding-left: 15px;
+            }
+          }
+        `}
+      </style>
 
-      {/* Main heading */}
-      <div className="absolute top-12 start-9">
-        <h1 className="display-6 fw-regular text-[#ffffff] mb-2 font-['Roboto']">
-          FÖRDERCHECK.NRW
-        </h1>
+      <div className="blue-corner">
+        <span className="blue-corner-text long">FÖRDERCHECK.NRW</span>
+        <span className="blue-corner-text short">FC.NRW</span>
       </div>
 
       {/* Words in the top right */}
@@ -30,9 +144,9 @@ const LandingPage: React.FC = () => {
       <Container className="min-h-screen d-flex align-items-center py-5">
         <Row className="w-100 g-4">
           {/* Left side - Image */}
-          <Col md={6} className="d-flex justify-content-center align-items-center">
+          <Col md={6} className="d-none d-lg-flex justify-content-center align-items-center landing-image-col">
             <img
-              src="/images/landingpage_image.webp"
+              src="/images/landingpage_image.png"
               alt="Wohnraumförderung"
               className="img-fluid rounded shadow"
               style={{ maxWidth: "500px" }}
@@ -40,7 +154,7 @@ const LandingPage: React.FC = () => {
           </Col>
 
           {/* Right side - Text & Button */}
-          <Col md={6} className="d-flex flex-column justify-content-center">
+          <Col md={12} lg={6} className="d-flex flex-column justify-content-center text-center text-lg-start landing-text-col">
             <h2 className="display-4 fw-regulat text-[#064497] mb-4 font-['Roboto']">
               Ihr Weg zur Wohnraumförderung - Jetzt Digital!
             </h2>
@@ -58,11 +172,11 @@ const LandingPage: React.FC = () => {
               benutzerfreundliches Online-Formular führt Sie Schritt für Schritt
               durch den Antragsprozess.
             </p>
-            <div className="d-flex flex-column gap-3">
+            <div className="d-flex flex-column gap-3 landing-button-container">
               <Button
                 onClick={() => navigate("/application-types")}
-                className={`border-0 py-3 fw-regular font-['Roboto'] ${isAuthenticated ? 'bg-[#D7DAEA] text-black' : 'bg-[#064497] text-white'}`}
-                style={{ width: '400px' }}
+                className={`border-0 py-3 fw-regular font-['Roboto'] landing-button ${isAuthenticated ? 'bg-[#D7DAEA] text-black' : 'bg-[#064497] text-white'}`}
+                style={{ width: '400px', boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)' }}
               >
                 ZU DEN ANTRÄGEN
               </Button>
@@ -70,16 +184,16 @@ const LandingPage: React.FC = () => {
               {isAuthenticated ? (
                 <Button 
                   onClick={() => navigate('/personal-space')}
-                  className="py-3 fw-regular font-['Roboto'] text-white"
-                  style={{ backgroundColor: '#064497', border: 'none', width: '400px' }}
+                  className="py-3 fw-regular font-['Roboto'] text-white landing-button"
+                  style={{ backgroundColor: '#064497', border: 'none', width: '400px', boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)' }}
                 >
                   ZUM PERSÖNLICHEN BEREICH
                 </Button>
               ) : (
                 <Button 
                   onClick={() => navigate('/login')}
-                  className="py-3 fw-regular font-['Roboto'] text-black"
-                  style={{ backgroundColor: '#D7DAEA', border: 'none', width: '400px' }}
+                  className="py-3 fw-regular font-['Roboto'] text-black landing-button"
+                  style={{ backgroundColor: '#D7DAEA', border: 'none', width: '400px', boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)' }}
                 >
                   ANMELDEN
                 </Button>
