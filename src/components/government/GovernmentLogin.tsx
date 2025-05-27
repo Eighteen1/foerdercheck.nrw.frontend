@@ -29,9 +29,14 @@ const GovernmentLogin: React.FC = () => {
       return;
     }
 
-    // 2. Check city in user metadata
+    // 2. Check city in user metadata (government account)
     const userCity = data.user.user_metadata?.city;
-    if (!userCity || userCity !== city) {
+    if (!userCity) {
+      setError("Dieses Konto ist kein Stadtverwaltungs-Account.");
+      setLoading(false);
+      return;
+    }
+    if (userCity !== city) {
       setError("Die ausgewählte Stadt stimmt nicht mit Ihrem Benutzerkonto überein.");
       setLoading(false);
       return;

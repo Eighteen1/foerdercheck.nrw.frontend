@@ -24,8 +24,8 @@ const GovernmentDashboard: React.FC = () => {
       setUser(userObj);
       setCity(userObj?.user_metadata?.city || null);
       setLoading(false);
-      // Routing protection: if not authenticated and not in development, redirect
-      if (!userObj && process.env.NODE_ENV !== 'development') {
+      // Routing protection: only allow if city metadata exists (government account)
+      if ((!userObj || !userObj.user_metadata?.city) && process.env.NODE_ENV !== 'development') {
         navigate('/government/login', { replace: true });
       }
     });

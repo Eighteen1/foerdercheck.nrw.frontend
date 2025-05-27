@@ -15,12 +15,17 @@ const RoutingProtection: React.FC<RoutingProtectionProps> = ({
   redirectTo = '/',
   requireInitialCheck = false
 }) => {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   const location = useLocation();
   const currentPath = location.pathname;
 
   // Check if we're in development environment
   const isDevelopment = process.env.NODE_ENV === 'development';
+
+  // Block government users (with city metadata) from resident pages
+  if (user && user.user_metadata?.city && !isDevelopment) {
+    return <Navigate to="/government/login" replace />;
+  }
 
   console.log('RoutingProtection Debug:', {
     currentPath,
