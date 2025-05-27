@@ -1693,7 +1693,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
             {/* Kinderbetreuungskosten */}
             <div className="mb-4">
               <div className="d-flex align-items-center gap-2 mb-4">
-                <h3 className="mb-0 text-[#000000] font-semibold italic">Kinderbetreuungskosten</h3>
+                <h3 className="mb-0 text-[#000000] font-semibold italic">Kinderbetreuungskosten (falls vorhanden)</h3>
                 <OverlayTrigger
                   placement="right"
                   overlay={renderTooltip("Geben Sie hier die Kosten für die Betreuung Ihrer Kinder an.")}
