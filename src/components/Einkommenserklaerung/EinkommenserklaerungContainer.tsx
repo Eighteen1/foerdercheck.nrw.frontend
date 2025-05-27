@@ -130,6 +130,80 @@ const additionalChangeTypeLabels: Record<string, string> = {
   unterhaltszahlungen: 'Unterhaltszahlungen',
 };
 
+// Add search terms for each section
+const sectionSearchTerms = {
+  personal: [
+    "Persönliche Angaben",
+    "Titel",
+    "Name",
+    "Vorname",
+    "Adresse",
+    "Straße",
+    "Hausnummer",
+    "Postleitzahl",
+    "Ort"
+  ],
+  income: [
+    "Einkommensangaben",
+    "Einkünfte",
+    "Arbeit",
+    "Versorgungsbezüge",
+    "Jahresbetrag",
+    "Monatseinkommen",
+    "Sonderzuwendungen",
+    "Beschäftigungsbeginn",
+    "Vertrag",
+    "Befristet",
+    "Unbefristet"
+  ],
+  'additional-income': [
+    "Weitere Einkünfte",
+    "Renten",
+    "Vermietung",
+    "Verpachtung",
+    "Gewerbebetrieb",
+    "Selbstständige Arbeit",
+    "Landwirtschaft",
+    "Forstwirtschaft",
+    "Sonstige Einkünfte",
+    "Unterhaltsleistungen",
+    "Ausländische Einkünfte",
+    "Arbeitslosengeld"
+  ],
+  costs: [
+    "Kosten",
+    "Zahlungen",
+    "Abgaben",
+    "Werbungskosten",
+    "Einkommensteuer",
+    "Krankenversicherung",
+    "Rentenversicherung",
+    "Unterhalt"
+  ],
+  changes: [
+    "Änderungen",
+    "Einkünfte",
+    "Kosten",
+    "Zahlungen",
+    "Änderungsdatum",
+    "Neuer Betrag",
+    "Begründung"
+  ],
+  legal: [
+    "Gesetzliche Angaben",
+    "Finanzamt",
+    "Steuer-ID",
+    "Erklärung",
+    "Versicherung"
+  ]
+};
+
+// Add interface for search results
+interface SearchResult {
+  section: string;
+  matches: string[];
+}
+
 const EinkommenserklaerungContainer: React.FC = () => {
   const initialAdditionalIncomeChanges: AdditionalIncomeChange = {
     selectedTypes: [],
@@ -194,7 +268,7 @@ const EinkommenserklaerungContainer: React.FC = () => {
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [showValidation, setShowValidation] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [validationErrors, setValidationErrors] = useState<ApplicantErrors>({});
   const [showValidationModal, setShowValidationModal] = useState(false);
@@ -967,13 +1041,35 @@ const EinkommenserklaerungContainer: React.FC = () => {
       setSearchResults([]);
       return;
     }
-    // TODO: Implement search functionality
+
+    const results: SearchResult[] = [];
+    const lowerQuery = query.toLowerCase();
+
+    Object.entries(sectionSearchTerms).forEach(([section, terms]) => {
+      const matches = terms.filter(term => 
+        term.toLowerCase().includes(lowerQuery)
+      );
+
+      if (matches.length > 0) {
+        results.push({
+          section,
+          matches
+        });
+      }
+    });
+
+    setSearchResults(results);
   };
 
   const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setSearchQuery(value);
     handleSearch(value);
+  };
+
+  const navigateToSection = (section: string) => {
+    expandSection(selectedIndex, section);
+    setShowSearchModal(false);
   };
 
   const handleToggleValidation = async () => {
@@ -1956,27 +2052,66 @@ const EinkommenserklaerungContainer: React.FC = () => {
       </Container>
 
       {/* Search Modal */}
-      <Modal show={showSearchModal} onHide={() => setShowSearchModal(false)} centered>
+      <Modal show={showSearchModal} onHide={() => setShowSearchModal(false)} centered dialogClassName="search-modal">
         <Modal.Header closeButton>
           <Modal.Title>Suchen</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <Form.Control
-            type="text"
-            placeholder="Suchen..."
-            value={searchQuery}
-            onChange={handleSearchInputChange}
-          />
-          {searchResults.length > 0 && (
-            <div className="mt-3">
-              {searchResults.map((result, index) => (
-                <div key={index} className="p-2 border-bottom">
-                  {result}
+          <Form.Group className="mb-4">
+            <Form.Control
+              type="text"
+              placeholder="Suchen Sie nach Begriffen..."
+              value={searchQuery}
+              onChange={handleSearchInputChange}
+              className="form-control"
+              style={{ fontSize: '0.9rem' }}
+            />
+            {searchQuery.length > 0 && searchQuery.length < 3 && (
+              <Form.Text className="text-muted">
+                Bitte geben Sie mindestens 3 Zeichen ein
+              </Form.Text>
+            )}
+          </Form.Group>
+
+          {searchResults.length > 0 ? (
+            <div className="search-results">
+              {searchResults.map((result) => (
+                <div key={result.section} className="mb-3 p-3 border rounded">
+                  <div className="d-flex justify-content-between align-items-center mb-2">
+                    <h5 className="mb-0">{sectionTitles[result.section as keyof typeof sectionTitles]}</h5>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => navigateToSection(result.section)}
+                      style={{ backgroundColor: '#064497', border: 'none' }}
+                    >
+                      Zum Abschnitt
+                    </Button>
+                  </div>
+                  <div className="matches">
+                    {result.matches.map((match, index) => (
+                      <span key={index} className="badge bg-light text-dark me-2 mb-2">
+                        {match}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>
-          )}
+          ) : searchQuery.length >= 3 ? (
+            <div className="text-center text-muted">
+              Keine Ergebnisse gefunden
+            </div>
+          ) : null}
         </Modal.Body>
+        <Modal.Footer>
+          <Button 
+            onClick={() => setShowSearchModal(false)}
+            style={{ backgroundColor: '#064497', border: 'none' }}
+          >
+            Schließen
+          </Button>
+        </Modal.Footer>
       </Modal>
 
       {/* Validation Modal */}
