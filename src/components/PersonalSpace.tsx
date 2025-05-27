@@ -184,6 +184,14 @@ const PersonalSpace: React.FC = () => {
     navigate('/hauptantrag', { state: { from: 'personal-space' } });
   };
 
+  const handleEinkommenserklaerung = () => {
+    if (!isAuthenticated) {
+      setShowRegistrationModal(true);
+      return;
+    }
+    navigate('/einkommenserklaerung', { state: { from: 'personal-space' } });
+  };
+
   const formSections = [
     { 
       title: "HAUPTANTRAG", 
@@ -193,7 +201,7 @@ const PersonalSpace: React.FC = () => {
     { 
       title: "EINKOMMENSERKLÄRUNG", 
       progress: formProgress.einkommenserklarung,
-      onClick: () => {} // To be implemented
+      onClick: handleEinkommenserklaerung
     },
     { 
       title: "SELBSTAUSKUNFT", 

@@ -1,0 +1,19 @@
+.person-scroll-outer {
+  overflow-x: auto;
+  width: 100%;
+}
+
+.scroll-container {
+  min-width: max-content;
+  display: flex;
+  align-items: center;
+  padding: 0;
+}
+
+.scroll-container > *:not(:first-child) {
+  margin-left: 1rem;
+}
+
+.scroll-container::-webkit-scrollbar {
+  display: none;
+} 

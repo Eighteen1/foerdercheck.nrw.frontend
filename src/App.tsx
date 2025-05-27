@@ -17,6 +17,7 @@ import PasswordProtection from './components/PasswordProtection';
 import PasswordProtectionMiddleware from './components/PasswordProtectionMiddleware';
 import RoutingProtection from './components/RoutingProtection';
 import HauptantragContainer from './components/Hauptantrag/HauptantragContainer';
+import EinkommenserklaerungContainer from './components/Einkommenserklaerung/EinkommenserklaerungContainer';
 
 function App() {
   return (
@@ -55,6 +56,11 @@ function App() {
               <Route path="/hauptantrag" element={
                 <RoutingProtection requireAuth>
                   <HauptantragContainer />
+                </RoutingProtection>
+              } />
+              <Route path="/einkommenserklaerung" element={
+                <RoutingProtection requireAuth>
+                  <EinkommenserklaerungContainer />
                 </RoutingProtection>
               } />
             </Routes>

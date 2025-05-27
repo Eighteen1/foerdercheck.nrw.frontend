@@ -484,6 +484,7 @@ const HauptantragContainer: React.FC = () => {
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
 
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   // Search terms for each step
   const stepSearchTerms = {
@@ -978,7 +979,7 @@ const HauptantragContainer: React.FC = () => {
     }
   };
 
-  const handleSave = async () => {
+  const handleSave = async (navigateAfterSave: boolean = false) => {
     console.log('handleSave function called');
     
     if (!user?.id) {
@@ -1250,9 +1251,12 @@ const HauptantragContainer: React.FC = () => {
 
       // If we get here, all saves were successful
       console.log('All saves completed successfully');
+      setHasUnsavedChanges(false);
       
-      // Navigate to personal space
-      navigate('/personal-space');
+      // Navigate to personal space only if navigateAfterSave is true
+      if (navigateAfterSave) {
+        navigate('/personal-space');
+      }
     } catch (error) {
       console.error('Error saving form data:', error);
       // Fallback to local storage if Supabase save fails
@@ -1268,6 +1272,7 @@ const HauptantragContainer: React.FC = () => {
       ...prev,
       [stepKey]: data
     }));
+    setHasUnsavedChanges(true);
   };
 
   const validateForm = () => {
@@ -2265,7 +2270,25 @@ const HauptantragContainer: React.FC = () => {
           
           <div className="border-start border-white/20" style={{ margin: '0.5rem 0' }}></div>
           
-          <div className="d-flex align-items-center gap-3 px-3">
+          <Button
+            variant="link"
+            className={`p-3 ${hasUnsavedChanges ? 'fw-medium' : ''}`}
+            onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+              e.preventDefault();
+              handleSave(false);
+            }}
+            style={{ 
+              color: hasUnsavedChanges ? '#064497' : '#6c757d',
+              textDecoration: 'none',
+              fontSize: '0.9rem'
+            } as React.CSSProperties}
+          >
+            Speichern
+          </Button>
+          
+          <div className="border-start border-white/20" style={{ margin: '0.5rem 0' }}></div>
+          
+          <div className="d-flex align-items-center gap-2 px-3">
             <Form.Check
               type="switch"
               id="validation-toggle"
@@ -2358,11 +2381,14 @@ const HauptantragContainer: React.FC = () => {
 
           <Button
             variant="link"
-            onClick={handleSave}
+            onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+              e.preventDefault();
+              handleSave(true);
+            }}
             className="text-decoration-underline mb-5 mt-3"
             style={{ color: 'black' }}
           >
-            Speichern und später fortsetzen
+            Speichern und zum persönlichen Bereich
           </Button>
         </div>
       </Container>
@@ -2434,9 +2460,10 @@ const HauptantragContainer: React.FC = () => {
         <Modal.Footer>
           <div className="d-flex justify-content-center align-items-center w-100">
             <Button 
-              onClick={() => {
+              onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                e.preventDefault();
                 setShowSuccessModal(false);
-                handleSave();
+                handleSave(true);
               }}
               style={{ backgroundColor: '#064497', border: 'none' }}
             >
