@@ -18,12 +18,20 @@ import PasswordProtectionMiddleware from './components/PasswordProtectionMiddlew
 import RoutingProtection from './components/RoutingProtection';
 import HauptantragContainer from './components/Hauptantrag/HauptantragContainer';
 import EinkommenserklaerungContainer from './components/Einkommenserklaerung/EinkommenserklaerungContainer';
+import GovernmentLanding from './components/government/GovernmentLanding';
+import GovernmentLogin from './components/government/GovernmentLogin';
+import GovernmentDashboard from './components/government/GovernmentDashboard';
 
 function App() {
   return (
     <AuthProvider>
       <FormProvider>
         <PasswordProtectionMiddleware>
+          <Routes>
+            <Route path="/government" element={<GovernmentLanding />} />
+            <Route path="/government/login" element={<GovernmentLogin />} />
+            <Route path="/government/dashboard" element={<GovernmentDashboard />} />
+          </Routes>
           <Layout>
             <Routes>
               <Route path="/password-protection" element={<PasswordProtection />} />
