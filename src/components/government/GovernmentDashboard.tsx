@@ -2,12 +2,17 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Container, Button, Spinner } from "react-bootstrap";
 import { supabase } from "../../lib/supabase";
+import Layout from "../Layout";
+import GovernmentApplicationsPage from "./GovernmentApplicationsPage";
+import ApplicationReviewContainer from "./review/ApplicationReviewContainer";
 
 const menuItems = [
-  { key: "applications", label: "Anträge" },
-  { key: "profile", label: "Profil" },
-  { key: "settings", label: "Einstellungen" },
-  { key: "logout", label: "Abmelden" },
+  { key: "dashboard", label: "Dashboard", icon: "dashboard" },
+  { key: "applications", label: "Anträge", icon: "description" },
+  { key: "profile", label: "Profil", icon: "person" },
+  { key: "help", label: "Hilfe", icon: "help_outline" },
+  { key: "settings", label: "Einstellungen", icon: "settings" },
+  { key: "logout", label: "Abmelden", icon: "logout" },
 ];
 
 const GovernmentDashboard: React.FC = () => {
@@ -16,6 +21,7 @@ const GovernmentDashboard: React.FC = () => {
   const [city, setCity] = useState<string | null>(null);
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [selectedApplicationId, setSelectedApplicationId] = useState<string | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -37,6 +43,7 @@ const GovernmentDashboard: React.FC = () => {
       navigate("/government/login");
     } else {
       setSelectedMenu(key);
+      setSelectedApplicationId(null); // Reset review if switching menu
     }
   };
 
@@ -62,37 +69,89 @@ const GovernmentDashboard: React.FC = () => {
           zIndex: 10,
         }}
       >
+        {/* Expand/Minimize Button */}
         <Button
           variant="link"
-          className="mb-4 p-0"
-          style={{ color: "#fff", fontSize: 28, textDecoration: "none" }}
+          className="mb-6 p-0 d-flex align-items-center mt-2"
+          style={{ color: "#fff", fontSize: 20, textDecoration: "none" }}
           onClick={() => setSidebarOpen((open) => !open)}
         >
-          <span className="material-icons">{sidebarOpen ? "menu_open" : "menu"}</span>
+          {sidebarOpen ? (
+            <>
+              <span className="material-icons me-2">chevron_left</span>
+              Minimieren
+            </>
+          ) : (
+            <span className="material-icons">menu</span>
+          )}
         </Button>
-        <div className="mb-5" style={{ fontWeight: 700, fontSize: 22, letterSpacing: 1 }}>
-          {sidebarOpen ? "FÖRDERCHECK.NRW" : "FC"}
-        </div>
         <div className="flex-grow-1 w-100">
-          {menuItems.map((item) => (
-            <Button
-              key={item.key}
-              variant="link"
-              className={`w-100 text-start mb-2 px-3 py-2 rounded ${
-                selectedMenu === item.key ? "bg-white text-[#064497]" : "text-white"
-              }`}
-              style={{
-                background: selectedMenu === item.key ? "#fff" : "transparent",
-                color: selectedMenu === item.key ? "#064497" : "#fff",
-                fontWeight: 500,
-                fontSize: 18,
-                border: "none",
-                boxShadow: selectedMenu === item.key ? "0 2px 8px rgba(0,0,0,0.08)" : "none",
-              }}
-              onClick={() => handleMenuClick(item.key)}
-            >
-              {item.label}
-            </Button>
+          {menuItems.map((item, idx) => (
+            <React.Fragment key={item.key}>
+              <div
+                style={{
+                  width: sidebarOpen ? '85%' : 44,
+                  height: 44,
+                  margin: '0 auto',
+                  borderRadius: 8,
+                  overflow: 'visible',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Button
+                  variant="link"
+                  className={`mb-0 px-0 py-2 rounded-0 d-flex align-items-center border-0`}
+                  style={{
+                    background: selectedMenu === item.key ? "#fff" : "transparent",
+                    color: selectedMenu === item.key ? "#064497" : "#fff",
+                    fontWeight: 500,
+                    fontSize: 18,
+                    border: "none",
+                    boxShadow: selectedMenu === item.key ? "0 2px 8px rgba(0,0,0,0.08)" : "none",
+                    textDecoration: "none",
+                    width: '100%',
+                    minHeight: 44,
+                    paddingLeft: sidebarOpen ? 12 : 0,
+                    paddingRight: sidebarOpen ? 12 : 0,
+                    justifyContent: sidebarOpen ? 'flex-start' : 'center',
+                    borderRadius: 8,
+                    overflow: 'visible',
+                  }}
+                  onClick={() => handleMenuClick(item.key)}
+                >
+                  <span className="material-icons"
+                    style={{
+                      textDecoration: "none",
+                      marginRight: sidebarOpen ? 16 : 0,
+                      marginLeft: sidebarOpen ? 16 : 0,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: 28,
+                      width: 28,
+                      height: 28,
+                    }}
+                  >
+                    {item.icon}
+                  </span>
+                  {sidebarOpen && <span style={{ textDecoration: "none" }}>{item.label}</span>}
+                </Button>
+              </div>
+              {/* Separator line only visible when expanded */}
+              {sidebarOpen && idx < menuItems.length - 1 && (
+                <div
+                  style={{
+                    height: 1,
+                    background: "rgba(255,255,255,0.3)",
+                    width: '85%',
+                    margin: '4px auto',
+                    borderRadius: 1,
+                  }}
+                />
+              )}
+            </React.Fragment>
           ))}
         </div>
       </div>
@@ -104,21 +163,20 @@ const GovernmentDashboard: React.FC = () => {
           className="d-flex align-items-center justify-content-between px-4 py-3 shadow-sm"
           style={{ background: "#fff", minHeight: 70 }}
         >
-          <div style={{ fontWeight: 700, fontSize: 24, color: "#064497" }}>
+          <div style={{ fontWeight: 400, fontSize: 24, color: "#064497" }}>
             FÖRDERCHECK.NRW
           </div>
-          <div style={{ fontWeight: 500, fontSize: 18, color: "#064497" }}>
+          <div style={{ fontWeight: 400, fontSize: 18, color: "#000000" }}>
             {city ? city : "Stadt"}
           </div>
         </div>
         {/* Content */}
         <Container className="py-4">
-          {selectedMenu === "applications" && (
-            <div>
-              <h2 style={{ color: "#064497" }}>Anträge Übersicht</h2>
-              <p>Hier sehen Sie alle Anträge für Ihre Stadt.</p>
-              {/* TODO: Application table goes here */}
-            </div>
+          {selectedMenu === "applications" && !selectedApplicationId && (
+            <GovernmentApplicationsPage onSelectApplication={setSelectedApplicationId} />
+          )}
+          {selectedMenu === "applications" && selectedApplicationId && (
+            <ApplicationReviewContainer applicationId={selectedApplicationId} onClose={() => setSelectedApplicationId(null)} />
           )}
           {selectedMenu === "profile" && (
             <div>

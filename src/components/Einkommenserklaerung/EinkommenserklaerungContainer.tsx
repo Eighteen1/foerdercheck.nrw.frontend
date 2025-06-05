@@ -204,7 +204,11 @@ interface SearchResult {
   matches: string[];
 }
 
-const EinkommenserklaerungContainer: React.FC = () => {
+interface EinkommenserklaerungContainerProps {
+  residentId?: string;
+}
+
+const EinkommenserklaerungContainer: React.FC<EinkommenserklaerungContainerProps> = ({ residentId }) => {
   const initialAdditionalIncomeChanges: AdditionalIncomeChange = {
     selectedTypes: [],
     changes: {},
@@ -299,23 +303,25 @@ const EinkommenserklaerungContainer: React.FC = () => {
   // Load data from Supabase
   useEffect(() => {
     const loadSavedData = async () => {
-      if (!user?.id) return;
+      if (!user?.id && !residentId) return;
 
       setIsLoading(true);
       try {
+        const userId = residentId || user?.id;
+        if (!userId) return;
+
         // Load user data
         const { data: userData, error: userError } = await supabase
           .from('user_data')
           .select('*')
-          .eq('id', user.id)
+          .eq('id', userId)
           .single();
 
         if (userError) {
           console.error('Error loading user data:', userError);
           return;
         }
-      
-       
+        
         // Set showValidation based on shouldShowErrorEink from database
         const shouldShowError = userData?.should_show_error_einkommenserklaerung ?? false;
         console.log('Setting shouldShowError to:', shouldShowError);
@@ -325,7 +331,7 @@ const EinkommenserklaerungContainer: React.FC = () => {
         const { data: financialData, error: financialError } = await supabase
           .from('user_financials')
           .select('*')
-          .eq('user_id', user.id)
+          .eq('user_id', userId)
           .single();
 
         if (financialError) {
@@ -579,7 +585,7 @@ const EinkommenserklaerungContainer: React.FC = () => {
     };
 
     loadSavedData();
-  }, [user?.id]);
+  }, [user?.id, residentId]);
 
   // Save data to Supabase
   const saveData = async (navigateAfterSave: boolean = false) => {
@@ -1794,7 +1800,7 @@ const EinkommenserklaerungContainer: React.FC = () => {
       <style>
         {`
           .search-modal {
-            max-width: 800px;
+            max-width: 600px;
             width: 90%;
           }
           .blue-corner {

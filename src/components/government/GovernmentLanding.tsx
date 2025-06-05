@@ -1,12 +1,28 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button, Container } from "react-bootstrap";
+import { Container, Row, Col, Button } from "react-bootstrap";
+import { supabase } from "../../lib/supabase";
 
 const GovernmentLanding: React.FC = () => {
   const navigate = useNavigate();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    supabase.auth.getSession().then((res: any) => {
+      const userObj = res?.data?.session?.user;
+      setIsAuthenticated(!!userObj?.user_metadata?.city);
+      setLoading(false);
+    });
+  }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate("/government/login");
+  };
 
   return (
-    <div className="relative min-h-screen bg-white d-flex align-items-center justify-content-center">
+    <div className="relative min-h-screen bg-white">
       <style>
         {`
           .blue-corner {
@@ -33,31 +49,167 @@ const GovernmentLanding: React.FC = () => {
             position: relative;
             font-family: 'Roboto';
           }
+          .blue-corner-text.long {
+            margin-top: 200px;
+            font-size: 30px;
+            display: block;
+            font-weight: 300;
+            font-family: 'Roboto';
+            text-align: center;
+          }
+          .blue-corner-text.short {
+            display: none;
+            margin-top: 50px;
+            font-size: 28px;
+            font-weight: 300;
+            font-family: 'Roboto';
+            text-align: center;
+          }
+          @media (max-width: 980px) {
+            .blue-corner {
+              width: 35%;
+              height: 140px;
+              top: -50px;
+              left: -5%;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            }
+            .blue-corner-text.long {
+              display: none !important;
+            }
+            .blue-corner-text.short {
+              display: block !important;
+              margin-bottom: 0;
+              position: relative;
+              font-weight: 300;
+            }
+          }
+          @media (max-width: 600px) {
+            .blue-corner {
+              display: none;
+            }
+          }
+          
+          /* Responsive styles for the landing page */
+          @media (max-width: 991px) {
+            .landing-image-col {
+              display: none;
+            }
+            .landing-text-col {
+              width: 100%;
+              text-align: center;
+              padding: 0 20px;
+            }
+            .landing-button-container {
+              align-items: center;
+            }
+            .landing-button {
+              width: 100% !important;
+              max-width: 400px;
+            }
+          }
+          
+          /* Add spacing between image and text */
+          @media (min-width: 992px) and (max-width: 1050px) {
+            .landing-text-col {
+              padding-left: 40px !important;
+            }
+            .landing-image-col {
+              padding-right: 0;
+            }
+            .landing-text-col h2,
+            .landing-text-col p {
+              padding-left: 0;
+            }
+          }
+          
+          @media (min-width: 1051px) {
+            .landing-text-col {
+              padding-left: 30px;
+            }
+            .landing-image-col {
+              padding-right: 30px;
+            }
+            .landing-text-col h2,
+            .landing-text-col p {
+              padding-left: 15px;
+            }
+          }
         `}
       </style>
+
       <div className="blue-corner">
-        <span className="blue-corner-text">FÖRDERCHECK.NRW</span>
+        <span className="blue-corner-text long">FÖRDERCHECK.NRW</span>
+        <span className="blue-corner-text short">FC.NRW</span>
       </div>
-      <Container className="text-center" style={{ zIndex: 3 }}>
-        <h1 className="mb-4" style={{ color: "#064497", fontWeight: 700 }}>Stadtverwaltung Zugang</h1>
-        <p className="mb-5" style={{ color: "#222", fontSize: 20 }}>
-          Melden Sie sich an, um Anträge Ihrer Stadt zu verwalten.
-        </p>
-        <Button
-          onClick={() => navigate("/government/login")}
-          style={{
-            backgroundColor: "#064497",
-            color: "#fff",
-            border: "none",
-            fontWeight: 500,
-            fontSize: 18,
-            padding: "12px 40px",
-            borderRadius: 8,
-            boxShadow: "0 4px 8px rgba(0,0,0,0.15)"
-          }}
-        >
-          Anmelden
-        </Button>
+
+      {/* Words in the top right */}
+      <div className="absolute top-8 end-8 text-[#064497] text-end fw-medium font-['Roboto'] text-xl">
+        <p className="mb-0">SCHNELL.</p>
+        <p className="mb-0">EINFACH.</p>
+        <p className="mb-0">EFFIZIENT.</p>
+      </div>
+
+      {/* Main content layout */}
+      <Container className="min-h-screen d-flex align-items-center py-5">
+        <Row className="w-100 g-4">
+          {/* Left side - Image */}
+          <Col md={6} className="d-none d-lg-flex justify-content-center align-items-center landing-image-col">
+            <img
+              src="/images/government_landing_page.png"
+              alt="Stadtverwaltung"
+              className="img-fluid rounded shadow"
+              style={{ maxWidth: "500px" }}
+            />
+          </Col>
+
+          {/* Right side - Text & Button */}
+          <Col md={12} lg={6} className="d-flex flex-column justify-content-center text-center text-lg-start landing-text-col">
+            <h2 className="display-4 fw-regulat text-[#064497] mb-4 font-['Roboto']">
+            Verwaltungsportal – Wohnraumförderung
+            </h2>
+            <p
+              className="mb-4 fw-normal"
+              style={{
+                fontSize: 20,
+                marginBottom: 24,
+                color: '#222',
+                fontFamily: 'Roboto, Arial, sans-serif',
+              }}
+            >
+              Melden Sie sich an, um die Anträge Ihrer Stadt zu verwalten und den Antragsprozess der Wohnraumförderung effizient zu gestalten.
+            </p>
+            <div className="d-flex flex-column gap-3 landing-button-container">
+              {isAuthenticated ? (
+                <>
+                  <Button
+                    onClick={() => navigate("/government/dashboard")}
+                    className="py-3 fw-regular font-['Roboto'] text-white landing-button"
+                    style={{ backgroundColor: '#064497', border: 'none', width: '400px', boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)' }}
+                  >
+                    ZUM DASHBOARD
+                  </Button>
+                  <Button
+                    onClick={handleLogout}
+                    className="py-3 fw-regular font-['Roboto'] text-black landing-button"
+                    style={{ backgroundColor: '#D7DAEA', border: 'none', width: '400px', boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)' }}
+                  >
+                    ABMELDEN
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  onClick={() => navigate("/government/login")}
+                  className="py-3 fw-regular font-['Roboto'] text-white landing-button"
+                  style={{ backgroundColor: '#064497', border: 'none', width: '400px', boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)' }}
+                >
+                  ANMELDEN
+                </Button>
+              )}
+            </div>
+          </Col>
+        </Row>
       </Container>
     </div>
   );

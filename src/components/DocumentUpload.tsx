@@ -49,14 +49,12 @@ const DocumentUpload: React.FC = () => {
         .from('user_data')
         .select(`
           hasinheritanceright,
-          haslocationcostloan,
-          haswoodconstructionloan,
-          hasbegstandardloan,
           ispregnant,
           hasauthorizedperson,
           is_married,
           is_disabled,
-          document_status
+          document_status,
+          hasbegstandardloan
         `)
         .eq('id', user.id)
         .single();
@@ -66,7 +64,11 @@ const DocumentUpload: React.FC = () => {
       // Get foerderVariante from object_data table
       const { data: objectData, error: objectError } = await supabase
         .from('object_data')
-        .select('foerderVariante')
+        .select(`
+          foerderVariante,
+          haslocationcostloan,
+          haswoodconstructionloan
+          `)
         .eq('user_id', user.id)
         .single();
 
@@ -117,7 +119,7 @@ const DocumentUpload: React.FC = () => {
         });
       }
 
-      if (userData?.haswoodconstructionloan) {
+      if (objectData?.haswoodconstructionloan) {
         conditionalDocuments.push({
           id: 'bauenmitholz_cert',
           title: 'Nachweis: Zusatzdarlehen für Bauen mit Holz',

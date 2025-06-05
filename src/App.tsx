@@ -21,19 +21,18 @@ import EinkommenserklaerungContainer from './components/Einkommenserklaerung/Ein
 import GovernmentLanding from './components/government/GovernmentLanding';
 import GovernmentLogin from './components/government/GovernmentLogin';
 import GovernmentDashboard from './components/government/GovernmentDashboard';
+import ApplicationReviewContainer from './components/government/review/ApplicationReviewContainer';
 
 function App() {
   return (
     <AuthProvider>
       <FormProvider>
         <PasswordProtectionMiddleware>
-          <Routes>
-            <Route path="/government" element={<GovernmentLanding />} />
-            <Route path="/government/login" element={<GovernmentLogin />} />
-            <Route path="/government/dashboard" element={<GovernmentDashboard />} />
-          </Routes>
           <Layout>
             <Routes>
+              <Route path="/government" element={<GovernmentLanding />} />
+              <Route path="/government/login" element={<GovernmentLogin />} />
+              <Route path="/government/dashboard" element={<GovernmentDashboard />} />
               <Route path="/password-protection" element={<PasswordProtection />} />
               <Route path="/" element={<LandingPage />} />
               <Route path="/application-types" element={<ApplicationTypesPage />} />

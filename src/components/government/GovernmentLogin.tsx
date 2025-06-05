@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Form, Button, Alert, Container, Spinner } from "react-bootstrap";
 import { NRW_CITIES } from "../../utils/cityList";
-import { supabase } from "../../lib/supabase"; // adjust import path as needed
+import { supabase } from "../../lib/supabase";
 
 const GovernmentLogin: React.FC = () => {
   const [city, setCity] = useState("");
@@ -47,7 +47,7 @@ const GovernmentLogin: React.FC = () => {
   };
 
   return (
-    <div className="relative min-h-screen bg-white d-flex align-items-center justify-content-center">
+    <div className="relative min-h-screen bg-white">
       <style>
         {`
           .blue-corner {
@@ -72,64 +72,135 @@ const GovernmentLogin: React.FC = () => {
             font-weight: 300;
             width: 100%;
             position: relative;
+            font-weight: 300;
             font-family: 'Roboto';
+            font-style: normal;
+          }
+          .blue-corner-text.long {
+            margin-top: 200px;
+            font-size: 30px;
+            display: block;
+            font-weight: 300;
+            font-family: 'Roboto';
+            text-align: center;
+          }
+          .blue-corner-text.short {
+            display: none;
+            margin-top: 50px;
+            font-size: 28px;
+            font-weight: 300;
+            font-family: 'Roboto';
+            text-align: center;
+          }
+          @media (max-width: 980px) {
+            .blue-corner {
+              width: 35%;
+              height: 140px;
+              top: -50px;
+              left: -5%;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            }
+            .blue-corner-text.long {
+              display: none !important;
+            }
+            .blue-corner-text.short {
+              display: block !important;
+              margin-bottom: 0;
+              position: relative;
+              font-weight: 300;
+            }
+          }
+          @media (max-width: 600px) {
+            .blue-corner {
+              display: none;
+            }
           }
         `}
       </style>
+
+      {/* Loading Overlay */}
+      {loading && (
+        <div className="position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center" 
+             style={{ 
+               backgroundColor: 'rgba(255, 255, 255, 0.9)', 
+               zIndex: 9999 
+             }}>
+          <div className="text-center">
+            <Spinner animation="border" role="status" style={{ width: '3rem', height: '3rem', color: '#064497' }}>
+              <span className="visually-hidden">Loading...</span>
+            </Spinner>
+            <div className="mt-3" style={{ color: '#064497' }}>Bitte warten...</div>
+          </div>
+        </div>
+      )}
+
       <div className="blue-corner">
-        <span className="blue-corner-text">FÖRDERCHECK.NRW</span>
+        <span className="blue-corner-text long">FÖRDERCHECK.NRW</span>
+        <span className="blue-corner-text short">FC.NRW</span>
       </div>
-      <Container style={{ maxWidth: 400, zIndex: 3 }}>
-        <h2 className="mb-4 text-center" style={{ color: "#064497", fontWeight: 700 }}>Stadtverwaltung Login</h2>
-        {error && <Alert variant="danger">{error}</Alert>}
-        <Form onSubmit={handleLogin}>
-          <Form.Group className="mb-3">
-            <Form.Label>Stadt</Form.Label>
-            <Form.Select value={city} onChange={e => setCity(e.target.value)} required>
-              <option value="">Bitte wählen...</option>
-              {NRW_CITIES.map(c => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </Form.Select>
-          </Form.Group>
-          <Form.Group className="mb-3">
-            <Form.Label>E-Mail</Form.Label>
-            <Form.Control
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              required
-              autoComplete="username"
-            />
-          </Form.Group>
-          <Form.Group className="mb-4">
-            <Form.Label>Passwort</Form.Label>
-            <Form.Control
-              type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              required
-              autoComplete="current-password"
-            />
-          </Form.Group>
-          <Button
-            type="submit"
-            style={{
-              backgroundColor: "#064497",
-              color: "#fff",
-              border: "none",
-              width: "100%",
-              fontWeight: 500,
-              fontSize: 18,
-              padding: "10px 0",
-              borderRadius: 8,
-              boxShadow: "0 4px 8px rgba(0,0,0,0.15)"
-            }}
-            disabled={loading}
-          >
-            {loading ? <Spinner animation="border" size="sm" /> : "Anmelden"}
-          </Button>
-        </Form>
+
+      <Container className="relative z-10 pt-40 px-4">
+        <div className="max-w-md mx-auto bg-white p-8 rounded-lg shadow-md">
+          <h2 className="text-2xl font-bold mb-6 text-center text-[#064497]">Verwaltungsportal Login</h2>
+          
+          {error && (
+            <Alert variant="danger" className="mb-4">
+              {error}
+            </Alert>
+          )}
+
+          <Form onSubmit={handleLogin}>
+            <Form.Group className="mb-4">
+              <Form.Label>Stadt / Kreis</Form.Label>
+              <Form.Select 
+                value={city} 
+                onChange={e => setCity(e.target.value)} 
+                required
+                className="border-2"
+              >
+                <option value="">Bitte wählen...</option>
+                {NRW_CITIES.map(c => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </Form.Select>
+            </Form.Group>
+
+            <Form.Group className="mb-4">
+              <Form.Label>E-Mail-Adresse</Form.Label>
+              <Form.Control
+                type="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                required
+                autoComplete="username"
+                className="border-2"
+                placeholder="ihre@email.de"
+              />
+            </Form.Group>
+
+            <Form.Group className="mb-4">
+              <Form.Label>Passwort</Form.Label>
+              <Form.Control
+                type="password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                required
+                autoComplete="current-password"
+                className="border-2"
+              />
+            </Form.Group>
+
+            <Button 
+              type="submit" 
+              className="w-full bg-[#064497] hover:bg-[#0B66E6] text-white py-2 rounded"
+              disabled={loading}
+            >
+              Anmelden
+            </Button>
+          </Form>
+        </div>
       </Container>
     </div>
   );

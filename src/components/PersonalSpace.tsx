@@ -3,6 +3,19 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { Container, Row, Col, Button, Modal, Form, Spinner } from "react-bootstrap";
 import { useAuth } from "../contexts/AuthContext";
 import { supabase, storeEligibilityData, checkDocumentCheckStatus } from "../lib/supabase";
+import postcodeMap from '../utils/postcode_map.json';
+
+const STATUS_DISPLAY = {
+  pending: 'Ausstehend',
+  submitted: 'An Bewilligungsbehörde Übermittelt',
+  in_progress: 'In Bearbeitung',
+  documents_requested: 'Dokumente Angefordert',
+  documents_received: 'Dokumente Erhalten',
+  rejected: 'Abgelehnt',
+  approved: 'Bewilligt'
+} as const;
+
+type ApplicationStatus = keyof typeof STATUS_DISPLAY;
 
 const PersonalSpace: React.FC = () => {
   const navigate = useNavigate();
@@ -20,6 +33,15 @@ const PersonalSpace: React.FC = () => {
     selbstauskunft: 0
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [showValidationModal, setShowValidationModal] = useState(false);
+  const [validationResult, setValidationResult] = useState<'success' | 'warning' | null>(null);
+  const [handInStep, setHandInStep] = useState<'validation' | 'city' | 'sign' | null>(null);
+  const [cityInfo, setCityInfo] = useState<{ name: string; id: string } | null>(null);
+  const [cityDropdown, setCityDropdown] = useState('');
+  const [objectData, setObjectData] = useState<any>(null);
+  const [foerderVariante, setFoerderVariante] = useState('');
+  const [applicationStatus, setApplicationStatus] = useState<ApplicationStatus>('pending');
+  const [handInError, setHandInError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -43,7 +65,7 @@ const PersonalSpace: React.FC = () => {
         try {
           const { data, error } = await supabase
             .from('user_data')
-            .select('hauptantrag_progress, einkommenserklarung_progress, selbstauskunft_progress')
+            .select('hauptantrag_progress, einkommenserklarung_progress, selbstauskunft_progress, application_status')
             .eq('id', user.id)
             .single();
 
@@ -58,6 +80,9 @@ const PersonalSpace: React.FC = () => {
               einkommenserklarung: data.einkommenserklarung_progress || 0,
               selbstauskunft: data.selbstauskunft_progress || 0
             });
+            if (data.application_status) {
+              setApplicationStatus(data.application_status as ApplicationStatus);
+            }
           }
         } catch (error) {
           console.error('Error in fetchProgress:', error);
@@ -69,6 +94,31 @@ const PersonalSpace: React.FC = () => {
       fetchProgress();
     }
   }, [isAuthenticated, location.state, user?.id]);
+
+  useEffect(() => {
+    if (isAuthenticated && user?.id) {
+      const fetchStatusAndObject = async () => {
+        setIsLoading(true);
+        try {
+          // Fetch object_data for address and foerderVariante
+          const { data: objData, error: objError } = await supabase
+            .from('object_data')
+            .select('obj_postal_code, foerderVariante')
+            .eq('user_id', user.id)
+            .single();
+          if (objData) {
+            setObjectData(objData);
+            setFoerderVariante(objData.foerderVariante || '');
+          }
+        } catch (e) {
+          // ignore
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      fetchStatusAndObject();
+    }
+  }, [isAuthenticated, user?.id]);
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -209,6 +259,119 @@ const PersonalSpace: React.FC = () => {
       onClick: () => {} // To be implemented
     }
   ];
+
+  const handleValidate = () => {
+    if (!isAuthenticated) {
+      setShowRegistrationModal(true);
+      return;
+    }
+    // Check progress
+    if (formProgress.hauptantrag === 100 && formProgress.einkommenserklarung === 100) {
+      setValidationResult('success');
+    } else {
+      setValidationResult('warning');
+    }
+    setHandInStep('validation');
+    setShowValidationModal(true);
+  };
+
+  const handleHandIn = async () => {
+    setHandInStep('city');
+    setHandInError(null);
+    setIsLoading(true);
+    try {
+      // Fetch latest object_data if not already loaded
+      let obj = objectData;
+      if (!obj && user?.id) {
+        const { data: objData } = await supabase
+          .from('object_data')
+          .select('obj_postal_code, foerderVariante')
+          .eq('user_id', user.id)
+          .single();
+        obj = objData;
+        setObjectData(objData);
+        setFoerderVariante(objData?.foerderVariante || '');
+      }
+      const postcode = obj?.obj_postal_code;
+      if (!postcode) {
+        setCityInfo(null);
+        setHandInStep('city');
+        setIsLoading(false);
+        return;
+      }
+      const city = postcodeMap[postcode as keyof typeof postcodeMap];
+      if (city) {
+        setCityInfo(city);
+        setCityDropdown(city.id);
+      } else {
+        setCityInfo(null);
+        setCityDropdown('');
+      }
+      setHandInStep('city');
+    } catch (e) {
+      setHandInError('Fehler beim Laden der Objektadresse.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSignAndSubmit = async () => {
+    setIsLoading(true);
+    setHandInError(null);
+    try {
+      let cityId = cityInfo?.id || cityDropdown;
+      let cityName = cityInfo?.name || (cityDropdown ? 'Rhein-Kreis Neuss' : '');
+      if (!cityId) {
+        setHandInError('Bitte wählen Sie einen Kreis/Stadt aus.');
+        setIsLoading(false);
+        return;
+      }
+  
+      console.log('Attempting to insert application with data:', {
+        resident_id: user?.id,
+        city_id: cityId,
+        type: foerderVariante,
+        status: 'new'
+      });
+  
+      // Insert into applications
+      const { data, error: appError } = await supabase
+        .from('applications')
+        .insert({
+          resident_id: user?.id,
+          city_id: cityId,
+          type: foerderVariante,
+          status: 'new',
+        })
+        .select();  // Add this to get the inserted data back
+  
+      if (appError) {
+        console.error('Application insert error:', appError);
+        throw appError;
+      }
+  
+      console.log('Successfully inserted application:', data);
+  
+      // Update user_data
+      const { error: userError } = await supabase
+        .from('user_data')
+        .update({ application_status: 'submitted' })
+        .eq('id', user?.id);
+  
+      if (userError) {
+        console.error('User data update error:', userError);
+        throw userError;
+      }
+  
+      setApplicationStatus('submitted');
+      setShowValidationModal(false);
+    } catch (e) {
+      console.error('Full error object:', e);
+      setHandInError('Fehler beim Einreichen des Antrags.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="relative bg-white flex flex-col">
@@ -434,21 +597,94 @@ const PersonalSpace: React.FC = () => {
             Sie erhalten eine detaillierte Übersicht über vollständige und fehlende Angaben.
             Die Prüfung ist unverbindlich und führt nicht zur automatischen Einreichung. Sie können ihre Angaben jederzeit ändern und belibig oft prüfen.
           </p>
-          <Button
-            className="px-5 py-2 fw-regular text-[#FFFFFF]"
-            style={{ 
-              backgroundColor: '#064497', 
-              border: '2px solid #064497', 
-              width: '300px', 
-              boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.2)',
-              opacity: 1,
-              fontSize: '1.1rem'
-            }}
-          >
-            PRÜFEN
-          </Button>
+          {applicationStatus === 'submitted' ? (
+            <Button
+              className="px-5 py-2 fw-regular text-[#FFFFFF] mb-3"
+              style={{ 
+                backgroundColor: '#064497', 
+                border: '2px solid #064497', 
+                width: '300px', 
+                boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.2)',
+                opacity: 1,
+                fontSize: '1.1rem'
+              }}
+              onClick={() => navigate('/view-application')}
+            >
+              EINGEREICHTEN ANTRAG EINSEHEN
+            </Button>
+          ) : (
+            <Button
+              className="px-5 py-2 fw-regular text-[#FFFFFF]"
+              style={{ 
+                backgroundColor: '#064497', 
+                border: '2px solid #064497', 
+                width: '300px', 
+                boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.2)',
+                opacity: 1,
+                fontSize: '1.1rem'
+              }}
+              onClick={handleValidate}
+            >
+              PRÜFEN
+            </Button>
+          )}
         </div>
       </div>
+
+      {applicationStatus !== 'pending' && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          background: 'rgba(255,255,255,0.98)',
+          zIndex: 99999,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}>
+          <div className="rounded p-5 shadow-lg" style={{ background: '#f8f9fa', maxWidth: 500 }}>
+            <h2 className="mb-4 text-[#064497]">Antrag eingereicht</h2>
+            <p className="mb-4">Ihr Antrag wurde erfolgreich eingereicht und befindet sich nun in der Prüfung. Änderungen sind aktuell nicht mehr möglich. Sie werden per E-Mail über den weiteren Verlauf informiert.</p>
+            
+            <div className="mb-4 p-3 rounded" style={{ 
+              background: '#ffffff', 
+              border: '1px solid #e0e0e0',
+              boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)'
+            }}>
+              <h6 className="mb-2 text-muted">Status Ihres Antrags:</h6>
+              <div className="d-flex align-items-center">
+                <div className="me-2" style={{ 
+                  width: '12px', 
+                  height: '12px', 
+                  borderRadius: '50%', 
+                  background: '#064497' 
+                }}></div>
+                <span style={{ color: '#064497', fontWeight: 500 }}>
+                  {STATUS_DISPLAY[applicationStatus]}
+                </span>
+              </div>
+            </div>
+
+            <div className="d-flex flex-column gap-3">
+              <Button 
+                style={{ background: '#064497', border: 'none' }} 
+                onClick={() => navigate('/view-application')}
+              >
+                Eingereichten Antrag Einsehen
+              </Button>
+              <Button 
+                style={{ background: '#D7DAEA', color: '#000000', border: 'none' }} 
+                onClick={() => logout()}
+              >
+                Abmelden
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Modal show={showRegistrationModal} onHide={() => setShowRegistrationModal(false)} centered>
         <Modal.Header closeButton>
@@ -510,6 +746,87 @@ const PersonalSpace: React.FC = () => {
               Konto erstellen
             </Button>
           </Form>
+        </Modal.Body>
+      </Modal>
+
+      <Modal show={showValidationModal} onHide={() => setShowValidationModal(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Prüfung Ihrer Angaben</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {handInStep === 'validation' && (
+            <>
+              {validationResult === 'success' ? (
+                <div className="alert alert-success mb-3">Alle erforderlichen Formulare sind vollständig ausgefüllt. Sie können Ihren Antrag jetzt einreichen.</div>
+              ) : (
+                <div className="alert alert-warning mb-3">Nicht alle Formulare sind vollständig ausgefüllt. Sie können trotzdem fortfahren, aber wir empfehlen, alle Angaben zu vervollständigen.</div>
+              )}
+              <div className="d-flex justify-content-end gap-2">
+                <Button variant="secondary" onClick={() => setShowValidationModal(false)}>Schließen</Button>
+                <Button
+                  style={{ background: validationResult === 'success' ? '#064497' : '#D7DAEA', color: validationResult === 'success' ? '#fff' : '#000', border: 'none' }}
+                  onClick={handleHandIn}
+                >
+                  Antrag einreichen
+                </Button>
+              </div>
+            </>
+          )}
+          {handInStep === 'city' && (
+            <>
+              {isLoading ? (
+                <div className="text-center"><Spinner animation="border" /></div>
+              ) : (
+                <>
+                  {objectData?.obj_postal_code ? (
+                    cityInfo ? (
+                      <div className="alert alert-success mb-3">Ihr Antrag wird an die Bewilligungsbehörde <b>{cityInfo.name}</b> gesendet.</div>
+                    ) : (
+                      <div className="alert alert-danger mb-3">Leider befindet sich Ihr Objekt in einem nicht unterstützten Kreis / Stadt.</div>
+                    )
+                  ) : (
+                    <>
+                      <div className="alert alert-warning mb-3">Sie haben keine vollständige Adresse Ihres Förderobjekts definiert.</div>
+                      <Form.Group className="mb-3">
+                        <Form.Label>Kreis/Stadt auswählen</Form.Label>
+                        <Form.Select value={cityDropdown} onChange={e => setCityDropdown(e.target.value)}>
+                          <option value="">Bitte wählen...</option>
+                          <option value="03e8b85b-1a8f-47ca-a4bb-c486c77e695a">Rhein-Kreis Neuss</option>
+                        </Form.Select>
+                      </Form.Group>
+                    </>
+                  )}
+                  {handInError && <div className="alert alert-danger mb-2">{handInError}</div>}
+                  <div className="d-flex justify-content-end gap-2">
+                    <Button variant="secondary" onClick={() => setShowValidationModal(false)}>Abbrechen</Button>
+                    <Button
+                      style={{ background: '#064497', color: '#fff', border: 'none' }}
+                      onClick={() => setHandInStep('sign')}
+                      disabled={(!cityInfo && !cityDropdown)}
+                    >
+                      Weiter zur Signatur
+                    </Button>
+                  </div>
+                </>
+              )}
+            </>
+          )}
+          {handInStep === 'sign' && (
+            <>
+              <div className="alert alert-info mb-3">Bitte bestätigen Sie die Einreichung Ihres Antrags. (Die digitale Signatur wird in Kürze verfügbar sein.)</div>
+              {handInError && <div className="alert alert-danger mb-2">{handInError}</div>}
+              <div className="d-flex justify-content-end gap-2">
+                <Button variant="secondary" onClick={() => setShowValidationModal(false)}>Abbrechen</Button>
+                <Button
+                  style={{ background: '#064497', color: '#fff', border: 'none' }}
+                  onClick={handleSignAndSubmit}
+                  disabled={isLoading}
+                >
+                  Antrag jetzt einreichen
+                </Button>
+              </div>
+            </>
+          )}
         </Modal.Body>
       </Modal>
     </div>

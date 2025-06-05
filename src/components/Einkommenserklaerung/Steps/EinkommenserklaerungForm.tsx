@@ -55,6 +55,7 @@ interface Props {
   isMainApplicant: boolean;
   showValidation: boolean;
   sonderzuwendungenFieldErrors?: any;
+  isReadOnly?: boolean;
 }
 
 const renderTooltip = (text: string) => (
@@ -103,10 +104,11 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
   onChange, 
   isMainApplicant,
   showValidation = false,
-  sonderzuwendungenFieldErrors
+  sonderzuwendungenFieldErrors,
+  isReadOnly = false
 }) => {
   // Add state for expanded section
-  const [expandedSection, setExpandedSection] = useState<string>('personal');
+  const [expandedSection, setExpandedSection] = useState<string>('');
 
   // Function to toggle section
   const toggleSection = (section: string) => {
@@ -1164,31 +1166,33 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
               <div className="text-black flex-grow-1 mb-4" style={{ fontSize: '1rem', maxWidth: '80%' }}>
                 Klicken Sie auf ‚+ Weitere Einkünfte hinzufügen‘, um zusätzliche Einnahmen anzugeben, z. B. aus selbständiger Tätigkeit oder Rentenbezügen.
               </div>
-              <div className="flex-shrink-0">
-                <WeitereEinkuenfteMultiSelect
-                  options={[
-                    { value: 'renten', label: 'Renten' },
-                    { value: 'vermietung', label: 'Einkünfte aus Vermietung und Verpachtung' },
-                    { value: 'gewerbe', label: 'Einkünfte aus Gewerbebetrieb/selbstständiger Arbeit' },
-                    { value: 'landforst', label: 'Einkünfte aus Land- und Forstwirtschaft' },
-                    { value: 'sonstige', label: 'Sonstige Einkünfte' },
-                    { value: 'unterhaltsteuerfrei', label: 'Unterhaltsleistungen steuerfrei' },
-                    { value: 'unterhaltsteuerpflichtig', label: 'Unterhaltsleistungen steuerpflichtig' },
-                    { value: 'ausland', label: 'Ausländische Einkünfte' },
-                    { value: 'pauschal', label: 'Vom Arbeitgeber pauschal besteuerter Arbeitslohn' },
-                    { value: 'arbeitslosengeld', label: 'Arbeitslosengeld' },
-                  ]}
-                  value={data.weitereEinkuenfte?.selectedTypes || []}
-                  onChange={selected => onChange({
-                    ...data,
-                    weitereEinkuenfte: {
-                      ...data.weitereEinkuenfte,
-                      selectedTypes: selected
-                    }
-                  })}
-                  placeholder="+ Weitere Einkünfte hinzufügen"
-                />
-              </div>
+              {!isReadOnly && (
+                <div className="flex-shrink-0">
+                  <WeitereEinkuenfteMultiSelect
+                    options={[
+                      { value: 'renten', label: 'Renten' },
+                      { value: 'vermietung', label: 'Einkünfte aus Vermietung und Verpachtung' },
+                      { value: 'gewerbe', label: 'Einkünfte aus Gewerbebetrieb/selbstständiger Arbeit' },
+                      { value: 'landforst', label: 'Einkünfte aus Land- und Forstwirtschaft' },
+                      { value: 'sonstige', label: 'Sonstige Einkünfte' },
+                      { value: 'unterhaltsteuerfrei', label: 'Unterhaltsleistungen steuerfrei' },
+                      { value: 'unterhaltsteuerpflichtig', label: 'Unterhaltsleistungen steuerpflichtig' },
+                      { value: 'ausland', label: 'Ausländische Einkünfte' },
+                      { value: 'pauschal', label: 'Vom Arbeitgeber pauschal besteuerter Arbeitslohn' },
+                      { value: 'arbeitslosengeld', label: 'Arbeitslosengeld' },
+                    ]}
+                    value={data.weitereEinkuenfte?.selectedTypes || []}
+                    onChange={selected => onChange({
+                      ...data,
+                      weitereEinkuenfte: {
+                        ...data.weitereEinkuenfte,
+                        selectedTypes: selected
+                      }
+                    })}
+                    placeholder="+ Weitere Einkünfte hinzufügen"
+                  />
+                </div>
+              )}
             </div>
           </div>
           {/* Render dynamic fields for each selected type */}
@@ -1927,17 +1931,19 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                     </div>
                   ))}
                   <div className="mt-1 d-inline-block">
-                    <Button
-                      variant="outline-primary"
-                      onClick={() => {
-                        const newZahlungen = [...(data.unterhaltszahlungen || []), { name: '', amount: '' }];
-                        onChange({ ...data, unterhaltszahlungen: newZahlungen });
-                      }}
-                      className="add-person-btn"
-                      style={{ width: 'auto', minWidth: 0 }}
-                    >
-                    + Person hinzufügen
-                    </Button>
+                    {!isReadOnly && (
+                      <Button
+                        variant="outline-primary"
+                        onClick={() => {
+                          const newZahlungen = [...(data.unterhaltszahlungen || []), { name: '', amount: '' }];
+                          onChange({ ...data, unterhaltszahlungen: newZahlungen });
+                        }}
+                        className="add-person-btn"
+                        style={{ width: 'auto', minWidth: 0 }}
+                      >
+                        + Person hinzufügen
+                      </Button>
+                    )}
                   </div>
                   {showValidation && data.ispayingunterhalt === true && (!data.unterhaltszahlungen || data.unterhaltszahlungen.length === 0) && (
                     <div className="text-danger mt-1">Bitte fügen Sie mindestens eine Person hinzu.</div>
@@ -1959,16 +1965,18 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
               <div className="text-black flex-grow-1 mb-4" style={{ fontSize: '1rem', maxWidth: '80%' }}>
                Sollten sich innerhalb der nächsten 12 Monate Änderungen bei den angegebenen weiteren Einkünften, Ausgaben oder Zahlungsverpflichtungen ergeben, machen Sie bitte entsprechende Angaben zu den geplanten Änderungen.
               </div>
-              <div className="flex-shrink-0">
-                <Button
-                  variant="outline-primary"
-                  className="rounded-pill px-4 py-2 mb-2"
-                  onClick={() => setShowChangeTypesModal(true)}
-                  style={{ minWidth: 260, fontWeight: 500, backgroundColor: '#064497', color: '#fff', borderColor: '#064497', boxShadow: '0 2px 8px rgba(6,68,151,0.08)' }}
-                >
-                  + Änderung angeben/entfernen
-                </Button>
-              </div>
+              {!isReadOnly && (
+                <div className="flex-shrink-0">
+                  <Button
+                    variant="outline-primary"
+                    className="rounded-pill px-4 py-2 mb-2"
+                    onClick={() => setShowChangeTypesModal(true)}
+                    style={{ minWidth: 260, fontWeight: 500, backgroundColor: '#064497', color: '#fff', borderColor: '#064497', boxShadow: '0 2px 8px rgba(6,68,151,0.08)' }}
+                  >
+                    + Änderung angeben/entfernen
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
           {/* For each selected type, show the change form */}
