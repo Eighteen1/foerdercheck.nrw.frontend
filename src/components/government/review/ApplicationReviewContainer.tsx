@@ -223,6 +223,7 @@ const ApplicationReviewContainer: React.FC<ApplicationReviewContainerProps> = ({
               progress={applicationData.review_progress || 0}
               onRequestDocs={() => {}} 
               onFinishReview={() => {}} 
+              onClose={onClose}
             />
           </div>
         )}

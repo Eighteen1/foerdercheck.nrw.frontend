@@ -41,6 +41,7 @@ type ReviewActionsPanelProps = {
   onFinishReview: () => void;
   onContactApplicant?: () => void;
   onShareApplication?: () => void;
+  onClose: () => void;
 };
 
 const circleSize = 44;
@@ -69,7 +70,8 @@ const ReviewActionsPanel: React.FC<ReviewActionsPanelProps> = ({
   onRequestDocs,
   onFinishReview,
   onContactApplicant,
-  onShareApplication
+  onShareApplication,
+  onClose
 }) => {
   const isComplete = progress >= 100;
   const progressValue = Math.max(0, Math.min(progress, 100));
@@ -102,6 +104,7 @@ const ReviewActionsPanel: React.FC<ReviewActionsPanelProps> = ({
   const [decisionNote, setDecisionNote] = useState('');
   const [decisionLoading, setDecisionLoading] = useState(false);
   const [decisionError, setDecisionError] = useState<string | null>(null);
+  const [decisionSuccess, setDecisionSuccess] = useState(false);
 
   // Responsive logic using ResizeObserver
   useEffect(() => {
@@ -266,6 +269,7 @@ const ReviewActionsPanel: React.FC<ReviewActionsPanelProps> = ({
       setShowFinishModal(false);
       setDecision(null);
       setDecisionNote('');
+      setDecisionSuccess(true);
     } catch (err: any) {
       setDecisionError(err.message || 'Fehler beim Absenden der Entscheidung.');
     } finally {
@@ -494,22 +498,29 @@ const ReviewActionsPanel: React.FC<ReviewActionsPanelProps> = ({
         </Modal.Footer>
       </Modal>
       {/* New modal for finish review */}
-      <Modal show={showFinishModal} onHide={handleCloseFinishModal} centered size="lg">
+      <Modal show={showFinishModal || decisionSuccess} onHide={decisionSuccess ? onClose : handleCloseFinishModal} centered size="lg">
         <Modal.Header closeButton>
-          <Modal.Title>Prüfung abschließen</Modal.Title>
+          <Modal.Title>{decisionSuccess ? 'Prüfung erfolgreich abgeschlossen' : 'Prüfung abschließen'}</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          {finishLoading ? (
-            <div className="d-flex justify-content-center align-items-center" style={{ minHeight: 120 }}>
-              <Spinner animation="border" style={{ color: '#064497', width: 48, height: 48 }} />
+          {decisionSuccess ? (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 280, padding: 32 }}>
+              <div style={{ background: '#e6f4ea', borderRadius: '50%', width: 90, height: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 24 }}>
+                <span className="material-icons" style={{ color: '#388e3c', fontSize: 54 }}>check_circle</span>
+              </div>
+              <div style={{ fontSize: 28, fontWeight: 700, color: '#388e3c', marginBottom: 16, textAlign: 'center' }}>
+                Entscheidung erfolgreich übermittelt!
+              </div>
+              <Button variant="success" size="lg" style={{ minWidth: 220, fontWeight: 600, fontSize: 18, marginTop: 12 }} onClick={onClose}>
+                Zurück zur Übersicht
+              </Button>
             </div>
-          ) : finishError ? (
-            <div className="alert alert-danger">{finishError}</div>
           ) : (
-            <div>
-              <div style={{ marginBottom: 16, color: '#333' }}>
+            <div style={{ padding: 0 }}>
+              <div style={{ marginBottom: 20, color: '#333', fontSize: 18, fontWeight: 500 }}>
                 Bitte überprüfen Sie die Ergebnisse der Checkliste, bevor Sie eine Entscheidung treffen.
               </div>
+              {/* Checklist groups as cards with badges */}
               {(() => {
                 const groups = groupChecklistItems(finishChecklist);
                 const sections: { key: SectionKey; label: string; color: string }[] = [
@@ -518,53 +529,39 @@ const ReviewActionsPanel: React.FC<ReviewActionsPanelProps> = ({
                   { key: 'undefined', label: 'Ungeprüfte Angaben', color: '#757575' },
                 ];
                 return <>
-                  {sections.filter(sec => groups[sec.key as SectionKey].length > 0).map(sec => (
-                    <div key={sec.key} style={{ marginBottom: 12, border: '1px solid #e0e0e0', borderRadius: 8 }}>
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'flex-start',
-                          padding: '12px 18px',
-                          cursor: 'pointer',
-                          background: '#f7f7f7',
-                          borderRadius: 8,
-                          fontWeight: 600,
-                          fontSize: 17,
-                          gap: 16,
-                        }}
-                        onClick={() => setExpandedSections(prev => ({ ...prev, [sec.key]: !prev[sec.key] }))}
-                      >
-                        <span style={{
-                          fontWeight: 700,
-                          fontSize: 18,
-                          color: sec.color,
-                          minWidth: 24,
-                          textAlign: 'right',
-                          display: 'inline-block',
-                        }}>{groups[sec.key as SectionKey].length}</span>
-                        <span style={{ color: '#bdbdbd', fontWeight: 400, fontSize: 20, margin: '0 8px' }}>|</span>
-                        <span style={{ color: sec.color }}>{sec.label}</span>
-                        <span className="material-icons" style={{ marginLeft: 'auto', fontSize: 22, color: '#757575' }}>
-                          {expandedSections[sec.key] ? 'expand_less' : 'expand_more'}
-                        </span>
-                      </div>
-                      <Collapse in={!!expandedSections[sec.key]}>
-                        <div>
-                          <ul style={{ margin: 0, padding: '10px 24px', listStyle: 'disc', color: '#333', fontSize: 15 }}>
-                            {groups[sec.key as SectionKey].map((item: ChecklistItem) => (
-                              <li key={item.id} style={{ marginBottom: 4 }}>{item.title}</li>
-                            ))}
-                          </ul>
+                  <div style={{ display: 'block', marginBottom: 24 }}>
+                    {sections.filter(sec => groups[sec.key as SectionKey].length > 0).map(sec => (
+                      <div key={sec.key} style={{ marginBottom: 18, background: '#fff', border: `2px solid ${sec.color}22`, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+                        <div
+                          style={{
+                            display: 'flex', alignItems: 'center', padding: '16px 22px', cursor: 'pointer', borderRadius: 12, fontWeight: 600, fontSize: 18, gap: 16, background: '#f7f7f7', borderBottom: `1px solid ${sec.color}22`,
+                          }}
+                          onClick={() => setExpandedSections(prev => ({ ...prev, [sec.key]: !prev[sec.key] }))}
+                        >
+                          <span style={{ fontWeight: 700, fontSize: 22, color: sec.color, minWidth: 32, textAlign: 'right', display: 'inline-block', background: sec.color + '22', borderRadius: 12, padding: '4px 16px' }}>{groups[sec.key as SectionKey].length}</span>
+                          <span style={{ color: '#bdbdbd', fontWeight: 400, fontSize: 22, margin: '0 8px' }}>|</span>
+                          <span style={{ color: sec.color }}>{sec.label}</span>
+                          <span className="material-icons" style={{ marginLeft: 'auto', fontSize: 26, color: '#757575' }}>
+                            {expandedSections[sec.key] ? 'expand_less' : 'expand_more'}
+                          </span>
                         </div>
-                      </Collapse>
-                    </div>
-                  ))}
+                        <Collapse in={!!expandedSections[sec.key]}>
+                          <div>
+                            <ul style={{ margin: 0, padding: '14px 32px', listStyle: 'disc', color: '#333', fontSize: 16 }}>
+                              {groups[sec.key as SectionKey].map((item: ChecklistItem) => (
+                                <li key={item.id} style={{ marginBottom: 6 }}>{item.title}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        </Collapse>
+                      </div>
+                    ))}
+                  </div>
                   {/* Decision buttons and note input */}
-                  <div style={{ marginTop: 32, marginBottom: 8, display: 'flex', gap: 16, justifyContent: 'center' }}>
+                  <div style={{ marginTop: 32, marginBottom: 8, display: 'flex', gap: 18, justifyContent: 'center' }}>
                     <Button
                       variant={decision === 'approved' ? 'success' : 'outline-success'}
-                      style={{ minWidth: 180, fontWeight: 600, fontSize: 17 }}
+                      style={{ minWidth: 200, fontWeight: 600, fontSize: 18, boxShadow: decision === 'approved' ? '0 2px 8px #388e3c22' : undefined }}
                       onClick={() => setDecision('approved')}
                       disabled={decisionLoading}
                     >
@@ -572,7 +569,7 @@ const ReviewActionsPanel: React.FC<ReviewActionsPanelProps> = ({
                     </Button>
                     <Button
                       variant={decision === 'rejected' ? 'danger' : 'outline-danger'}
-                      style={{ minWidth: 180, fontWeight: 600, fontSize: 17 }}
+                      style={{ minWidth: 200, fontWeight: 600, fontSize: 18, boxShadow: decision === 'rejected' ? '0 2px 8px #d32f2f22' : undefined }}
                       onClick={() => setDecision('rejected')}
                       disabled={decisionLoading}
                     >
@@ -580,22 +577,22 @@ const ReviewActionsPanel: React.FC<ReviewActionsPanelProps> = ({
                     </Button>
                   </div>
                   {decision && (
-                    <div style={{ marginTop: 18 }}>
-                      <div style={{ marginBottom: 8, color: '#333', fontWeight: 500 }}>
+                    <div style={{ marginTop: 22, background: '#f7f7f7', borderRadius: 10, padding: 18 }}>
+                      <div style={{ marginBottom: 10, color: '#333', fontWeight: 500, fontSize: 16 }}>
                         Notiz zur Entscheidung (optional, wird an den Antragsteller gesendet):
                       </div>
                       <textarea
                         value={decisionNote}
                         onChange={e => setDecisionNote(e.target.value)}
                         rows={3}
-                        style={{ width: '100%', borderRadius: 6, border: '1px solid #bdbdbd', padding: 10, fontSize: 15, marginBottom: 8 }}
+                        style={{ width: '100%', borderRadius: 8, border: '1.5px solid #bdbdbd', padding: 12, fontSize: 16, marginBottom: 10, background: '#fff', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}
                         placeholder="Hier können Sie eine Notiz zur Entscheidung hinzufügen..."
                         disabled={decisionLoading}
                       />
-                      {decisionError && <div className="alert alert-danger" style={{ marginBottom: 8 }}>{decisionError}</div>}
+                      {decisionError && <div className="alert alert-danger" style={{ marginBottom: 10 }}>{decisionError}</div>}
                       <Button
                         variant={decision === 'approved' ? 'success' : 'danger'}
-                        style={{ minWidth: 180, fontWeight: 600, fontSize: 17 }}
+                        style={{ minWidth: 200, fontWeight: 600, fontSize: 18, marginTop: 6 }}
                         onClick={handleSubmitDecision}
                         disabled={decisionLoading}
                       >
@@ -611,9 +608,11 @@ const ReviewActionsPanel: React.FC<ReviewActionsPanelProps> = ({
             </div>
           )}
         </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={handleCloseFinishModal}>Schließen</Button>
-        </Modal.Footer>
+        {!decisionSuccess && (
+          <Modal.Footer>
+            <Button variant="secondary" onClick={handleCloseFinishModal}>Schließen</Button>
+          </Modal.Footer>
+        )}
       </Modal>
     </div>
   );

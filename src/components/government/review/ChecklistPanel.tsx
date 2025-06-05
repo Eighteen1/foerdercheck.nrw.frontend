@@ -162,10 +162,15 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
     return 'Unbearbeitet';
   }
 
-  function getStateColor(label: string) {
+  function getStateColor(label: string, agentStatus?: string) {
+    if (label === 'Bearbeitet') {
+      if (agentStatus === 'correct') {
+        return { background: '#e6f4ea', color: '#388e3c' }; // green
+      } else if (agentStatus === 'wrong') {
+        return { background: '#fdecea', color: '#d32f2f' }; // red
+      }
+    }
     switch (label) {
-      case 'Bearbeitet':
-        return { background: '#e6f4ea', color: '#388e3c' };
       case 'In Bearbeitung':
         return { background: '#fffbe6', color: '#b59f00' };
       default:
@@ -245,7 +250,7 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
           ) : (
             checklistItems.map((item, idx) => {
               const stateLabel = getStateLabel(item);
-              const stateColor = getStateColor(stateLabel);
+              const stateColor = getStateColor(stateLabel, item.agentStatus);
               return (
                 <button
                   key={item.id}
