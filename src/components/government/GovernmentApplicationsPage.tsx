@@ -55,6 +55,8 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
     status: "",
     type: "",
     assigned_agent: "",
+    finished_at: "",
+    result: "",
   });
   const [agents, setAgents] = useState<any[]>([]);
   const [user, setUser] = useState<any>(null);
@@ -98,7 +100,7 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
       setLoading(true);
       let { data, error } = await supabase
         .from("applications")
-        .select("id, status, submitted_at, updated_at, review_progress, type, assigned_agent")
+        .select("id, status, submitted_at, updated_at, review_progress, type, assigned_agent, finished_at")
         .order("submitted_at", { ascending: false });
       if (error) {
         setApplications([]);
@@ -137,6 +139,8 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
         (!filters.id || a.id?.toLowerCase().includes(filters.id.toLowerCase())) &&
         (!filters.submitted_at || (a.submitted_at && formatDate(a.submitted_at).includes(filters.submitted_at))) &&
         (activeTab !== "in_progress" || !filters.updated_at || (a.updated_at && formatDate(a.updated_at).includes(filters.updated_at))) &&
+        (activeTab === "finished" ? (!filters.finished_at || (a.finished_at && formatDate(a.finished_at).includes(filters.finished_at))) : true) &&
+        (activeTab === "finished" ? (!filters.result || (filters.result === "approved" && a.status === "approved") || (filters.result === "rejected" && a.status === "rejected")) : true) &&
         (activeTab !== "in_progress" || !filters.review_progress || (() => {
           const val = Number(a.review_progress) || 0;
           if (!filters.review_progress) return true;
@@ -339,6 +343,65 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
                   </th>
                 </tr>
               </thead>
+            ) : activeTab === "finished" ? (
+              <thead style={{ background: "#F7F8FA" }}>
+                <tr>
+                  <th style={{ width: 48, textAlign: "center" }}>
+                    <Form.Check
+                      type="checkbox"
+                      checked={allSelected}
+                      onChange={e => handleSelectAll(e.target.checked)}
+                      style={{ marginLeft: 8 }}
+                    />
+                  </th>
+                  <th style={{ minWidth: 180 }}>
+                    Antragsnummer
+                    <Form.Control
+                      size="sm"
+                      type="text"
+                      placeholder="Filtern..."
+                      value={filters.id}
+                      onChange={e => setFilters(f => ({ ...f, id: e.target.value }))}
+                      className="mt-1"
+                    />
+                  </th>
+                  <th style={{ minWidth: 140 }}>
+                    Antragsdatum
+                    <Form.Control
+                      size="sm"
+                      type="text"
+                      placeholder="TT/MM/JJJJ"
+                      value={filters.submitted_at}
+                      onChange={e => setFilters(f => ({ ...f, submitted_at: e.target.value }))}
+                      className="mt-1"
+                    />
+                  </th>
+                  <th style={{ minWidth: 140 }}>
+                    Prüfungsdatum
+                    <Form.Control
+                      size="sm"
+                      type="text"
+                      placeholder="TT/MM/JJJJ"
+                      value={filters.finished_at}
+                      onChange={e => setFilters(f => ({ ...f, finished_at: e.target.value }))}
+                      className="mt-1"
+                    />
+                  </th>
+                  <th style={{ minWidth: 160 }}>
+                    Prüfergebnis
+                    <Form.Select
+                      size="sm"
+                      value={filters.result}
+                      onChange={e => setFilters(f => ({ ...f, result: e.target.value }))}
+                      className="mt-1"
+                    >
+                      <option value="">Alle</option>
+                      <option value="approved">Bewilligt</option>
+                      <option value="rejected">Abgelehnt</option>
+                    </Form.Select>
+                  </th>
+                </tr>
+              </thead>
             ) : (
               <thead style={{ background: "#F7F8FA" }}>
                 <tr>
@@ -462,6 +525,42 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
                       {app.status === "in_progress" && "In Bearbeitung"}
                       {app.status === "documents_requested" && "Dokumente angefragt"}
                       {app.status === "documents_received" && "Dokumente erhalten"}
+                    </td>
+                  </tr>
+                ))
+              ) : activeTab === "finished" ? (
+                filteredApplications.map((app) => (
+                  <tr
+                    key={app.id}
+                    style={{ cursor: "pointer" }}
+                    onClick={e => {
+                      if ((e.target as HTMLElement).tagName !== 'INPUT') {
+                        if (onSelectApplication) {
+                          onSelectApplication(app.id);
+                        } else {
+                          navigate(`/government/review/${app.id}`);
+                        }
+                      }
+                    }}
+                  >
+                    <td style={{ textAlign: "center" }}>
+                      <Form.Check
+                        type="checkbox"
+                        checked={selectedIds.includes(app.id)}
+                        onChange={e => handleSelectOne(app.id, e.target.checked)}
+                      />
+                    </td>
+                    <td>{app.id}</td>
+                    <td>{formatDate(app.submitted_at)}</td>
+                    <td>{formatDate(app.finished_at)}</td>
+                    <td>
+                      {app.status === "approved" ? (
+                        <span style={{ background: '#e6f4ea', color: '#388e3c', borderRadius: 14, padding: '4px 14px', fontWeight: 600, fontSize: 15, minWidth: 120, display: 'inline-block', textAlign: 'center' }}>Bewilligt</span>
+                      ) : app.status === "rejected" ? (
+                        <span style={{ background: '#fdecea', color: '#d32f2f', borderRadius: 14, padding: '4px 14px', fontWeight: 600, fontSize: 15, minWidth: 120, display: 'inline-block', textAlign: 'center' }}>Abgelehnt</span>
+                      ) : (
+                        <span style={{ background: '#f2f2f2', color: '#757575', borderRadius: 14, padding: '4px 14px', fontWeight: 600, fontSize: 15, minWidth: 120, display: 'inline-block', textAlign: 'center' }}>-</span>
+                      )}
                     </td>
                   </tr>
                 ))

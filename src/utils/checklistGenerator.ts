@@ -33,20 +33,23 @@ export async function generateChecklistItems(applicationId: string, residentId: 
 
     if (appError) throw new Error('Failed to fetch application data');
     if (userError) throw new Error('Failed to fetch user data');
-    if (financialError) throw new Error('Failed to fetch financial data');
+    if (financialError) console.warn('No financial data found for user:', financialError);
 
     const checklistItems: ChecklistItem[] = [];
 
     // 1. Income Check
+    const incomeErrors = findIncomeErrors(financialData, userData);
     checklistItems.push({
       id: 'income-check',
-      title: 'Einkommensprüfung',
-      systemStatus: checkIncomeStatus(financialData),
+      title: 'Angegebenes Einkommen stimmt mit den Eingereichten Unterlagen überein',
+      systemStatus: incomeErrors.length > 0 ? 'wrong' : 'undefined',
       agentStatus: 'undefined',
       systemComment: generateIncomeComment(financialData),
-      systemErrors: findIncomeErrors(financialData),
+      systemErrors: incomeErrors,
       linkedForms: ['einkommenserklaerung'],
-      linkedDocs: ['lageplan'],
+      linkedDocs: [
+        ...(userData && userData.document_status && typeof userData.document_status === 'object' && 'gehaltsabrechnung' in userData.document_status ? ['gehaltsabrechnung'] : [])
+      ],
       agentNotes: null
     });
 
@@ -58,7 +61,7 @@ export async function generateChecklistItems(applicationId: string, residentId: 
       agentStatus: 'undefined',
       systemComment: generateDocumentComment(userData.document_status),
       systemErrors: findDocumentErrors(userData.document_status),
-      linkedForms: ['hauptantrag'],
+      linkedForms: [],
       linkedDocs: getRequiredDocuments(applicationData?.type),
       agentNotes: null
     });
@@ -72,6 +75,40 @@ export async function generateChecklistItems(applicationId: string, residentId: 
       systemComment: generatePersonalInfoComment(userData),
       systemErrors: findPersonalInfoErrors(userData),
       linkedForms: ['hauptantrag'],
+      linkedDocs: [],
+      agentNotes: null
+    });
+
+    // 4. Hauptantrag Completeness
+    checklistItems.push({
+      id: 'hauptantrag-completeness',
+      title: 'Hauptantrag Vollständigkeitt',
+      systemStatus: userData?.hauptantrag_progress === 100 ? 'correct' : 'wrong',
+      agentStatus: 'undefined',
+      systemComment: userData?.hauptantrag_progress === 100
+        ? 'Der Antrag wurde vollständig ausgefüllt'
+        : 'Der Antrag wurde nicht vollständig ausgefüllt',
+      systemErrors: userData?.hauptantrag_progress === 100
+        ? []
+        : [`Der Antrag wurde nur zu ${userData?.hauptantrag_progress ?? 0}% ausgefüllt`],
+      linkedForms: ['hauptantrag'],
+      linkedDocs: [],
+      agentNotes: null
+    });
+
+    // 5. Einkommenserklärung Completeness
+    checklistItems.push({
+      id: 'einkommenserklaerung-completeness',
+      title: 'Einkommenserklärung Vollständigkeit',
+      systemStatus: userData?.einkommenserklarung_progress === 100 ? 'correct' : 'wrong',
+      agentStatus: 'undefined',
+      systemComment: userData?.einkommenserklarung_progress === 100
+        ? 'Der Antrag wurde vollständig ausgefüllt'
+        : 'Der Antrag wurde nicht vollständig ausgefüllt',
+      systemErrors: userData?.einkommenserklarung_progress === 100
+        ? []
+        : [`Der Antrag wurde nur zu ${userData?.einkommenserklarung_progress ?? 0}% ausgefüllt`],
+      linkedForms: ['einkommenserklaerung'],
       linkedDocs: [],
       agentNotes: null
     });
@@ -121,7 +158,7 @@ function checkIncomeStatus(financialData: any): 'correct' | 'wrong' | 'undefined
   
   // Add your income validation logic here
   // Example:
-  const income = parseFloat(financialData.monthly_income || '0');
+  const income = parseFloat(financialData.prior_year_earning || '0');
   const threshold = 5000; // Example threshold
   
   if (income === 0) return 'undefined';
@@ -135,22 +172,27 @@ function generateIncomeComment(financialData: any): string {
   return `Haushaltseinkommen: ${income.toLocaleString('de-DE')}€ pro Monat`;
 }
 
-function findIncomeErrors(financialData: any): string[] {
+function findIncomeErrors(financialData: any, userData: any): string[] {
   const errors: string[] = [];
   if (!financialData) {
     errors.push('Keine Einkommensdaten vorhanden');
-    return errors;
+    // continue to check for gehaltsabrechnung
   }
 
   // Add your income validation logic here
   // Example:
-  const income = parseFloat(financialData.monthly_income || '0');
+  const income = parseFloat(financialData?.monthly_income || '0');
   const threshold = 5000;
   
   if (income > threshold) {
     errors.push(`Haushaltseinkommen (${income.toLocaleString('de-DE')}€) liegt über der Obergrenze von ${threshold.toLocaleString('de-DE')}€`);
   }
-  
+
+  // Check for gehaltsabrechnung in userData.document_status
+  if (!userData || !userData.document_status || typeof userData.document_status !== 'object' || !('gehaltsabrechnung' in userData.document_status)) {
+    errors.push('Gehaltsabrechnung fehlt');
+  }
+
   return errors;
 }
 
