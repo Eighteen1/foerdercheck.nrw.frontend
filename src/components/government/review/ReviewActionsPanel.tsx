@@ -60,6 +60,8 @@ const TYPE_LABELS: Record<string, string> = {
 // Add Section type
 type SectionKey = 'correct' | 'wrong' | 'undefined';
 
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || '';
+
 const ReviewActionsPanel: React.FC<ReviewActionsPanelProps> = ({
   applicationType,
   applicationId,
@@ -246,7 +248,7 @@ const ReviewActionsPanel: React.FC<ReviewActionsPanelProps> = ({
     setDecisionLoading(true);
     setDecisionError(null);
     try {
-      const response = await fetch('/api/application/decision', {
+      const response = await fetch(`${BACKEND_URL}/api/application/decision`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
