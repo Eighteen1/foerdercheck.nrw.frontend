@@ -1,0 +1,26 @@
+.btn-primary-outline {
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-primary-outline:hover {
+  background-color: #064497 !important;
+  color: #fff !important;
+}
+
+.btn-cancel {
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-cancel:hover {
+  background-color: #6c757d !important;
+  color: #fff !important;
+}
+
+.btn-danger-outline {
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-danger-outline:hover {
+  background-color: #dc3545 !important;
+  color: #fff !important;
+} 

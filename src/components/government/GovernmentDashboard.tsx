@@ -5,6 +5,8 @@ import { supabase } from "../../lib/supabase";
 import Layout from "../Layout";
 import GovernmentApplicationsPage from "./GovernmentApplicationsPage";
 import ApplicationReviewContainer from "./review/ApplicationReviewContainer";
+import GovernmentProfilePage from "./GovernmentProfilePage";
+import GovernmentDashboardPage from "./GovernmentDashboardPage";
 
 const menuItems = [
   { key: "dashboard", label: "Dashboard", icon: "dashboard" },
@@ -172,6 +174,9 @@ const GovernmentDashboard: React.FC = () => {
         </div>
         {/* Content */}
         <Container className="py-4">
+          {selectedMenu === "dashboard" && (
+            <GovernmentDashboardPage />
+          )}
           {selectedMenu === "applications" && !selectedApplicationId && (
             <GovernmentApplicationsPage onSelectApplication={setSelectedApplicationId} />
           )}
@@ -179,11 +184,7 @@ const GovernmentDashboard: React.FC = () => {
             <ApplicationReviewContainer applicationId={selectedApplicationId} onClose={() => setSelectedApplicationId(null)} />
           )}
           {selectedMenu === "profile" && (
-            <div>
-              <h2 style={{ color: "#064497" }}>Profil</h2>
-              <p>Name: {user?.email}</p>
-              <p>Stadt: {city}</p>
-            </div>
+            <GovernmentProfilePage />
           )}
           {selectedMenu === "settings" && (
             <div>

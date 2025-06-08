@@ -10,6 +10,9 @@ const GovernmentLogin: React.FC = () => {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showMfaInput, setShowMfaInput] = useState(false);
+  const [mfaCode, setMfaCode] = useState("");
+  const [session, setSession] = useState<any>(null);
   const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -17,33 +20,105 @@ const GovernmentLogin: React.FC = () => {
     setError(null);
     setLoading(true);
 
-    // 1. Sign in with Supabase
-    const { data, error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      // 1. Sign in with Supabase
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    if (signInError || !data.user) {
-      setError("Falsche Zugangsdaten.");
-      setLoading(false);
-      return;
-    }
+      if (signInError) {
+        setError("Falsche Zugangsdaten.");
+        setLoading(false);
+        return;
+      }
 
-    // 2. Check city in user metadata (government account)
-    const userCity = data.user.user_metadata?.city;
-    if (!userCity) {
-      setError("Dieses Konto ist kein Stadtverwaltungs-Account.");
-      setLoading(false);
-      return;
-    }
-    if (userCity !== city) {
-      setError("Die ausgewählte Stadt stimmt nicht mit Ihrem Benutzerkonto überein.");
-      setLoading(false);
-      return;
-    }
+      // 2. Check if MFA is required
+      const { data: mfaData, error: factorsError } = await supabase.auth.mfa.listFactors();
+      
+      if (factorsError) throw factorsError;
 
-    // 3. Success: redirect to dashboard
-    navigate("/government/dashboard");
+      const hasMfa = mfaData?.totp?.length > 0;
+      
+      if (hasMfa) {
+        // Store session and show MFA input
+        setSession(data.session);
+        setShowMfaInput(true);
+        setLoading(false);
+        return;
+      }
+
+      // If no MFA, proceed with normal login checks
+      const userCity = data.user?.user_metadata?.city;
+      if (!userCity) {
+        setError("Dieses Konto ist kein Stadtverwaltungs-Account.");
+        setLoading(false);
+        return;
+      }
+      if (userCity !== city) {
+        setError("Die ausgewählte Stadt stimmt nicht mit Ihrem Benutzerkonto überein.");
+        setLoading(false);
+        return;
+      }
+
+      // 3. Success: redirect to dashboard
+      navigate("/government/dashboard");
+    } catch (err) {
+      setError("Ein Fehler ist aufgetreten. Bitte versuchen Sie es später erneut.");
+      console.error('Login error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleMfaVerification = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+
+    try {
+      if (!session) {
+        setError("Sitzung abgelaufen. Bitte melden Sie sich erneut an.");
+        return;
+      }
+
+      // Get the TOTP factor
+      const { data: mfaData, error: factorsError } = await supabase.auth.mfa.listFactors();
+      if (factorsError) throw factorsError;
+
+      const totpFactor = mfaData?.totp?.[0];
+      if (!totpFactor) {
+        setError("Kein MFA-Faktor gefunden.");
+        return;
+      }
+
+      // Challenge the factor
+      const { data: challengeData, error: challengeError } = await supabase.auth.mfa.challenge({
+        factorId: totpFactor.id
+      });
+
+      if (challengeError) throw challengeError;
+
+      // Verify the code
+      const { error: verifyError } = await supabase.auth.mfa.verify({
+        factorId: totpFactor.id,
+        challengeId: challengeData.id,
+        code: mfaCode
+      });
+
+      if (verifyError) {
+        setError("Ungültiger Code. Bitte versuchen Sie es erneut.");
+        return;
+      }
+
+      // Success: redirect to dashboard
+      navigate("/government/dashboard");
+    } catch (err) {
+      setError("Ein Fehler ist aufgetreten. Bitte versuchen Sie es später erneut.");
+      console.error('MFA verification error:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -143,7 +218,9 @@ const GovernmentLogin: React.FC = () => {
 
       <Container className="relative z-10 pt-40 px-4">
         <div className="max-w-md mx-auto bg-white p-8 rounded-lg shadow-md">
-          <h2 className="text-2xl font-bold mb-6 text-center text-[#064497]">Verwaltungsportal Login</h2>
+          <h2 className="text-2xl font-bold mb-6 text-center text-[#064497]">
+            {showMfaInput ? "Zwei-Faktor-Authentifizierung" : "Verwaltungsportal Login"}
+          </h2>
           
           {error && (
             <Alert variant="danger" className="mb-4">
@@ -151,55 +228,95 @@ const GovernmentLogin: React.FC = () => {
             </Alert>
           )}
 
-          <Form onSubmit={handleLogin}>
-            <Form.Group className="mb-4">
-              <Form.Label>Stadt / Kreis</Form.Label>
-              <Form.Select 
-                value={city} 
-                onChange={e => setCity(e.target.value)} 
-                required
-                className="border-2"
+          {!showMfaInput ? (
+            <Form onSubmit={handleLogin}>
+              <Form.Group className="mb-4">
+                <Form.Label>Stadt / Kreis</Form.Label>
+                <Form.Select 
+                  value={city} 
+                  onChange={e => setCity(e.target.value)} 
+                  required
+                  className="border-2"
+                >
+                  <option value="">Bitte wählen...</option>
+                  {NRW_CITIES.map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </Form.Select>
+              </Form.Group>
+
+              <Form.Group className="mb-4">
+                <Form.Label>E-Mail-Adresse</Form.Label>
+                <Form.Control
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  required
+                  autoComplete="username"
+                  className="border-2"
+                  placeholder="ihre@email.de"
+                />
+              </Form.Group>
+
+              <Form.Group className="mb-4">
+                <Form.Label>Passwort</Form.Label>
+                <Form.Control
+                  type="password"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  required
+                  autoComplete="current-password"
+                  className="border-2"
+                />
+              </Form.Group>
+
+              <Button 
+                type="submit" 
+                className="w-full bg-[#064497] hover:bg-[#0B66E6] text-white py-2 rounded"
+                disabled={loading}
               >
-                <option value="">Bitte wählen...</option>
-                {NRW_CITIES.map(c => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </Form.Select>
-            </Form.Group>
+                Anmelden
+              </Button>
+            </Form>
+          ) : (
+            <Form onSubmit={handleMfaVerification}>
+              <Form.Group className="mb-4">
+                <Form.Label>Authentifizierungscode</Form.Label>
+                <Form.Control
+                  type="text"
+                  value={mfaCode}
+                  onChange={e => setMfaCode(e.target.value)}
+                  required
+                  className="border-2"
+                  placeholder="Code aus Ihrer Authenticator-App"
+                  autoComplete="one-time-code"
+                />
+              </Form.Group>
 
-            <Form.Group className="mb-4">
-              <Form.Label>E-Mail-Adresse</Form.Label>
-              <Form.Control
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                required
-                autoComplete="username"
-                className="border-2"
-                placeholder="ihre@email.de"
-              />
-            </Form.Group>
-
-            <Form.Group className="mb-4">
-              <Form.Label>Passwort</Form.Label>
-              <Form.Control
-                type="password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                required
-                autoComplete="current-password"
-                className="border-2"
-              />
-            </Form.Group>
-
-            <Button 
-              type="submit" 
-              className="w-full bg-[#064497] hover:bg-[#0B66E6] text-white py-2 rounded"
-              disabled={loading}
-            >
-              Anmelden
-            </Button>
-          </Form>
+              <div className="d-flex flex-column gap-2">
+                <Button 
+                  type="submit" 
+                  className="w-full bg-[#064497] hover:bg-[#0B66E6] text-white py-2 rounded"
+                  disabled={loading}
+                >
+                  Verifizieren
+                </Button>
+                <Button 
+                  type="button" 
+                  variant="outline-secondary"
+                  className="w-full"
+                  onClick={() => {
+                    setShowMfaInput(false);
+                    setSession(null);
+                    setMfaCode("");
+                  }}
+                  disabled={loading}
+                >
+                  Zurück
+                </Button>
+              </div>
+            </Form>
+          )}
         </div>
       </Container>
     </div>
