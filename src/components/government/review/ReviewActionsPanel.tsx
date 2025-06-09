@@ -465,7 +465,7 @@ const ReviewActionsPanel: React.FC<ReviewActionsPanelProps> = ({
       </div>
       {/* Modal for info */}
       <Modal show={showInfoModal} onHide={handleCloseInfo} centered>
-        <Modal.Header closeButton>
+        <Modal.Header>
           <Modal.Title>Antragsdetails</Modal.Title>
         </Modal.Header>
         <Modal.Body>

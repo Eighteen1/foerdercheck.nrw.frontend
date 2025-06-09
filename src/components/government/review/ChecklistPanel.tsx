@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { supabase, getCurrentUser } from '../../../lib/supabase';
 import { ChecklistItem, ReviewData } from '../../../types/checklist';
 import ChecklistItemComponent from './ChecklistItem';
+import CustomChecklistItem from './CustomChecklistItem';
+import AddChecklistItem from './AddChecklistItem';
 import { generateChecklistItems } from '../../../utils/checklistGenerator';
 
 type ChecklistPanelProps = {
@@ -28,6 +30,7 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [generatingChecklist, setGeneratingChecklist] = useState(false);
+  const [showAddItem, setShowAddItem] = useState(false);
   const [toast, setToast] = useState<{ message: string; visible: boolean }>({ message: '', visible: false });
 
   // Function to show toast
@@ -154,6 +157,85 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
     }
   };
 
+  const handleDeleteItem = async (itemId: string) => {
+    try {
+      const updatedItems = checklistItems.filter(item => item.id !== itemId);
+      setChecklistItems(updatedItems);
+      // Calculate progress
+      const totalItems = updatedItems.length;
+      const reviewedItems = updatedItems.filter(item => item.agentStatus === 'correct' || item.agentStatus === 'wrong').length;
+      const progress = totalItems === 0 ? 0 : Math.round((reviewedItems / totalItems) * 100);
+      // Save to database
+      const user = await getCurrentUser();
+      const { error: updateError } = await supabase
+        .from('applications')
+        .update({
+          review_data: { checklistItems: updatedItems },
+          review_progress: progress,
+          updated_at: new Date().toISOString(),
+          last_edit_agent: user?.id || null
+        })
+        .eq('id', applicationId);
+      if (updateError) throw updateError;
+      onProgressUpdate(progress);
+      setSelectedIndex(null);
+    } catch (error) {
+      console.error('Error deleting item:', error);
+      showToast('Fehler beim Löschen des To-Dos. Bitte versuchen Sie es erneut.');
+    }
+  };
+
+  const handleEditCustomItem = async (itemId: string, updates: Partial<{ title: string; systemComment: string; systemErrors: string[] }>) => {
+    try {
+      const updatedItems = checklistItems.map(item =>
+        item.id === itemId ? { ...item, ...updates } : item
+      );
+      setChecklistItems(updatedItems);
+      // Save to database
+      const user = await getCurrentUser();
+      const { error: updateError } = await supabase
+        .from('applications')
+        .update({
+          review_data: { checklistItems: updatedItems },
+          updated_at: new Date().toISOString(),
+          last_edit_agent: user?.id || null
+        })
+        .eq('id', applicationId);
+      if (updateError) throw updateError;
+    } catch (error) {
+      console.error('Error editing item:', error);
+      showToast('Fehler beim Bearbeiten des To-Dos. Bitte versuchen Sie es erneut.');
+    }
+  };
+
+  const handleAddItem = async (newItem: ChecklistItem) => {
+    try {
+      const updatedItems = [...checklistItems, newItem];
+      setChecklistItems(updatedItems);
+      setShowAddItem(false);
+      // Calculate progress
+      const totalItems = updatedItems.length;
+      const reviewedItems = updatedItems.filter(item => item.agentStatus === 'correct' || item.agentStatus === 'wrong').length;
+      const progress = totalItems === 0 ? 0 : Math.round((reviewedItems / totalItems) * 100);
+      // Save to database
+      const user = await getCurrentUser();
+      const { error: updateError } = await supabase
+        .from('applications')
+        .update({
+          review_data: { checklistItems: updatedItems },
+          review_progress: progress,
+          updated_at: new Date().toISOString(),
+          last_edit_agent: user?.id || null
+        })
+        .eq('id', applicationId);
+      if (updateError) throw updateError;
+      onProgressUpdate(progress);
+    } catch (error) {
+      console.error('Error adding new item:', error);
+      showToast('Fehler beim Hinzufügen des neuen To-Dos. Bitte versuchen Sie es erneut.');
+    }
+  };
+
   // State indicator logic
   function getStateLabel(item: ChecklistItem): 'Unbearbeitet' | 'In Bearbeitung' | 'Bearbeitet' {
     if ((item.agentStatus === 'undefined' || !item.agentStatus) && !item.agentNotes) return 'Unbearbeitet';
@@ -227,64 +309,156 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
 
   // List mode: show scrollable list of titles
   if (selectedIndex === null) {
+    const systemItems = checklistItems.filter(item => item.systemStatus !== 'created');
+    const customItems = checklistItems.filter(item => item.systemStatus === 'created');
+
     return (
       <div style={{ width: '100%', background: 'none', padding: '0 0 24px 0' }}>
-        <h4
-          style={{
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          padding: '24px 24px 0 24px',
+          marginBottom: 22
+        }}>
+          <h4 style={{
             fontFamily: 'Roboto',
             fontWeight: 300,
             fontSize: 22,
-            margin: '0 0 22px 0',
-            padding: '24px 24px 0 24px',
+            margin: 0,
             color: '#000',
             letterSpacing: 0.1,
-          }}
-        >
-          Checkliste
-        </h4>
+          }}>
+            Checkliste
+          </h4>
+          <button
+            onClick={() => setShowAddItem(true)}
+            style={{
+              padding: '8px 16px',
+              background: '#064497',
+              color: '#fff',
+              border: 'none',
+              borderRadius: 5,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              fontSize: 15,
+              fontWeight: 500,
+            }}
+          >
+            <span className="material-icons" style={{ fontSize: 20 }}>add</span>
+            Neues To-Do hinzufügen
+          </button>
+        </div>
+
+        {showAddItem && (
+          <div style={{ padding: '0 24px' }}>
+            <AddChecklistItem
+              onAdd={handleAddItem}
+              onCancel={() => setShowAddItem(false)}
+            />
+          </div>
+        )}
+
         <div style={{ maxHeight: '60vh', overflowY: 'auto', padding: '0 24px' }}>
           {checklistItems.length === 0 ? (
             <div style={{ color: '#666', textAlign: 'center', padding: 24 }}>
               No checklist items available.
             </div>
           ) : (
-            checklistItems.map((item, idx) => {
-              const stateLabel = getStateLabel(item);
-              const stateColor = getStateColor(stateLabel, item.agentStatus);
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => { closeOpenFormDoc(); setSelectedIndex(idx); }}
-                  style={{
-                    width: '100%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '18px 18px',
-                    marginBottom: 12,
-                    borderRadius: 8,
-                    background: '#fff',
-                    border: 'none',
-                    boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
-                    cursor: 'pointer',
+            <>
+              {/* System-generated items */}
+              {systemItems.map((item, idx) => {
+                const stateLabel = getStateLabel(item);
+                const stateColor = getStateColor(stateLabel, item.agentStatus);
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => { closeOpenFormDoc(); setSelectedIndex(idx); }}
+                    style={{
+                      width: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '18px 18px',
+                      marginBottom: 12,
+                      borderRadius: 8,
+                      background: '#fff',
+                      border: 'none',
+                      boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+                      cursor: 'pointer',
+                      fontSize: 17,
+                      fontWeight: 500,
+                      transition: 'background 0.2s',
+                    }}
+                  >
+                    <span style={{ color: '#064497', fontWeight: 500 }}>{item.title}</span>
+                    <span style={{
+                      ...stateColor,
+                      borderRadius: 14,
+                      padding: '4px 14px',
+                      fontWeight: 600,
+                      fontSize: 15,
+                      minWidth: 120,
+                      textAlign: 'center',
+                    }}>{stateLabel}</span>
+                  </button>
+                );
+              })}
+
+              {/* Custom items section */}
+              {customItems.length > 0 && (
+                <>
+                  <div style={{ 
+                    margin: '24px 0 12px 0',
+                    padding: '0 18px',
+                    color: '#666',
                     fontSize: 17,
-                    fontWeight: 500,
-                    transition: 'background 0.2s',
-                  }}
-                >
-                  <span style={{ color: '#064497', fontWeight: 500 }}>{item.title}</span>
-                  <span style={{
-                    ...stateColor,
-                    borderRadius: 14,
-                    padding: '4px 14px',
-                    fontWeight: 600,
-                    fontSize: 15,
-                    minWidth: 120,
-                    textAlign: 'center',
-                  }}>{stateLabel}</span>
-                </button>
-              );
-            })
+                    fontWeight: 500
+                  }}>
+                    Erstellte To-Dos
+                  </div>
+                  {customItems.map((item, idx) => {
+                    const stateLabel = getStateLabel(item);
+                    const stateColor = getStateColor(stateLabel, item.agentStatus);
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => { closeOpenFormDoc(); setSelectedIndex(systemItems.length + idx); }}
+                        style={{
+                          width: '100%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '18px 18px',
+                          marginBottom: 12,
+                          borderRadius: 8,
+                          background: '#fff',
+                          border: 'none',
+                          boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+                          cursor: 'pointer',
+                          fontSize: 17,
+                          fontWeight: 500,
+                          transition: 'background 0.2s',
+                        }}
+                      >
+                        <span style={{ color: '#064497', fontWeight: 500 }}>{item.title}</span>
+                        <span style={{
+                          ...stateColor,
+                          borderRadius: 14,
+                          padding: '4px 14px',
+                          fontWeight: 600,
+                          fontSize: 15,
+                          minWidth: 120,
+                          textAlign: 'center',
+                        }}>{stateLabel}</span>
+                      </button>
+                    );
+                  })}
+                </>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -292,7 +466,17 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
   }
 
   // Detail mode: show only the selected item
-  const item = checklistItems[selectedIndex];
+  if (selectedIndex !== null) {
+    if (selectedIndex < 0 || selectedIndex >= checklistItems.length) {
+      setSelectedIndex(null);
+      return null;
+    }
+  }
+  const item = selectedIndex !== null ? checklistItems[selectedIndex] : null;
+  const isCustomItem = item && item.systemStatus === 'created';
+
+  if (!item) return null;
+
   return (
     <div style={{ width: '100%', background: 'none', padding: '0 0 24px 0', position: 'relative' }}>
       {/* Toast Notification */}
@@ -320,19 +504,37 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
 
       <div style={{ width: '100%', background: 'none', padding: 0, marginTop: 8 }}>
         <div style={{ padding: 0 }}>
-          <ChecklistItemComponent
-            item={item}
-            onStatusChange={async (itemId, newStatus) => {
-              await handleStatusChange(itemId, newStatus);
-              setChecklistItems((prev) => prev.map(i => i.id === itemId ? { ...i, agentStatus: newStatus as any } : i));
-            }}
-            onNotesChange={async (itemId, notes) => {
-              await handleNotesChange(itemId, notes);
-              setChecklistItems((prev) => prev.map(i => i.id === itemId ? { ...i, agentNotes: notes } : i));
-            }}
-            onOpenForm={onOpenForm}
-            onOpenDocument={onOpenDocument}
-          />
+          {isCustomItem ? (
+            <CustomChecklistItem
+              item={item}
+              onStatusChange={async (itemId, newStatus) => {
+                await handleStatusChange(itemId, newStatus);
+                setChecklistItems((prev) => prev.map(i => i.id === itemId ? { ...i, agentStatus: newStatus as any } : i));
+              }}
+              onNotesChange={async (itemId, notes) => {
+                await handleNotesChange(itemId, notes);
+                setChecklistItems((prev) => prev.map(i => i.id === itemId ? { ...i, agentNotes: notes } : i));
+              }}
+              onOpenForm={onOpenForm}
+              onOpenDocument={onOpenDocument}
+              onDelete={handleDeleteItem}
+              onEdit={handleEditCustomItem}
+            />
+          ) : (
+            <ChecklistItemComponent
+              item={item}
+              onStatusChange={async (itemId, newStatus) => {
+                await handleStatusChange(itemId, newStatus);
+                setChecklistItems((prev) => prev.map(i => i.id === itemId ? { ...i, agentStatus: newStatus as any } : i));
+              }}
+              onNotesChange={async (itemId, notes) => {
+                await handleNotesChange(itemId, notes);
+                setChecklistItems((prev) => prev.map(i => i.id === itemId ? { ...i, agentNotes: notes } : i));
+              }}
+              onOpenForm={onOpenForm}
+              onOpenDocument={onOpenDocument}
+            />
+          )}
         </div>
         {/* Navigation Buttons */}
         <div style={{ display: 'flex', width: '100%', marginTop: 0, gap: 16, justifyContent: 'center', background: 'none', position: 'relative', minHeight: 64, padding: '0px 0 0 0' }}>

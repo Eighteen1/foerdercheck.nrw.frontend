@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Table, Button, ButtonGroup, Form, Spinner, Alert, Dropdown } from "react-bootstrap";
+import { Table, Button, ButtonGroup, Form, Spinner, Alert, Dropdown, Modal } from "react-bootstrap";
 import { supabase } from "../../lib/supabase";
 import { useNavigate } from 'react-router-dom';
 
@@ -62,6 +62,12 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
   const [user, setUser] = useState<any>(null);
   const [agentMap, setAgentMap] = useState<Record<string, { name: string; email: string }>>({});
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [showSearchModal, setShowSearchModal] = useState(false);
+  const [searchType, setSearchType] = useState<"id" | "name" | "email" | "phone" | "address">("id");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchCommitted, setSearchCommitted] = useState(false);
   const navigate = useNavigate();
 
   // Load current user and agents for their city
@@ -98,17 +104,50 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
   useEffect(() => {
     const fetchApplications = async () => {
       setLoading(true);
-      let { data, error } = await supabase
-        .from("applications")
-        .select("id, status, submitted_at, updated_at, review_progress, type, assigned_agent, finished_at")
-        .order("submitted_at", { ascending: false });
-      if (error) {
+      try {
+        // First fetch applications
+        const { data: apps, error: appsError } = await supabase
+          .from("applications")
+          .select("id, status, submitted_at, updated_at, review_progress, type, assigned_agent, finished_at, resident_id")
+          .order("submitted_at", { ascending: false });
+
+        if (appsError) throw appsError;
+
+        // Then fetch user data for all applications
+        const residentIds = apps?.map(app => app.resident_id).filter(Boolean) || [];
+        const { data: userData, error: userError } = await supabase
+          .from("user_data")
+          .select("id, firstname, lastname, email, phone")
+          .in("id", residentIds);
+
+        if (userError) throw userError;
+
+        // Fetch object data for all applications
+        const { data: objectData, error: objectError } = await supabase
+          .from("object_data")
+          .select("user_id, obj_street, obj_house_number, obj_postal_code, obj_city")
+          .in("user_id", residentIds);
+
+        if (objectError) throw objectError;
+
+        // Create maps for quick lookup
+        const userMap = new Map(userData?.map(user => [user.id, user]) || []);
+        const objectMap = new Map(objectData?.map(obj => [obj.user_id, obj]) || []);
+
+        // Combine the data
+        const combinedData = apps?.map(app => ({
+          ...app,
+          user_data: userMap.get(app.resident_id),
+          object_data: objectMap.get(app.resident_id)
+        })) || [];
+
+        setApplications(combinedData);
+      } catch (error) {
+        console.error("Error fetching applications:", error);
         setApplications([]);
+      } finally {
         setLoading(false);
-        return;
       }
-      setApplications(data || []);
-      setLoading(false);
     };
     fetchApplications();
   }, []);
@@ -183,6 +222,174 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
     { label: "Dokumente erhalten", value: "documents_received" },
   ];
 
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) return;
+    setSearchCommitted(true);
+    setSearchLoading(true);
+    try {
+      let query;
+      
+      // First, find matching user_data or object_data based on search type
+      switch (searchType) {
+        case "id":
+          // Direct search in applications table
+          const { data: appData, error: appError } = await supabase
+            .from("applications")
+            .select("id, status, submitted_at, type, resident_id")
+            .ilike("id", `%${searchQuery}%`);
+          
+          if (appError) throw appError;
+          query = appData;
+          break;
+
+        case "name":
+          // Search in user_data first
+          const { data: nameData, error: nameError } = await supabase
+            .from("user_data")
+            .select("id")
+            .or(`firstname.ilike.%${searchQuery}%,lastname.ilike.%${searchQuery}%`);
+          
+          if (nameError) throw nameError;
+          if (!nameData?.length) {
+            setSearchResults([]);
+            return;
+          }
+          
+          // Then get applications for these users
+          const { data: nameAppData, error: nameAppError } = await supabase
+            .from("applications")
+            .select("id, status, submitted_at, type, resident_id")
+            .in("resident_id", nameData.map(u => u.id));
+          
+          if (nameAppError) throw nameAppError;
+          query = nameAppData;
+          break;
+
+        case "email":
+          // Search in user_data first
+          const { data: emailData, error: emailError } = await supabase
+            .from("user_data")
+            .select("id")
+            .ilike("email", `%${searchQuery}%`);
+          
+          if (emailError) throw emailError;
+          if (!emailData?.length) {
+            setSearchResults([]);
+            return;
+          }
+          
+          // Then get applications for these users
+          const { data: emailAppData, error: emailAppError } = await supabase
+            .from("applications")
+            .select("id, status, submitted_at, type, resident_id")
+            .in("resident_id", emailData.map(u => u.id));
+          
+          if (emailAppError) throw emailAppError;
+          query = emailAppData;
+          break;
+
+        case "phone":
+          // Search in user_data first
+          const { data: phoneData, error: phoneError } = await supabase
+            .from("user_data")
+            .select("id")
+            .ilike("phone", `%${searchQuery}%`);
+          
+          if (phoneError) throw phoneError;
+          if (!phoneData?.length) {
+            setSearchResults([]);
+            return;
+          }
+          
+          // Then get applications for these users
+          const { data: phoneAppData, error: phoneAppError } = await supabase
+            .from("applications")
+            .select("id, status, submitted_at, type, resident_id")
+            .in("resident_id", phoneData.map(u => u.id));
+          
+          if (phoneAppError) throw phoneAppError;
+          query = phoneAppData;
+          break;
+
+        case "address":
+          // Search in object_data first
+          const { data: addressData, error: addressError } = await supabase
+            .from("object_data")
+            .select("user_id")
+            .or(
+              `obj_street.ilike.%${searchQuery}%,` +
+              `obj_house_number.ilike.%${searchQuery}%,` +
+              `obj_postal_code.ilike.%${searchQuery}%,` +
+              `obj_city.ilike.%${searchQuery}%`
+            );
+          
+          if (addressError) throw addressError;
+          if (!addressData?.length) {
+            setSearchResults([]);
+            return;
+          }
+          
+          // Then get applications for these users
+          const { data: addressAppData, error: addressAppError } = await supabase
+            .from("applications")
+            .select("id, status, submitted_at, type, resident_id")
+            .in("resident_id", addressData.map(o => o.user_id));
+          
+          if (addressAppError) throw addressAppError;
+          query = addressAppData;
+          break;
+      }
+
+      if (!query?.length) {
+        setSearchResults([]);
+        return;
+      }
+
+      // Get user data for all found applications
+      const residentIds = query.map(app => app.resident_id).filter(Boolean);
+      const { data: userData, error: userError } = await supabase
+        .from("user_data")
+        .select("id, firstname, lastname, email, phone")
+        .in("id", residentIds);
+
+      if (userError) throw userError;
+
+      // Get object data for all found applications
+      const { data: objectData, error: objectError } = await supabase
+        .from("object_data")
+        .select("user_id, obj_street, obj_house_number, obj_postal_code, obj_city")
+        .in("user_id", residentIds);
+
+      if (objectError) throw objectError;
+
+      // Create maps for quick lookup
+      const userMap = new Map(userData?.map(user => [user.id, user]) || []);
+      const objectMap = new Map(objectData?.map(obj => [obj.user_id, obj]) || []);
+
+      // Combine the data
+      const combinedResults = query.map(app => ({
+        ...app,
+        user_data: userMap.get(app.resident_id),
+        object_data: objectMap.get(app.resident_id)
+      }));
+
+      setSearchResults(combinedResults);
+    } catch (error) {
+      console.error("Search error:", error);
+      setSearchResults([]);
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  // Add this effect to clear search results when searchQuery is empty
+  useEffect(() => {
+    if (!searchQuery) {
+      setSearchResults([]);
+      setSearchCommitted(false);
+    }
+  }, [searchQuery]);
+
   return (
     <div style={{ maxWidth: 1200, margin: "0 auto" }}>
       {/* Top status cards */}
@@ -253,7 +460,11 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
       <div className="d-flex align-items-center justify-content-between mb-0" style={{ width: "100%" }}>
         <h4 style={{ color: "#000000", fontWeight: 600, marginBottom: 0, marginLeft: 12 }}>Übersicht</h4>
         <div className="d-flex align-items-center gap-2">
-          <Button variant="link" style={{ color: "#064497", fontSize: 22 }}>
+          <Button 
+            variant="link" 
+            style={{ color: "#064497", fontSize: 22 }}
+            onClick={() => setShowSearchModal(true)}
+          >
             <span className="material-icons">search</span>
           </Button>
           <Button variant="link" style={{ color: selectedIds.length > 0 ? "#064497" : "#b0b0b0", fontSize: 22 }} disabled={selectedIds.length === 0}>
@@ -597,6 +808,128 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
           </Table>
         </div>
       </div>
+
+      {/* Search Modal */}
+      <Modal show={showSearchModal} onHide={() => setShowSearchModal(false)} centered size="lg">
+        <Modal.Header closeButton={false}>
+          <Modal.Title>Antragssuche</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <div className="d-flex flex-column gap-4">
+            <Form.Group>
+              <Form.Label>Suchkriterium</Form.Label>
+              <Form.Select 
+                value={searchType} 
+                onChange={(e) => {
+                  setSearchType(e.target.value as any);
+                  setSearchQuery("");
+                  setSearchResults([]);
+                  setSearchCommitted(false);
+                }}
+              >
+                <option value="id">Antragsnummer</option>
+                <option value="name">Name Hauptantragsteller</option>
+                <option value="email">Email Adresse Hauptantragsteller</option>
+                <option value="phone">Telefonnummer Hauptantragsteller</option>
+                <option value="address">Objekt Adresse</option>
+              </Form.Select>
+            </Form.Group>
+
+            <Form.Group>
+              <Form.Label>Suchbegriff</Form.Label>
+              <div className="d-flex gap-2">
+                <Form.Control
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Geben Sie Ihren Suchbegriff ein..."
+                  onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                />
+                <Button 
+                  variant="primary" 
+                  onClick={handleSearch}
+                  disabled={searchLoading || !searchQuery.trim()}
+                  style={{ backgroundColor: '#064497', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40 }}
+                >
+                  {searchLoading ? (
+                    <Spinner animation="border" size="sm" />
+                  ) : (
+                    <span className="material-icons" style={{ margin: 'auto' }}>search</span>
+                  )}
+                </Button>
+              </div>
+            </Form.Group>
+
+            {searchResults.length > 0 && (
+              <div className="mt-3">
+                <h6 className="mb-3">Suchergebnisse</h6>
+                <div className="table-responsive">
+                  <Table hover>
+                    <thead>
+                      <tr>
+                        <th>Antragsnummer</th>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Telefon</th>
+                        <th>Adresse</th>
+                        <th>Aktion</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {searchResults.map((result) => (
+                        <tr key={result.id}>
+                          <td>{result.id}</td>
+                          <td>
+                            {result.user_data?.firstname} {result.user_data?.lastname}
+                          </td>
+                          <td>{result.user_data?.email || '-'}</td>
+                          <td>{result.user_data?.phone || '-'}</td>
+                          <td>
+                            {result.object_data ? 
+                              `${result.object_data.obj_street || ''} ${result.object_data.obj_house_number || ''}, ${result.object_data.obj_postal_code || ''} ${result.object_data.obj_city || ''}` 
+                              : '-'}
+                          </td>
+                          <td>
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              style={{ borderRadius: 5, padding: '2px 16px', fontWeight: 500, backgroundColor: '#064497', border: 'none' }}
+                              onClick={() => {
+                                setShowSearchModal(false);
+                                if (onSelectApplication) {
+                                  onSelectApplication(result.id);
+                                } else {
+                                  navigate(`/government/review/${result.id}`);
+                                }
+                              }}
+                            >
+                              Öffnen
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </Table>
+                </div>
+              </div>
+            )}
+
+            {searchCommitted && !searchLoading && searchResults.length === 0 && (
+              <Alert variant="info" className="mb-0">
+                Keine Ergebnisse gefunden.
+              </Alert>
+            )}
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button 
+            variant="secondary" 
+            onClick={() => setShowSearchModal(false)}
+          >
+            Schließen
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 };

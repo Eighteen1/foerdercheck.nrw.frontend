@@ -1,4 +1,4 @@
-export type ChecklistStatus = 'correct' | 'wrong' | 'undefined';
+export type ChecklistStatus = 'correct' | 'wrong' | 'undefined' | 'created';
 
 export interface ChecklistItem {
   id: string;

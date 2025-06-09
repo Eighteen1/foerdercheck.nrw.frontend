@@ -7,6 +7,7 @@ const STATUS_LABELS: Record<ChecklistStatus, string> = {
   correct: 'Korrekt',
   wrong: 'Falsch',
   undefined: 'Ungeprüft',
+  created: 'Erstellt',
 };
 
 const ChecklistItem: React.FC<ChecklistItemProps> = ({
