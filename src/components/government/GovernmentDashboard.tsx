@@ -7,10 +7,12 @@ import GovernmentApplicationsPage from "./GovernmentApplicationsPage";
 import ApplicationReviewContainer from "./review/ApplicationReviewContainer";
 import GovernmentProfilePage from "./GovernmentProfilePage";
 import GovernmentDashboardPage from "./GovernmentDashboardPage";
+import GovernmentSettingsPage from "./GovernmentSettingsPage";
 
 const menuItems = [
   { key: "dashboard", label: "Dashboard", icon: "dashboard" },
   { key: "applications", label: "Anträge", icon: "description" },
+  { key: "messages", label: "Nachrichten", icon: "mail" },
   { key: "profile", label: "Profil", icon: "person" },
   { key: "help", label: "Hilfe", icon: "help_outline" },
   { key: "settings", label: "Einstellungen", icon: "settings" },
@@ -187,10 +189,7 @@ const GovernmentDashboard: React.FC = () => {
             <GovernmentProfilePage />
           )}
           {selectedMenu === "settings" && (
-            <div>
-              <h2 style={{ color: "#064497" }}>Einstellungen</h2>
-              <p>Hier können Sie Ihre Einstellungen anpassen.</p>
-            </div>
+            <GovernmentSettingsPage />
           )}
         </Container>
       </div>

@@ -502,6 +502,21 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
                       className="mt-1"
                     />
                   </th>
+                  <th style={{ minWidth: 180 }}>
+                    Zugewiesen an
+                    <Form.Select
+                      size="sm"
+                      value={filters.assigned_agent}
+                      onChange={e => setFilters(f => ({ ...f, assigned_agent: e.target.value }))}
+                      className="mt-1"
+                    >
+                      <option value="">Alle</option>
+                      <option value="null">Nicht zugewiesen</option>
+                      {agents.map(agent => (
+                        <option key={agent.id} value={agent.id}>{agent.name ? agent.name : agent.email}</option>
+                      ))}
+                    </Form.Select>
+                  </th>
                   <th style={{ minWidth: 140 }}>
                     Antragsdatum
                     <Form.Control
@@ -687,8 +702,8 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
                 </tr>
               ) : filteredApplications.length === 0 ? (
                 <tr>
-                  <td colSpan={activeTab === "in_progress" ? 6 : 5} className="text-center py-5">
-                    <Alert variant="info" className="mb-0">Keine Einträge gefunden.</Alert>
+                  <td colSpan={activeTab === "in_progress" ? 7 : 5} className="text-center py-5">
+                    <Alert variant="secondary" className="mb-0">Keine Einträge gefunden.</Alert>
                   </td>
                 </tr>
               ) : activeTab === "in_progress" ? (
@@ -714,6 +729,7 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
                       />
                     </td>
                     <td>{app.id}</td>
+                    <td>{app.assigned_agent ? (agentMap[app.assigned_agent]?.name || agentMap[app.assigned_agent]?.email || DEFAULT_AGENT_TEXT) : DEFAULT_AGENT_TEXT}</td>
                     <td>{formatDate(app.submitted_at)}</td>
                     <td>{formatDate(app.updated_at)}</td>
                     <td>
@@ -915,7 +931,7 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
             )}
 
             {searchCommitted && !searchLoading && searchResults.length === 0 && (
-              <Alert variant="info" className="mb-0">
+              <Alert variant="secondary" className="mb-0">
                 Keine Ergebnisse gefunden.
               </Alert>
             )}

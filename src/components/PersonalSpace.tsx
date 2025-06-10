@@ -4,6 +4,7 @@ import { Container, Row, Col, Button, Modal, Form, Spinner } from "react-bootstr
 import { useAuth } from "../contexts/AuthContext";
 import { supabase, storeEligibilityData, checkDocumentCheckStatus } from "../lib/supabase";
 import postcodeMap from '../utils/postcode_map.json';
+import { AssignmentRule } from '../types/city';
 
 const STATUS_DISPLAY = {
   pending: 'Ausstehend',
@@ -327,11 +328,70 @@ const PersonalSpace: React.FC = () => {
         return;
       }
   
+      // Get city settings to check assignment rules
+      const { data: cityData, error: cityError } = await supabase
+        .from('cities')
+        .select('settings')
+        .eq('id', cityId)
+        .single();
+
+      if (cityError) throw cityError;
+
+      let assignedAgent = null;
+      if (cityData?.settings?.assignmentRules) {
+        const { filterType, rules } = cityData.settings.assignmentRules;
+
+        // Get user data for household size and employment type
+        const { data: userData, error: userError } = await supabase
+          .from('user_data')
+          .select('adult_count, child_count, employment')
+          .eq('id', user?.id)
+          .single();
+
+        if (userError) throw userError;
+
+        // Get object data for postcode
+        const { data: objectData, error: objectError } = await supabase
+          .from('object_data')
+          .select('obj_postal_code')
+          .eq('user_id', user?.id)
+          .single();
+
+        if (objectError) throw objectError;
+
+        // Determine assigned agent based on filter type
+        switch (filterType) {
+          case 'type':
+            assignedAgent = rules[foerderVariante] || null;
+            break;
+          case 'postcode':
+            assignedAgent = rules[objectData.obj_postal_code] || null;
+            break;
+          case 'household':
+            const adultCount = userData.adult_count || 0;
+            const childCount = userData.child_count || 0;
+            
+            // Format adult count
+            const adultKey = adultCount >= 3 ? '3+' : adultCount.toString();
+            // Format child count
+            const childKey = childCount >= 3 ? '3+' : childCount.toString();
+            
+            // Create the rule key in format "adultCount_childCount"
+            const ruleKey = `${adultKey}_${childKey}`;
+            assignedAgent = rules[ruleKey] || null;
+            break;
+          case 'employment':
+            assignedAgent = rules[userData.employment] || null;
+            break;
+        }
+      }
+
       console.log('Attempting to insert application with data:', {
         resident_id: user?.id,
         city_id: cityId,
         type: foerderVariante,
-        status: 'new'
+        status: 'new',
+        assigned_agent: assignedAgent
       });
   
       // Insert into applications
@@ -342,8 +402,9 @@ const PersonalSpace: React.FC = () => {
           city_id: cityId,
           type: foerderVariante,
           status: 'new',
+          assigned_agent: assignedAgent
         })
-        .select();  // Add this to get the inserted data back
+        .select();
   
       if (appError) {
         console.error('Application insert error:', appError);

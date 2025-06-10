@@ -12,12 +12,6 @@ interface AgentData {
   city_id: string | null;
 }
 
-interface Factor {
-  id: string;
-  factor_type: string;
-  friendly_name: string;
-}
-
 const GovernmentProfilePage: React.FC = () => {
   const [agentData, setAgentData] = useState<AgentData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -44,10 +38,10 @@ const GovernmentProfilePage: React.FC = () => {
   });
 
   useEffect(() => {
-    fetchAgentData();
+    fetchData();
   }, []);
 
-  const fetchAgentData = async () => {
+  const fetchData = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) throw new Error('No user session');
@@ -63,7 +57,7 @@ const GovernmentProfilePage: React.FC = () => {
       setNewName(data.name || '');
     } catch (err) {
       setError('Fehler beim Laden der Profildaten');
-      console.error('Error fetching agent data:', err);
+      console.error('Error fetching data:', err);
     } finally {
       setLoading(false);
     }
@@ -99,6 +93,15 @@ const GovernmentProfilePage: React.FC = () => {
       });
 
       if (error) throw error;
+
+      // Update the last_password_change in the agents table
+      const { error: updateError } = await supabase
+        .from('agents')
+        .update({ last_password_change: new Date().toISOString() })
+        .eq('id', agentData?.id);
+
+      if (updateError) throw updateError;
+
       setIsChangingPassword(false);
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
       setSuccess('Passwort erfolgreich geändert');
@@ -226,266 +229,266 @@ const GovernmentProfilePage: React.FC = () => {
 
   return (
     <div style={{ maxWidth: 800, margin: '0 auto' }}>
-      <div style={{ background: '#fff', borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', padding: 32 }}>
-        {error && (
-          <Alert variant="danger" onClose={() => setError(null)} dismissible>
-            {error}
-          </Alert>
-        )}
+      {error && (
+        <Alert variant="danger" onClose={() => setError(null)} dismissible>
+          {error}
+        </Alert>
+      )}
 
-        {success && (
-          <Alert variant="success" onClose={() => setSuccess(null)} dismissible>
-            {success}
-          </Alert>
-        )}
+      {success && (
+        <Alert variant="success" onClose={() => setSuccess(null)} dismissible>
+          {success}
+        </Alert>
+      )}
 
-        <div style={{ marginBottom: 32 }}>
-          <h1 style={{ color: '#064497', marginBottom: 16, fontSize: '1.2rem', fontWeight: 500 }}>Persönliche Informationen</h1>
-          
-          <div style={{ marginBottom: 16 }}>
-            <Form.Label style={{ fontWeight: 500 }}>Name</Form.Label>
-            {isEditingName ? (
-              <div className="d-flex gap-2">
-                <Form.Control
-                  type="text"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  placeholder="Ihr Name"
-                />
-                <Button
-                  variant="primary"
-                  onClick={handleNameUpdate}
-                  style={{ background: '#064497', border: 'none' }}
-                >
-                  Speichern
-                </Button>
-                <Button
-                  variant="outline-secondary"
-                  onClick={() => {
-                    setIsEditingName(false);
-                    setNewName(agentData?.name || '');
-                  }}
-                  className="btn-cancel"
-                >
-                  Abbrechen
-                </Button>
-              </div>
-            ) : (
-              <div className="d-flex align-items-center gap-2">
-                <div style={{ flex: 1 }}>
-                  {agentData?.name || 'Kein Name gesetzt'}
-                </div>
-                <Button
-                  variant="link"
-                  onClick={() => setIsEditingName(true)}
-                  style={{ color: '#064497', padding: 0 }}
-                >
-                  <span className="material-icons">edit</span>
-                </Button>
-              </div>
-            )}
-          </div>
-
-          <div style={{ marginBottom: 16 }}>
-            <Form.Label style={{ fontWeight: 500 }}>E-Mail</Form.Label>
-            <div>{agentData?.email}</div>
-          </div>
-
-          <div style={{ marginBottom: 16 }}>
-            <Form.Label style={{ fontWeight: 500 }}>Rolle</Form.Label>
-            <div>
-              {agentData?.role === 'admin' ? 'Administrator' :
-               agentData?.role === 'agent' ? 'Benutzer' :
-               agentData?.role === 'readonly' ? 'Lesender Benutzer' : agentData?.role}
-            </div>
-          </div>
-        </div>
-
-        <div style={{ marginBottom: 32 }}>
-          <h1 style={{ color: '#064497', marginBottom: 16, fontSize: '1.2rem', fontWeight: 500 }}>Sicherheit</h1>
-
-          <div style={{ marginBottom: 24 }}>
-            <div className="d-flex justify-content-between align-items-center">
-              <div>
-                <h5 style={{ marginBottom: 4, fontWeight: 500 }}>Passwort ändern</h5>
-                <p style={{ color: '#666', margin: 0 }}>Aktualisieren Sie Ihr Passwort regelmäßig</p>
-              </div>
+      {/* Personal Information Card */}
+      <div style={{ background: '#fff', borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', padding: 32, marginBottom: 24 }}>
+        <h1 style={{ color: '#064497', marginBottom: 16, fontSize: '1.2rem', fontWeight: 500 }}>Persönliche Informationen</h1>
+        
+        <div style={{ marginBottom: 16 }}>
+          <Form.Label style={{ fontWeight: 500 }}>Name</Form.Label>
+          {isEditingName ? (
+            <div className="d-flex gap-2">
+              <Form.Control
+                type="text"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="Ihr Name"
+              />
               <Button
-                variant={isChangingPassword ? "outline-secondary" : "outline-primary"}
-                onClick={() => setIsChangingPassword(!isChangingPassword)}
-                style={{ borderColor: '#064497', color: '#064497' }}
-                className={isChangingPassword ? "btn-cancel" : "btn-primary-outline"}
+                variant="primary"
+                onClick={handleNameUpdate}
+                style={{ background: '#064497', border: 'none' }}
               >
-                {isChangingPassword ? 'Abbrechen' : 'Ändern'}
+                Speichern
+              </Button>
+              <Button
+                variant="outline-secondary"
+                onClick={() => {
+                  setIsEditingName(false);
+                  setNewName(agentData?.name || '');
+                }}
+                className="btn-cancel"
+              >
+                Abbrechen
               </Button>
             </div>
-
-            {isChangingPassword && (
-              <div style={{ marginTop: 16, padding: 16, background: '#f8f9fa', borderRadius: 8 }}>
-                <Form.Group className="mb-3">
-                  <Form.Label>Aktuelles Passwort</Form.Label>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <Form.Control
-                      type={showPasswords.current ? "text" : "password"}
-                      value={passwordData.currentPassword}
-                      onChange={(e) => setPasswordData(prev => ({ ...prev, currentPassword: e.target.value }))}
-                    />
-                    <Button
-                      variant="link"
-                      style={{
-                        color: '#064497',
-                        padding: 0,
-                        marginLeft: 0,
-                        height: '38px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        textDecoration: 'none'
-                      }}
-                      onClick={() => setShowPasswords(prev => ({ ...prev, current: !prev.current }))}
-                      tabIndex={-1}
-                    >
-                      <span className="material-icons">
-                        {showPasswords.current ? "visibility_off" : "visibility"}
-                      </span>
-                    </Button>
-                  </div>
-                </Form.Group>
-                <Form.Group className="mb-3">
-                  <Form.Label>Neues Passwort</Form.Label>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <Form.Control
-                      type={showPasswords.new ? "text" : "password"}
-                      value={passwordData.newPassword}
-                      onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
-                      isInvalid={passwordData.newPassword.length > 0 && passwordData.newPassword.length < 6}
-                    />
-                    <Button
-                      variant="link"
-                      style={{
-                        color: '#064497',
-                        padding: 0,
-                        marginLeft: 0,
-                        height: '38px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        textDecoration: 'none'
-                      }}
-                      onClick={() => setShowPasswords(prev => ({ ...prev, new: !prev.new }))}
-                      tabIndex={-1}
-                    >
-                      <span className="material-icons">
-                        {showPasswords.new ? "visibility_off" : "visibility"}
-                      </span>
-                    </Button>
-                  </div>
-                  <Form.Control.Feedback type="invalid">
-                    Das Passwort muss mindestens 6 Zeichen lang sein.
-                  </Form.Control.Feedback>
-                </Form.Group>
-                <Form.Group className="mb-3">
-                  <Form.Label>Neues Passwort bestätigen</Form.Label>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <Form.Control
-                      type={showPasswords.confirm ? "text" : "password"}
-                      value={passwordData.confirmPassword}
-                      onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
-                      isInvalid={passwordData.confirmPassword.length > 0 && passwordData.confirmPassword !== passwordData.newPassword}
-                    />
-                    <Button
-                      variant="link"
-                      style={{
-                        color: '#064497',
-                        padding: 0,
-                        marginLeft: 0,
-                        height: '38px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        textDecoration: 'none'
-                      }}
-                      onClick={() => setShowPasswords(prev => ({ ...prev, confirm: !prev.confirm }))}
-                      tabIndex={-1}
-                    >
-                      <span className="material-icons">
-                        {showPasswords.confirm ? "visibility_off" : "visibility"}
-                      </span>
-                    </Button>
-                  </div>
-                  <Form.Control.Feedback type="invalid">
-                    Die Passwörter stimmen nicht überein.
-                  </Form.Control.Feedback>
-                </Form.Group>
-                <Button
-                  variant="primary"
-                  onClick={handlePasswordChange}
-                  style={{ background: '#064497', border: 'none' }}
-                  disabled={passwordData.newPassword.length < 6 || passwordData.newPassword !== passwordData.confirmPassword}
-                >
-                  Passwort ändern
-                </Button>
+          ) : (
+            <div className="d-flex align-items-center gap-2">
+              <div style={{ flex: 1 }}>
+                {agentData?.name || 'Kein Name gesetzt'}
               </div>
-            )}
-          </div>
-
-          <div>
-            <div className="d-flex justify-content-between align-items-center">
-              <div>
-                <h5 style={{ marginBottom: 4, fontWeight: 500 }}>Zwei-Faktor-Authentifizierung</h5>
-                <p style={{ color: '#666', margin: 0 }}>
-                  {agentData?.mfa_enabled
-                    ? 'Zwei-Faktor-Authentifizierung ist aktiviert'
-                    : 'Erhöhen Sie die Sicherheit Ihres Kontos'}
-                </p>
-              </div>
-              {agentData?.mfa_enabled ? (
-                <Button
-                  variant="outline-danger"
-                  onClick={handleDisableMFA}
-                  style={{ borderColor: '#dc3545', color: '#dc3545' }}
-                  className="btn-danger-outline"
-                >
-                  Deaktivieren
-                </Button>
-              ) : (
-                <Button
-                  variant={isSettingUpMFA ? "outline-secondary" : "outline-primary"}
-                  onClick={isSettingUpMFA ? () => setIsSettingUpMFA(false) : startMFASetup}
-                  style={{ borderColor: '#064497', color: '#064497' }}
-                  className={isSettingUpMFA ? "btn-cancel" : "btn-primary-outline"}
-                >
-                  {isSettingUpMFA ? 'Abbrechen' : 'Aktivieren'}
-                </Button>
-              )}
+              <Button
+                variant="link"
+                onClick={() => setIsEditingName(true)}
+                style={{ color: '#064497', padding: 0 }}
+              >
+                <span className="material-icons">edit</span>
+              </Button>
             </div>
+          )}
+        </div>
 
-            {isSettingUpMFA && (
-              <div style={{ marginTop: 16, padding: 16, background: '#f8f9fa', borderRadius: 8 }}>
-                <p style={{ marginBottom: 16 }}>
-                  1. Scannen Sie den QR-Code mit Ihrer Authenticator-App (z.B. Google Authenticator)
-                </p>
-                {mfaData.qrCode && (
-                  <div style={{ marginBottom: 16, textAlign: 'center' }}>
-                    <img src={mfaData.qrCode} alt="MFA QR Code" style={{ maxWidth: 200 }} />
-                  </div>
-                )}
-                <Form.Group className="mb-3">
-                  <Form.Label>Verifizierungscode</Form.Label>
+        <div style={{ marginBottom: 16 }}>
+          <Form.Label style={{ fontWeight: 500 }}>E-Mail</Form.Label>
+          <div>{agentData?.email}</div>
+        </div>
+
+        <div style={{ marginBottom: 16 }}>
+          <Form.Label style={{ fontWeight: 500 }}>Rolle</Form.Label>
+          <div>
+            {agentData?.role === 'admin' ? 'Administrator' :
+             agentData?.role === 'agent' ? 'Benutzer' :
+             agentData?.role === 'readonly' ? 'Lesender Benutzer' : agentData?.role}
+          </div>
+        </div>
+      </div>
+
+      {/* Security Card */}
+      <div style={{ background: '#fff', borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', padding: 32 }}>
+        <h1 style={{ color: '#064497', marginBottom: 16, fontSize: '1.2rem', fontWeight: 500 }}>Sicherheit</h1>
+
+        <div style={{ marginBottom: 24 }}>
+          <div className="d-flex justify-content-between align-items-center">
+            <div>
+              <h5 style={{ marginBottom: 4, fontWeight: 500 }}>Passwort ändern</h5>
+              <p style={{ color: '#666', margin: 0 }}>Aktualisieren Sie Ihr Passwort regelmäßig</p>
+            </div>
+            <Button
+              variant={isChangingPassword ? "outline-secondary" : "outline-primary"}
+              onClick={() => setIsChangingPassword(!isChangingPassword)}
+              style={{ borderColor: '#064497', color: '#064497' }}
+              className={isChangingPassword ? "btn-cancel" : "btn-primary-outline"}
+            >
+              {isChangingPassword ? 'Abbrechen' : 'Ändern'}
+            </Button>
+          </div>
+
+          {isChangingPassword && (
+            <div style={{ marginTop: 16, padding: 16, background: '#f8f9fa', borderRadius: 8 }}>
+              <Form.Group className="mb-3">
+                <Form.Label>Aktuelles Passwort</Form.Label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <Form.Control
-                    type="text"
-                    value={mfaData.verificationCode}
-                    onChange={(e) => setMfaData(prev => ({ ...prev, verificationCode: e.target.value }))}
-                    placeholder="Code aus Ihrer Authenticator-App"
+                    type={showPasswords.current ? "text" : "password"}
+                    value={passwordData.currentPassword}
+                    onChange={(e) => setPasswordData(prev => ({ ...prev, currentPassword: e.target.value }))}
                   />
-                </Form.Group>
-                <Button
-                  variant="primary"
-                  onClick={handleMFASetup}
-                  style={{ background: '#064497', border: 'none' }}
-                >
-                  Verifizieren und aktivieren
-                </Button>
-              </div>
+                  <Button
+                    variant="link"
+                    style={{
+                      color: '#064497',
+                      padding: 0,
+                      marginLeft: 0,
+                      height: '38px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      textDecoration: 'none'
+                    }}
+                    onClick={() => setShowPasswords(prev => ({ ...prev, current: !prev.current }))}
+                    tabIndex={-1}
+                  >
+                    <span className="material-icons">
+                      {showPasswords.current ? "visibility_off" : "visibility"}
+                    </span>
+                  </Button>
+                </div>
+              </Form.Group>
+              <Form.Group className="mb-3">
+                <Form.Label>Neues Passwort</Form.Label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Form.Control
+                    type={showPasswords.new ? "text" : "password"}
+                    value={passwordData.newPassword}
+                    onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
+                    isInvalid={passwordData.newPassword.length > 0 && passwordData.newPassword.length < 6}
+                  />
+                  <Button
+                    variant="link"
+                    style={{
+                      color: '#064497',
+                      padding: 0,
+                      marginLeft: 0,
+                      height: '38px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      textDecoration: 'none'
+                    }}
+                    onClick={() => setShowPasswords(prev => ({ ...prev, new: !prev.new }))}
+                    tabIndex={-1}
+                  >
+                    <span className="material-icons">
+                      {showPasswords.new ? "visibility_off" : "visibility"}
+                    </span>
+                  </Button>
+                </div>
+                <Form.Control.Feedback type="invalid">
+                  Das Passwort muss mindestens 6 Zeichen lang sein.
+                </Form.Control.Feedback>
+              </Form.Group>
+              <Form.Group className="mb-3">
+                <Form.Label>Neues Passwort bestätigen</Form.Label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Form.Control
+                    type={showPasswords.confirm ? "text" : "password"}
+                    value={passwordData.confirmPassword}
+                    onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                    isInvalid={passwordData.confirmPassword.length > 0 && passwordData.confirmPassword !== passwordData.newPassword}
+                  />
+                  <Button
+                    variant="link"
+                    style={{
+                      color: '#064497',
+                      padding: 0,
+                      marginLeft: 0,
+                      height: '38px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      textDecoration: 'none'
+                    }}
+                    onClick={() => setShowPasswords(prev => ({ ...prev, confirm: !prev.confirm }))}
+                    tabIndex={-1}
+                  >
+                    <span className="material-icons">
+                      {showPasswords.confirm ? "visibility_off" : "visibility"}
+                    </span>
+                  </Button>
+                </div>
+                <Form.Control.Feedback type="invalid">
+                  Die Passwörter stimmen nicht überein.
+                </Form.Control.Feedback>
+              </Form.Group>
+              <Button
+                variant="primary"
+                onClick={handlePasswordChange}
+                style={{ background: '#064497', border: 'none' }}
+                disabled={passwordData.newPassword.length < 6 || passwordData.newPassword !== passwordData.confirmPassword}
+              >
+                Passwort ändern
+              </Button>
+            </div>
+          )}
+        </div>
+
+        <div>
+          <div className="d-flex justify-content-between align-items-center">
+            <div>
+              <h5 style={{ marginBottom: 4, fontWeight: 500 }}>Zwei-Faktor-Authentifizierung</h5>
+              <p style={{ color: '#666', margin: 0 }}>
+                {agentData?.mfa_enabled
+                  ? 'Zwei-Faktor-Authentifizierung ist aktiviert'
+                  : 'Erhöhen Sie die Sicherheit Ihres Kontos'}
+              </p>
+            </div>
+            {agentData?.mfa_enabled ? (
+              <Button
+                variant="outline-danger"
+                onClick={handleDisableMFA}
+                style={{ borderColor: '#dc3545', color: '#dc3545' }}
+                className="btn-danger-outline"
+              >
+                Deaktivieren
+              </Button>
+            ) : (
+              <Button
+                variant={isSettingUpMFA ? "outline-secondary" : "outline-primary"}
+                onClick={isSettingUpMFA ? () => setIsSettingUpMFA(false) : startMFASetup}
+                style={{ borderColor: '#064497', color: '#064497' }}
+                className={isSettingUpMFA ? "btn-cancel" : "btn-primary-outline"}
+              >
+                {isSettingUpMFA ? 'Abbrechen' : 'Aktivieren'}
+              </Button>
             )}
           </div>
+
+          {isSettingUpMFA && (
+            <div style={{ marginTop: 16, padding: 16, background: '#f8f9fa', borderRadius: 8 }}>
+              <p style={{ marginBottom: 16 }}>
+                1. Scannen Sie den QR-Code mit Ihrer Authenticator-App (z.B. Google Authenticator)
+              </p>
+              {mfaData.qrCode && (
+                <div style={{ marginBottom: 16, textAlign: 'center' }}>
+                  <img src={mfaData.qrCode} alt="MFA QR Code" style={{ maxWidth: 200 }} />
+                </div>
+              )}
+              <Form.Group className="mb-3">
+                <Form.Label>Verifizierungscode</Form.Label>
+                <Form.Control
+                  type="text"
+                  value={mfaData.verificationCode}
+                  onChange={(e) => setMfaData(prev => ({ ...prev, verificationCode: e.target.value }))}
+                  placeholder="Code aus Ihrer Authenticator-App"
+                />
+              </Form.Group>
+              <Button
+                variant="primary"
+                onClick={handleMFASetup}
+                style={{ background: '#064497', border: 'none' }}
+              >
+                Verifizieren und aktivieren
+              </Button>
+            </div>
+          )}
         </div>
       </div>
     </div>
