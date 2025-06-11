@@ -3,6 +3,20 @@ import { Table, Button, ButtonGroup, Form, Spinner, Alert, Dropdown, Modal } fro
 import { supabase } from "../../lib/supabase";
 import { useNavigate } from 'react-router-dom';
 
+// Add CSS styling for checkboxes
+const styles = `
+  .form-check-input:checked {
+    background-color: #064497 !important;
+    border-color: #064497 !important;
+  }
+`;
+
+// Add style tag to document head
+const styleSheet = document.createElement("style");
+styleSheet.type = "text/css";
+styleSheet.innerText = styles;
+document.head.appendChild(styleSheet);
+
 const STATUS_LABELS = {
   new: "Neue Anträge",
   in_progress: "In Bearbeitung",
@@ -25,6 +39,8 @@ const TYPE_LABELS: Record<string, string> = {
   "ersterwerb-wohnung": "Ersterwerb Eigentumswohnung",
   "nutzungsaenderung": "Nutzungsänderung"
 };
+
+
 
 function formatDate(dateString: string) {
   if (!dateString) return "-";
@@ -68,6 +84,11 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchCommitted, setSearchCommitted] = useState(false);
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [selectedAgent, setSelectedAgent] = useState<string>("");
+  const [userRole, setUserRole] = useState<'admin' | 'agent' | 'readonly' | 'owner'>('readonly');
+  const [hasExistingAssignments, setHasExistingAssignments] = useState(false);
+  const [existingAssignments, setExistingAssignments] = useState<string[]>([]);
   const navigate = useNavigate();
 
   // Load current user and agents for their city
@@ -390,6 +411,63 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
     }
   }, [searchQuery]);
 
+  // Add this after the existing useEffect hooks
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      const session = await supabase.auth.getSession();
+      const userObj = session?.data?.session?.user;
+      if (!userObj) return;
+      
+      const { data: agentData } = await supabase
+        .from("agents")
+        .select("role")
+        .eq("id", userObj.id)
+        .single();
+        
+      if (agentData) {
+        setUserRole(agentData.role);
+      }
+    };
+    
+    fetchUserRole();
+  }, []);
+
+  // Add this function to check for existing assignments
+  const checkExistingAssignments = () => {
+    const appsWithAssignments = filteredApplications
+      .filter(app => selectedIds.includes(app.id) && app.assigned_agent)
+      .map(app => app.id);
+      
+    setHasExistingAssignments(appsWithAssignments.length > 0);
+    setExistingAssignments(appsWithAssignments);
+  };
+
+  // Add this function to handle assignment
+  const handleAssign = async () => {
+    try {
+      const { error } = await supabase
+        .from("applications")
+        .update({ assigned_agent: selectedAgent === "unassign" ? null : selectedAgent })
+        .in("id", selectedIds);
+        
+      if (error) throw error;
+      
+      // Refresh the applications list
+      const { data: apps, error: appsError } = await supabase
+        .from("applications")
+        .select("id, status, submitted_at, updated_at, review_progress, type, assigned_agent, finished_at, resident_id")
+        .order("submitted_at", { ascending: false });
+        
+      if (appsError) throw appsError;
+      
+      setApplications(apps || []);
+      setShowAssignModal(false);
+      setSelectedIds([]);
+    } catch (error) {
+      console.error("Error assigning applications:", error);
+    }
+  };
+
   return (
     <div style={{ maxWidth: 1200, margin: "0 auto" }}>
       {/* Top status cards */}
@@ -410,7 +488,10 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
             fontSize: 22,
             transition: "all 0.15s"
           }}
-          onClick={() => setActiveTab("new")}
+          onClick={() => {
+            setActiveTab("new");
+            setSelectedIds([]);
+          }}
         >
           Neue Anträge <span style={{ fontWeight: 500, fontSize: 22, marginLeft: 8 }}>{counts.new}</span>
         </div>
@@ -430,7 +511,10 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
             fontSize: 22,
             transition: "all 0.15s"
           }}
-          onClick={() => setActiveTab("in_progress")}
+          onClick={() => {
+            setActiveTab("in_progress");
+            setSelectedIds([]);
+          }}
         >
           In Bearbeitung <span style={{ fontWeight: 500, fontSize: 22, marginLeft: 8 }}>{counts.in_progress}</span>
         </div>
@@ -450,7 +534,10 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
             fontSize: 22,
             transition: "all 0.15s"
           }}
-          onClick={() => setActiveTab("finished")}
+          onClick={() => {
+            setActiveTab("finished");
+            setSelectedIds([]);
+          }}
         >
           Geprüfte Anträge <span style={{ fontWeight: 500, fontSize: 22, marginLeft: 8 }}>{counts.finished}</span>
         </div>
@@ -467,12 +554,29 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
           >
             <span className="material-icons">search</span>
           </Button>
-          <Button variant="link" style={{ color: selectedIds.length > 0 ? "#064497" : "#b0b0b0", fontSize: 22 }} disabled={selectedIds.length === 0}>
+          <Button 
+            variant="link" 
+            style={{ color: selectedIds.length > 0 ? "#064497" : "#b0b0b0", fontSize: 22 }} 
+            disabled={selectedIds.length === 0}
+          >
             <span className="material-icons">share</span>
           </Button>
-          <Button variant="link" style={{ color: "#064497", fontSize: 22 }}>
-            <span className="material-icons">settings</span>
-          </Button>
+          {activeTab !== "finished" && (
+            <Button 
+              variant="link" 
+              style={{ 
+                color: selectedIds.length > 0 ? "#064497" : "#b0b0b0", 
+                fontSize: 22 
+              }} 
+              disabled={selectedIds.length === 0 || userRole === 'readonly'}
+              onClick={() => {
+                checkExistingAssignments();
+                setShowAssignModal(true);
+              }}
+            >
+              <span className="material-icons">assignment_ind</span>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -488,7 +592,7 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
                       type="checkbox"
                       checked={allSelected}
                       onChange={e => handleSelectAll(e.target.checked)}
-                      style={{ marginLeft: 8 }}
+                      style={{ marginLeft: 0 }}
                     />
                   </th>
                   <th style={{ minWidth: 180 }}>
@@ -577,7 +681,7 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
                       type="checkbox"
                       checked={allSelected}
                       onChange={e => handleSelectAll(e.target.checked)}
-                      style={{ marginLeft: 8 }}
+                      style={{ marginLeft: 0 }}
                     />
                   </th>
                   <th style={{ minWidth: 180 }}>
@@ -636,7 +740,7 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
                       type="checkbox"
                       checked={allSelected}
                       onChange={e => handleSelectAll(e.target.checked)}
-                      style={{ marginLeft: 8 }}
+                      style={{ marginLeft: 0 }}
                     />
                   </th>
                   <th style={{ minWidth: 180 }}>
@@ -943,6 +1047,61 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
             onClick={() => setShowSearchModal(false)}
           >
             Schließen
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Assign Modal */}
+      <Modal show={showAssignModal} onHide={() => setShowAssignModal(false)} centered>
+        <Modal.Header>
+          <Modal.Title>Anträge zuweisen</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <div className="d-flex flex-column gap-1">
+            {hasExistingAssignments && (
+              <Alert variant="warning">
+                Die ausgewählten Anträge {existingAssignments.map(id => `"${id}"`).join(", ")} sind bereits an Team Mitglieder zugewiesen, momentan kann ein Antrag nicht an mehrere Nutzer zugewiesen werden.
+              </Alert>
+            )}
+            
+            <Form.Group>
+              <Form.Label>Team Mitglied</Form.Label>
+              <Form.Select
+                value={selectedAgent}
+                onChange={(e) => setSelectedAgent(e.target.value)}
+              >
+                <option value="">Bitte wählen...</option>
+                {(userRole === 'admin' || userRole === 'owner') && (
+                  <option value="unassign">Zuweisung aufheben</option>
+                )}
+                {agents.map(agent => {
+                  const isCurrentUser = agent.id === user?.id;
+                  const canAssign = userRole === 'admin' || userRole === 'owner' || 
+                                  (userRole === 'agent' && agent.id === user?.id);
+                  
+                  if (!canAssign) return null;
+                  
+                  return (
+                    <option key={agent.id} value={agent.id}>
+                      {agent.name || agent.email} {isCurrentUser ? "(mich Selbst)" : ""}
+                    </option>
+                  );
+                })}
+              </Form.Select>
+            </Form.Group>
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowAssignModal(false)}>
+            Abbrechen
+          </Button>
+          <Button 
+            variant="primary" 
+            onClick={handleAssign}
+            disabled={!selectedAgent}
+            style={{ backgroundColor: '#064497', border: 'none' }}
+          >
+            {hasExistingAssignments ? "Zuweisungen überschreiben" : "Zuweisen"}
           </Button>
         </Modal.Footer>
       </Modal>
