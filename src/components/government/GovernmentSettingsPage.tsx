@@ -57,7 +57,7 @@ interface AgentData {
   id: string;
   email: string;
   name: string | null;
-  role: 'admin' | 'agent' | 'readonly';
+  role: 'admin' | 'agent' | 'readonly' | 'owner';
   mfa_enabled: boolean;
   city_id: string | null;
   settings: {
@@ -94,8 +94,44 @@ interface TeamMember {
   name: string | null;
   mfa_enabled: boolean;
   last_password_change: string | null;
-  role: 'admin' | 'agent' | 'readonly';
+  role: 'admin' | 'agent' | 'readonly' | 'owner';
 }
+
+// Helper for MFA icon
+const MFACircle = ({ enabled }: { enabled: boolean }) => (
+  <span style={{
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 28,
+    height: 28,
+    borderRadius: '50%',
+    background: enabled ? '#e6f4ea' : '#fdecea',
+  }}>
+    {enabled ? (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <path d="M4 8.5L7 11.5L12 5.5" stroke="#388e3c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    ) : (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <path d="M5 5L11 11M11 5L5 11" stroke="#d32f2f" strokeWidth="2" strokeLinecap="round"/>
+      </svg>
+    )}
+  </span>
+);
+
+// Helper for days since password change
+const getDaysSince = (dateString: string | null) => {
+  if (!dateString) return '-';
+  const lastChange = new Date(dateString);
+  const now = new Date();
+  lastChange.setHours(0,0,0,0);
+  now.setHours(0,0,0,0);
+  const diffTime = now.getTime() - lastChange.getTime();
+  const diffDays = Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
+  if (diffDays === 1) return '1 Tag';
+  return `${diffDays} Tagen`;
+};
 
 const GovernmentSettingsPage: React.FC = () => {
   const [agentData, setAgentData] = useState<AgentData | null>(null);
@@ -109,6 +145,10 @@ const GovernmentSettingsPage: React.FC = () => {
   const [isEditingCitySettings, setIsEditingCitySettings] = useState(false);
   const [isEditingDeletionSettings, setIsEditingDeletionSettings] = useState(false);
   const [tempCitySettings, setTempCitySettings] = useState<any>(null);
+  const [selectedUserId, setSelectedUserId] = useState('');
+  const [selectedRole, setSelectedRole] = useState<'admin' | 'agent' | 'readonly'>('admin');
+  const [ownerRoleChangeError, setOwnerRoleChangeError] = useState<string | null>(null);
+  const [ownerRoleChangeSuccess, setOwnerRoleChangeSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -262,6 +302,33 @@ const GovernmentSettingsPage: React.FC = () => {
       console.error('Error sending reminder:', err);
     }
   };
+
+  const handleOwnerRoleChange = async () => {
+    try {
+      const { error } = await supabase
+        .from('agents')
+        .update({ role: selectedRole })
+        .eq('id', selectedUserId);
+
+      if (error) throw error;
+
+      setTeamMembers(prev => prev.map(member =>
+        member.id === selectedUserId ? { ...member, role: selectedRole } : member
+      ));
+      setSelectedUserId('');
+      setSelectedRole('admin');
+      setOwnerRoleChangeSuccess('Rolle erfolgreich geändert');
+    } catch (err) {
+      setOwnerRoleChangeError('Fehler beim Ändern der Rolle');
+      console.error('Error changing owner role:', err);
+    }
+  };
+
+  // Helper to check if user is owner
+  const isOwner = agentData?.role === 'owner';
+
+  // Helper to check if user is admin or owner
+  const isAdminOrOwner = agentData?.role === 'admin' || agentData?.role === 'owner';
 
   if (loading) {
     return (
@@ -482,7 +549,7 @@ const GovernmentSettingsPage: React.FC = () => {
       </div>
 
       {/* Assignment Rules Card - Only visible for non-admin users */}
-      {agentData?.role !== 'admin' && (
+      {agentData?.role !== 'admin' && agentData?.role !== 'owner' && (
         <div style={{ background: '#fff', borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', padding: 32, marginBottom: 24 }}>
           <div className="d-flex justify-content-between align-items-center">
             <div>
@@ -491,7 +558,7 @@ const GovernmentSettingsPage: React.FC = () => {
                 Diese Regeln wurden von Ihrem Admin für Sie festgelegt. Um eine Änderung zu beantragen kontaktieren Sie{' '}
                 <strong>
                   {(() => {
-                    const admins = teamMembers.filter(m => m.role === 'admin');
+                    const admins = teamMembers.filter(m => m.role === 'admin' || m.role === 'owner');
                     if (admins.length === 0) return 'Ihren Administrator';
                     return admins.map((admin, index) => {
                       const name = admin.name || admin.email;
@@ -595,7 +662,7 @@ const GovernmentSettingsPage: React.FC = () => {
       )}
 
       {/* Admin Settings */}
-      {agentData?.role === 'admin' && (
+      {isAdminOrOwner && (
         <>
           {/* City Settings Card */}
           <div style={{ background: '#fff', borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', padding: 32, marginBottom: 24 }}>
@@ -1466,15 +1533,18 @@ const GovernmentSettingsPage: React.FC = () => {
 
           {/* Team Members Card */}
           <div style={{ background: '#fff', borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', padding: 32 }}>
-            <h1 style={{ color: '#064497', marginBottom: 16, fontSize: '1.2rem', fontWeight: 500 }}>Team Übersicht</h1>
+            <div className="d-flex justify-content-between align-items-center mb-3">
+              <h1 style={{ color: '#064497', marginBottom: 0, fontSize: '1.2rem', fontWeight: 500 }}>Sicherheits Übersicht</h1>
+            </div>
             <div style={{ overflowX: 'auto' }}>
               <Table hover responsive>
                 <thead style={{ background: '#F7F8FA' }}>
                   <tr>
                     <th>Name</th>
                     <th>E-Mail</th>
+                    <th>Rolle</th>
                     <th>MFA</th>
-                    <th>Letzte Passwortänderung</th>
+                    <th>Passwortänderung vor</th>
                     <th>Heinweis Senden</th>
                   </tr>
                 </thead>
@@ -1483,15 +1553,16 @@ const GovernmentSettingsPage: React.FC = () => {
                     <tr key={member.id}>
                       <td>{member.name || '-'}</td>
                       <td>{member.email}</td>
-                      <td>
-                        {member.mfa_enabled ? (
-                          <span style={{ color: '#388e3c' }}>Aktiviert</span>
-                        ) : (
-                          <span style={{ color: '#d32f2f' }}>Deaktiviert</span>
-                        )}
+                      <td style={{ minWidth: 120 }}>
+                        {member.role === 'owner' ? 'Eigentümer' :
+                          member.role === 'admin' ? 'Administrator' :
+                          member.role === 'agent' ? 'Benutzer' : 'Lesender Benutzer'}
                       </td>
                       <td>
-                        {member.last_password_change ? new Date(member.last_password_change).toLocaleDateString() : '-'}
+                        <MFACircle enabled={member.mfa_enabled} />
+                      </td>
+                      <td>
+                        {getDaysSince(member.last_password_change)}
                       </td>
                       <td>
                         <div className="d-flex gap-2">
@@ -1537,6 +1608,63 @@ const GovernmentSettingsPage: React.FC = () => {
               </Table>
             </div>
           </div>
+
+          {/* Eigentümer Einstellungen Card */}
+          {isOwner && (
+            <div style={{ background: '#fff', borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', padding: 32, marginTop: 24 }}>
+              <h1 style={{ color: '#064497', fontSize: '1.2rem', fontWeight: 500 }}>Eigentümer Einstellungen</h1>
+              <p style={{ color: '#666', marginTop: 12, marginBottom: 24 }}>
+                Benutzer mit der Rolle <b>Eigentümer</b> können hier die Rollen der restlichen Team-Mitglieder anpassen. Eigentümer verfügen über alle Funktionen wie Admins, können jedoch keine weiteren Eigentümer bestimmen. Bitte wenden Sie sich an Fördercheck.NRW, falls Sie einen neuen Eigentümer benötigen.<br /><br />
+                <b>Admins</b> können Zuweisungsregeln anpassen, Anträge manuell zuweisen, Stadteinstellungen anpassen, Teamdaten einsehen, sowie alle Funktionen der Benutzer nutzen.<br /><br />
+                <b>Benutzer</b> können Anträge bearbeiten und persönliche Einstellungen anpassen.<br /><br />
+                <b>Lesende Benutzer</b> können Anträge nur über die Plattform einsehen, jedoch nicht bearbeiten oder herunterladen.
+              </p>
+              <Form>
+                <Form.Group className="mb-3">
+                  <Form.Label>Team-Mitglied auswählen</Form.Label>
+                  <Form.Select
+                    value={selectedUserId}
+                    onChange={e => setSelectedUserId(e.target.value)}
+                  >
+                    <option value="">Bitte wählen...</option>
+                    {teamMembers.filter(m => m.id !== agentData?.id && m.role !== 'owner').map(m => (
+                      <option key={m.id} value={m.id}>{m.name || m.email}</option>
+                    ))}
+                  </Form.Select>
+                </Form.Group>
+                <Form.Group className="mb-3">
+                  <Form.Label>Neue Rolle auswählen</Form.Label>
+                  <Form.Select
+                    value={selectedRole}
+                    onChange={e => setSelectedRole(e.target.value as 'admin' | 'agent' | 'readonly')}
+                  >
+                    <option value="">Bitte wählen...</option>
+                    <option value="admin">Administrator</option>
+                    <option value="agent">Benutzer</option>
+                    <option value="readonly">Lesender Benutzer</option>
+                  </Form.Select>
+                </Form.Group>
+                <Button
+                  variant="primary"
+                  style={{ background: '#064497', border: 'none' }}
+                  disabled={!selectedUserId || !selectedRole}
+                  onClick={handleOwnerRoleChange}
+                >
+                  Rolle zuweisen
+                </Button>
+                {ownerRoleChangeError && (
+                  <Alert variant="danger" className="mt-3" onClose={() => setOwnerRoleChangeError(null)} dismissible>
+                    {ownerRoleChangeError}
+                  </Alert>
+                )}
+                {ownerRoleChangeSuccess && (
+                  <Alert variant="success" className="mt-3" onClose={() => setOwnerRoleChangeSuccess(null)} dismissible>
+                    {ownerRoleChangeSuccess}
+                  </Alert>
+                )}
+              </Form>
+            </div>
+          )}
         </>
       )}
     </div>

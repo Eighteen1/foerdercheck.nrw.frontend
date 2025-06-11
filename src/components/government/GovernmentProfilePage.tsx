@@ -7,13 +7,21 @@ interface AgentData {
   id: string;
   email: string;
   name: string | null;
-  role: 'admin' | 'agent' | 'readonly';
+  role: 'admin' | 'agent' | 'readonly' | 'owner';
   mfa_enabled: boolean;
   city_id: string | null;
 }
 
+interface TeamMember {
+  id: string;
+  email: string;
+  name: string | null;
+  role: 'admin' | 'agent' | 'readonly' | 'owner';
+}
+
 const GovernmentProfilePage: React.FC = () => {
   const [agentData, setAgentData] = useState<AgentData | null>(null);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -55,6 +63,15 @@ const GovernmentProfilePage: React.FC = () => {
       if (error) throw error;
       setAgentData(data);
       setNewName(data.name || '');
+
+      // Fetch team members for the same city
+      const { data: teamData, error: teamError } = await supabase
+        .from('agents')
+        .select('id, email, name, role')
+        .eq('city_id', data.city_id);
+
+      if (teamError) throw teamError;
+      setTeamMembers(teamData);
     } catch (err) {
       setError('Fehler beim Laden der Profildaten');
       console.error('Error fetching data:', err);
@@ -299,13 +316,14 @@ const GovernmentProfilePage: React.FC = () => {
           <div>
             {agentData?.role === 'admin' ? 'Administrator' :
              agentData?.role === 'agent' ? 'Benutzer' :
-             agentData?.role === 'readonly' ? 'Lesender Benutzer' : agentData?.role}
+             agentData?.role === 'readonly' ? 'Lesender Benutzer' :
+             agentData?.role === 'owner' ? 'Eigentümer' : agentData?.role}
           </div>
         </div>
       </div>
 
       {/* Security Card */}
-      <div style={{ background: '#fff', borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', padding: 32 }}>
+      <div style={{ background: '#fff', borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', padding: 32, marginBottom: 24 }}>
         <h1 style={{ color: '#064497', marginBottom: 16, fontSize: '1.2rem', fontWeight: 500 }}>Sicherheit</h1>
 
         <div style={{ marginBottom: 24 }}>
@@ -489,6 +507,37 @@ const GovernmentProfilePage: React.FC = () => {
               </Button>
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Team Overview Card */}
+      <div style={{ background: '#fff', borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', padding: 32 }}>
+        <h1 style={{ color: '#064497', marginBottom: 16, fontSize: '1.2rem', fontWeight: 500 }}>Team Übersicht</h1>
+        
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid #e0e0e0' }}>
+                <th style={{ padding: '12px 16px', textAlign: 'left', fontWeight: 500 }}>Name</th>
+                <th style={{ padding: '12px 16px', textAlign: 'left', fontWeight: 500 }}>E-Mail</th>
+                <th style={{ padding: '12px 16px', textAlign: 'left', fontWeight: 500 }}>Rolle</th>
+              </tr>
+            </thead>
+            <tbody>
+              {teamMembers.map((member) => (
+                <tr key={member.id} style={{ borderBottom: '1px solid #e0e0e0' }}>
+                  <td style={{ padding: '12px 16px' }}>{member.name || '-'}</td>
+                  <td style={{ padding: '12px 16px' }}>{member.email}</td>
+                  <td style={{ padding: '12px 16px' }}>
+                    {member.role === 'admin' ? 'Administrator' :
+                     member.role === 'agent' ? 'Benutzer' :
+                     member.role === 'readonly' ? 'Lesender Benutzer' :
+                     member.role === 'owner' ? 'Eigentümer' : member.role}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
