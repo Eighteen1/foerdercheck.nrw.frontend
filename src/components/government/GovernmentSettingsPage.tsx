@@ -561,7 +561,7 @@ const GovernmentSettingsPage: React.FC = () => {
               <Form.Check
                 type="checkbox"
                 id="applicationAssigned"
-                label="Neue an mich zugewiesene Anträge"
+                label="Neue an mich zugewiesene Anträge sowie Anträge, deren Zuweisung an mich aufgehoben wurde."
                 checked={tempSettings?.notifications?.emailNotifications?.applicationAssigned || false}
                 onChange={(e) => {
                   setTempSettings((prev: AgentData['settings']) => ({
@@ -665,7 +665,7 @@ const GovernmentSettingsPage: React.FC = () => {
                 <li style={{ marginBottom: 8 }}>✓ An mich geteilte Anträge von Team-Mitgliedern</li>
               )}
               {agentData?.settings?.notifications?.emailNotifications?.applicationAssigned && (
-                <li style={{ marginBottom: 8 }}>✓ Neue an mich zugewiesene Anträge</li>
+                <li style={{ marginBottom: 8 }}>✓ Neue an mich zugewiesene Anträge sowie Anträge, deren Zuweisung an mich aufgehoben wurde.</li>
               )}
               {agentData?.role === 'agent' && agentData?.settings?.notifications?.emailNotifications?.adminMessage && (
                 <li style={{ marginBottom: 8 }}>✓ Admin-Aufforderungen (MFA und Passwort-Einstellungen)</li>

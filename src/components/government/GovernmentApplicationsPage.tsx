@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Table, Button, ButtonGroup, Form, Spinner, Alert, Dropdown, Modal } from "react-bootstrap";
 import { supabase } from "../../lib/supabase";
 import { useNavigate } from 'react-router-dom';
+import { sendApplicationAssignedMessage, sendApplicationReassignedMessage, sendApplicationUnassignedMessage } from '../../utils/messages';
 
 // Add CSS styling for checkboxes
 const styles = `
@@ -77,7 +78,7 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
   const [agents, setAgents] = useState<any[]>([]);
   const [user, setUser] = useState<any>(null);
   const [agentMap, setAgentMap] = useState<Record<string, { name: string; email: string }>>({});
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [selectedApplicationIds, setSelectedApplicationIds] = useState<string[]>([]);
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [searchType, setSearchType] = useState<"id" | "name" | "email" | "phone" | "address">("id");
   const [searchQuery, setSearchQuery] = useState("");
@@ -89,6 +90,7 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
   const [userRole, setUserRole] = useState<'admin' | 'agent' | 'readonly' | 'owner'>('readonly');
   const [hasExistingAssignments, setHasExistingAssignments] = useState(false);
   const [existingAssignments, setExistingAssignments] = useState<string[]>([]);
+  const [isAssigning, setIsAssigning] = useState(false);
   const navigate = useNavigate();
 
   // Load current user and agents for their city
@@ -214,16 +216,16 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
     });
 
   // Checkbox logic
-  const allSelected = filteredApplications.length > 0 && filteredApplications.every(app => selectedIds.includes(app.id));
+  const allSelected = filteredApplications.length > 0 && filteredApplications.every(app => selectedApplicationIds.includes(app.id));
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedIds(filteredApplications.map(app => app.id));
+      setSelectedApplicationIds(filteredApplications.map(app => app.id));
     } else {
-      setSelectedIds([]);
+      setSelectedApplicationIds([]);
     }
   };
   const handleSelectOne = (id: string, checked: boolean) => {
-    setSelectedIds(prev => checked ? [...prev, id] : prev.filter(x => x !== id));
+    setSelectedApplicationIds(prev => checked ? [...prev, id] : prev.filter(x => x !== id));
   };
 
   // Layout constants
@@ -435,7 +437,7 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
   // Add this function to check for existing assignments
   const checkExistingAssignments = () => {
     const appsWithAssignments = filteredApplications
-      .filter(app => selectedIds.includes(app.id) && app.assigned_agent)
+      .filter(app => selectedApplicationIds.includes(app.id) && app.assigned_agent)
       .map(app => app.id);
       
     setHasExistingAssignments(appsWithAssignments.length > 0);
@@ -444,14 +446,48 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
 
   // Add this function to handle assignment
   const handleAssign = async () => {
+    if (!selectedAgent || selectedApplicationIds.length === 0) return;
+
+    setIsAssigning(true);
     try {
-      const { error } = await supabase
-        .from("applications")
-        .update({ assigned_agent: selectedAgent === "unassign" ? null : selectedAgent })
-        .in("id", selectedIds);
-        
-      if (error) throw error;
-      
+      // Get current assignments for all selected applications
+      const { data: currentAssignments, error: assignmentsError } = await supabase
+        .from('applications')
+        .select('id, assigned_agent')
+        .in('id', selectedApplicationIds);
+
+      if (assignmentsError) throw assignmentsError;
+
+      // Process each application individually
+      for (const application of currentAssignments) {
+        const oldAgentId = application.assigned_agent;
+        const newAgentId = selectedAgent === 'unassign' ? null : selectedAgent;
+
+        // Update the assignment
+        const { error: updateError } = await supabase
+          .from('applications')
+          .update({ assigned_agent: newAgentId })
+          .eq('id', application.id);
+
+        if (updateError) throw updateError;
+
+        // Send appropriate messages based on the assignment change
+        if (newAgentId) {
+          // Case 1: New assignment
+          if (!oldAgentId) {
+            await sendApplicationAssignedMessage(newAgentId, user?.id || '', application.id);
+          }
+          // Case 2: Reassignment
+          else {
+            await sendApplicationReassignedMessage(oldAgentId, newAgentId, user?.id || '', application.id);
+          }
+        }
+        // Case 3: Unassignment
+        else if (oldAgentId) {
+          await sendApplicationUnassignedMessage(oldAgentId, user?.id || '', application.id);
+        }
+      }
+
       // Refresh the applications list
       const { data: apps, error: appsError } = await supabase
         .from("applications")
@@ -461,10 +497,13 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
       if (appsError) throw appsError;
       
       setApplications(apps || []);
+      setSelectedApplicationIds([]);
+      setSelectedAgent('');
       setShowAssignModal(false);
-      setSelectedIds([]);
-    } catch (error) {
-      console.error("Error assigning applications:", error);
+    } catch (err) {
+      console.error('Error assigning applications:', err);
+    } finally {
+      setIsAssigning(false);
     }
   };
 
@@ -490,7 +529,7 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
           }}
           onClick={() => {
             setActiveTab("new");
-            setSelectedIds([]);
+            setSelectedApplicationIds([]);
           }}
         >
           Neue Anträge <span style={{ fontWeight: 500, fontSize: 22, marginLeft: 8 }}>{counts.new}</span>
@@ -513,7 +552,7 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
           }}
           onClick={() => {
             setActiveTab("in_progress");
-            setSelectedIds([]);
+            setSelectedApplicationIds([]);
           }}
         >
           In Bearbeitung <span style={{ fontWeight: 500, fontSize: 22, marginLeft: 8 }}>{counts.in_progress}</span>
@@ -536,7 +575,7 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
           }}
           onClick={() => {
             setActiveTab("finished");
-            setSelectedIds([]);
+            setSelectedApplicationIds([]);
           }}
         >
           Geprüfte Anträge <span style={{ fontWeight: 500, fontSize: 22, marginLeft: 8 }}>{counts.finished}</span>
@@ -556,8 +595,8 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
           </Button>
           <Button 
             variant="link" 
-            style={{ color: selectedIds.length > 0 ? "#064497" : "#b0b0b0", fontSize: 22 }} 
-            disabled={selectedIds.length === 0}
+            style={{ color: selectedApplicationIds.length > 0 ? "#064497" : "#b0b0b0", fontSize: 22 }} 
+            disabled={selectedApplicationIds.length === 0}
           >
             <span className="material-icons">share</span>
           </Button>
@@ -565,10 +604,10 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
             <Button 
               variant="link" 
               style={{ 
-                color: selectedIds.length > 0 ? "#064497" : "#b0b0b0", 
+                color: selectedApplicationIds.length > 0 ? "#064497" : "#b0b0b0", 
                 fontSize: 22 
               }} 
-              disabled={selectedIds.length === 0 || userRole === 'readonly'}
+              disabled={selectedApplicationIds.length === 0 || userRole === 'readonly'}
               onClick={() => {
                 checkExistingAssignments();
                 setShowAssignModal(true);
@@ -828,7 +867,7 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
                     <td style={{ textAlign: "center" }}>
                       <Form.Check
                         type="checkbox"
-                        checked={selectedIds.includes(app.id)}
+                        checked={selectedApplicationIds.includes(app.id)}
                         onChange={e => handleSelectOne(app.id, e.target.checked)}
                       />
                     </td>
@@ -877,7 +916,7 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
                     <td style={{ textAlign: "center" }}>
                       <Form.Check
                         type="checkbox"
-                        checked={selectedIds.includes(app.id)}
+                        checked={selectedApplicationIds.includes(app.id)}
                         onChange={e => handleSelectOne(app.id, e.target.checked)}
                       />
                     </td>
@@ -913,7 +952,7 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
                     <td style={{ textAlign: "center" }}>
                       <Form.Check
                         type="checkbox"
-                        checked={selectedIds.includes(app.id)}
+                        checked={selectedApplicationIds.includes(app.id)}
                         onChange={e => handleSelectOne(app.id, e.target.checked)}
                       />
                     </td>
@@ -1052,56 +1091,79 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
       </Modal>
 
       {/* Assign Modal */}
-      <Modal show={showAssignModal} onHide={() => setShowAssignModal(false)} centered>
-        <Modal.Header>
+      <Modal show={showAssignModal} onHide={() => !isAssigning && setShowAssignModal(false)} centered>
+        <Modal.Header closeButton={!isAssigning}>
           <Modal.Title>Anträge zuweisen</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <div className="d-flex flex-column gap-1">
-            {hasExistingAssignments && (
-              <Alert variant="warning">
-                Die ausgewählten Anträge {existingAssignments.map(id => `"${id}"`).join(", ")} sind bereits an Team Mitglieder zugewiesen, momentan kann ein Antrag nicht an mehrere Nutzer zugewiesen werden.
-              </Alert>
-            )}
-            
+          {isAssigning ? (
+            <div style={{ 
+              position: 'absolute', 
+              top: 0, 
+              left: 0, 
+              right: 0, 
+              bottom: 0, 
+              background: 'rgba(255, 255, 255, 0.8)', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              zIndex: 1
+            }}>
+              <div style={{ textAlign: 'center' }}>
+                <Spinner animation="border" style={{ color: '#064497', marginBottom: 16 }} />
+                <div style={{ color: '#064497' }}>Anträge werden zugewiesen...</div>
+              </div>
+            </div>
+          ) : null}
+          <Form>
             <Form.Group>
-              <Form.Label>Team Mitglied</Form.Label>
+              <Form.Label>Sachbearbeiter auswählen</Form.Label>
               <Form.Select
                 value={selectedAgent}
                 onChange={(e) => setSelectedAgent(e.target.value)}
+                disabled={isAssigning}
               >
                 <option value="">Bitte wählen...</option>
                 {(userRole === 'admin' || userRole === 'owner') && (
                   <option value="unassign">Zuweisung aufheben</option>
                 )}
-                {agents.map(agent => {
-                  const isCurrentUser = agent.id === user?.id;
-                  const canAssign = userRole === 'admin' || userRole === 'owner' || 
-                                  (userRole === 'agent' && agent.id === user?.id);
-                  
-                  if (!canAssign) return null;
-                  
-                  return (
+                {agents
+                  .filter(agent => {
+                    // For admin/owner roles, show all agents
+                    if (userRole === 'admin' || userRole === 'owner') {
+                      return true;
+                    }
+                    // For agent role, only show themselves
+                    if (userRole === 'agent') {
+                      return agent.id === user?.id;
+                    }
+                    // For readonly role, show no agents
+                    return false;
+                  })
+                  .map((agent) => (
                     <option key={agent.id} value={agent.id}>
-                      {agent.name || agent.email} {isCurrentUser ? "(mich Selbst)" : ""}
+                      {agent.name || agent.email}
                     </option>
-                  );
-                })}
+                  ))}
               </Form.Select>
             </Form.Group>
-          </div>
+          </Form>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowAssignModal(false)}>
+          <Button 
+            variant="secondary" 
+            onClick={() => setShowAssignModal(false)}
+            disabled={isAssigning}
+          >
             Abbrechen
           </Button>
           <Button 
             variant="primary" 
             onClick={handleAssign}
-            disabled={!selectedAgent}
-            style={{ backgroundColor: '#064497', border: 'none' }}
+            disabled={!selectedAgent || isAssigning || userRole === 'readonly'}
+            style={{ background: '#064497', border: 'none' }}
           >
-            {hasExistingAssignments ? "Zuweisungen überschreiben" : "Zuweisen"}
+            {selectedAgent === 'unassign' ? 'Zuweisung aufheben' : 'Zuweisen'}
           </Button>
         </Modal.Footer>
       </Modal>

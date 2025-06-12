@@ -28,7 +28,7 @@ const MessagesPage: React.FC = () => {
   const [success, setSuccess] = useState<string | null>(null);
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [showModal, setShowModal] = useState(false);
-  const [activeType, setActiveType] = useState<'system' | 'team'>('system');
+  const [activeType, setActiveType] = useState<'system' | 'team'>('team');
 
   useEffect(() => {
     fetchMessages();
