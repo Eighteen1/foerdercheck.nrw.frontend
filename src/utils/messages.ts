@@ -87,8 +87,13 @@ export const sendPasswordReminderMessage = async (recipientId: string, senderId:
     // Send email if enabled
     if (shouldSendEmail) {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) throw new Error('No access token available');
+      console.log('Session:', session); // Debug log
+      if (!session?.access_token) {
+        console.error('No access token available in session');
+        throw new Error('No access token available');
+      }
 
+      console.log('Sending request with token:', session.access_token.substring(0, 20) + '...'); // Debug log
       const response = await fetch(`${BACKEND_URL}/api/send-admin-message`, {
         method: 'POST',
         headers: {
@@ -106,7 +111,9 @@ export const sendPasswordReminderMessage = async (recipientId: string, senderId:
       });
 
       if (!response.ok) {
-        console.error('Failed to send email notification');
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Failed to send email notificationnnnn:', errorData);
+        throw new Error(errorData.detail || 'Failed to send email notification');
       }
     }
 
