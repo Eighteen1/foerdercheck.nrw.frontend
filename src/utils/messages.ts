@@ -1,5 +1,8 @@
 import { supabase } from '../lib/supabase';
 
+// Add backend URL constant
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
+
 export interface MessageData {
   recipient_id: string;
   sender_id?: string;
@@ -83,10 +86,14 @@ export const sendPasswordReminderMessage = async (recipientId: string, senderId:
 
     // Send email if enabled
     if (shouldSendEmail) {
-      const response = await fetch('/api/send-admin-message', {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error('No access token available');
+
+      const response = await fetch(`${BACKEND_URL}/api/send-admin-message`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
         },
         body: JSON.stringify({
           to_email: recipientData.email,
@@ -145,10 +152,14 @@ export const sendMFAReminderMessage = async (recipientId: string, senderId: stri
 
     // Send email if enabled
     if (shouldSendEmail) {
-      const response = await fetch('/api/send-admin-message', {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error('No access token available');
+
+      const response = await fetch(`${BACKEND_URL}/api/send-admin-message`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
         },
         body: JSON.stringify({
           to_email: recipientData.email,
