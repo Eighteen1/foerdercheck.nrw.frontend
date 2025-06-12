@@ -88,17 +88,21 @@ export const sendPasswordReminderMessage = async (recipientId: string, senderId:
     if (shouldSendEmail) {
       const { data: { session } } = await supabase.auth.getSession();
       console.log('Session:', session); // Debug log
+      
       if (!session?.access_token) {
         console.error('No access token available in session');
         throw new Error('No access token available');
       }
 
-      console.log('Sending request with token:', session.access_token.substring(0, 20) + '...'); // Debug log
+      // Get the JWT token from the session
+      const jwtToken = session.access_token;
+      console.log('Sending request with token:', jwtToken.substring(0, 20) + '...'); // Debug log
+
       const response = await fetch(`${BACKEND_URL}/api/send-admin-message`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`
+          'Authorization': `Bearer ${jwtToken}`
         },
         body: JSON.stringify({
           to_email: recipientData.email,
@@ -112,7 +116,7 @@ export const sendPasswordReminderMessage = async (recipientId: string, senderId:
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        console.error('Failed to send email notificationnnnn:', errorData);
+        console.error('Failed to send email notification:', errorData);
         throw new Error(errorData.detail || 'Failed to send email notification');
       }
     }
@@ -160,13 +164,22 @@ export const sendMFAReminderMessage = async (recipientId: string, senderId: stri
     // Send email if enabled
     if (shouldSendEmail) {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) throw new Error('No access token available');
+      console.log('Session:', session); // Debug log
+      
+      if (!session?.access_token) {
+        console.error('No access token available in session');
+        throw new Error('No access token available');
+      }
+
+      // Get the JWT token from the session
+      const jwtToken = session.access_token;
+      console.log('Sending request with token:', jwtToken.substring(0, 20) + '...'); // Debug log
 
       const response = await fetch(`${BACKEND_URL}/api/send-admin-message`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`
+          'Authorization': `Bearer ${jwtToken}`
         },
         body: JSON.stringify({
           to_email: recipientData.email,
@@ -179,7 +192,9 @@ export const sendMFAReminderMessage = async (recipientId: string, senderId: stri
       });
 
       if (!response.ok) {
-        console.error('Failed to send email notification');
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Failed to send email notification:', errorData);
+        throw new Error(errorData.detail || 'Failed to send email notification');
       }
     }
 
