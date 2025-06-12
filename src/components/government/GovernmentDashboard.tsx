@@ -8,6 +8,7 @@ import ApplicationReviewContainer from "./review/ApplicationReviewContainer";
 import GovernmentProfilePage from "./GovernmentProfilePage";
 import GovernmentDashboardPage from "./GovernmentDashboardPage";
 import GovernmentSettingsPage from "./GovernmentSettingsPage";
+import MessagesPage from './MessagesPage';
 
 const menuItems = [
   { key: "dashboard", label: "Dashboard", icon: "dashboard" },
@@ -190,6 +191,9 @@ const GovernmentDashboard: React.FC = () => {
           )}
           {selectedMenu === "settings" && (
             <GovernmentSettingsPage />
+          )}
+          {selectedMenu === "messages" && (
+            <MessagesPage />
           )}
         </Container>
       </div>

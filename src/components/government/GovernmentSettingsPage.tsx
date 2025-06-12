@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Button, Alert, Spinner, Table } from 'react-bootstrap';
+import { Form, Button, Alert, Spinner, Table, Modal } from 'react-bootstrap';
 import { supabase } from '../../lib/supabase';
 import postcodeMap from '../../utils/postcode_map.json';
+import { sendPasswordReminderMessage, sendMFAReminderMessage } from '../../utils/messages';
 
 const TYPE_LABELS: Record<string, string> = {
   "neubau": "Neubau Eigenheim",
@@ -149,10 +150,30 @@ const GovernmentSettingsPage: React.FC = () => {
   const [selectedRole, setSelectedRole] = useState<'admin' | 'agent' | 'readonly'>('admin');
   const [ownerRoleChangeError, setOwnerRoleChangeError] = useState<string | null>(null);
   const [ownerRoleChangeSuccess, setOwnerRoleChangeSuccess] = useState<string | null>(null);
+  const [showReminderModal, setShowReminderModal] = useState(false);
+  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
+  const [reminderType, setReminderType] = useState<'mfa' | 'password' | null>(null);
+  const [reminderMessage, setReminderMessage] = useState('');
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastVariant, setToastVariant] = useState<'success' | 'danger'>('success');
+  const [sentReminders, setSentReminders] = useState<Set<string>>(new Set());
+
+  const defaultMessages = {
+    mfa: 'Bitte richten Sie die Zwei-Faktor-Authentifizierung ein, um Ihr Konto zu schützen.',
+    password: 'Bitte aktualisieren Sie Ihr Passwort aus Sicherheitsgründen.'
+  };
 
   useEffect(() => {
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (showToast) {
+      const timer = setTimeout(() => setShowToast(false), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [showToast]);
 
   const fetchData = async () => {
     try {
@@ -292,13 +313,42 @@ const GovernmentSettingsPage: React.FC = () => {
   };
 
   const handleSendReminder = async (memberId: string, type: 'mfa' | 'password') => {
+    setSelectedMemberId(memberId);
+    setReminderType(type);
+    setReminderMessage(defaultMessages[type]);
+    setShowReminderModal(true);
+  };
+
+  const handleSendReminderConfirm = async () => {
     try {
-      // Here you would implement the actual reminder sending logic
-      // For now, we'll just show a success message
-      setSuccess(`Erinnerung an ${type === 'mfa' ? 'MFA-Einrichtung' : 'Passwortänderung'} gesendet`);
-      setTimeout(() => setSuccess(null), 3000);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) throw new Error('No user session');
+      if (!selectedMemberId || !reminderType) return;
+
+      if (reminderType === 'mfa') {
+        await sendMFAReminderMessage(selectedMemberId, session.user.id, reminderMessage);
+      } else {
+        await sendPasswordReminderMessage(selectedMemberId, session.user.id, reminderMessage);
+      }
+
+      // Add to sent reminders
+      setSentReminders(prev => new Set([...Array.from(prev), `${selectedMemberId}-${reminderType}`]));
+      
+      // Show success toast
+      setToastMessage(`Erinnerung zur ${reminderType === 'mfa' ? 'MFA-Einrichtung' : 'Passwortänderung'} gesendet`);
+      setToastVariant('success');
+      setShowToast(true);
+      
+      // Close modal
+      setShowReminderModal(false);
+      setSelectedMemberId(null);
+      setReminderType(null);
+      setReminderMessage('');
     } catch (err) {
-      setError('Fehler beim Senden der Erinnerung');
+      // Show error toast
+      setToastMessage('Fehler beim Senden der Erinnerung');
+      setToastVariant('danger');
+      setShowToast(true);
       console.error('Error sending reminder:', err);
     }
   };
@@ -341,6 +391,98 @@ const GovernmentSettingsPage: React.FC = () => {
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto' }}>
       <style>{styles}</style>
+
+      {/* Toast Notification */}
+      <div style={{
+        position: 'fixed',
+        top: 24,
+        left: '50%',
+        transform: 'translateX(-50%)',
+        zIndex: 9999,
+      }}>
+        <Alert 
+          show={showToast} 
+          variant={toastVariant} 
+          style={{
+            background: toastVariant === 'success' ? '#388e3c' : '#d32f2f',
+            color: 'white',
+            padding: '12px 24px',
+            borderRadius: 8,
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            margin: 0,
+            minWidth: 300,
+            maxWidth: 600,
+            width: '100%',
+            position: 'relative',
+            overflow: 'visible',
+            display: 'block',
+          }}
+        >
+          <div style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            position: 'relative',
+            width: '100%',
+            paddingRight: 0, // space for close button (can be removed)
+          }}>
+            <span className="material-icons" style={{ fontSize: 20, marginRight: 8, marginTop: 2 }}>
+              {toastVariant === 'success' ? 'check_circle' : 'error'}
+            </span>
+            <span style={{
+              flex: 1,
+              wordBreak: 'break-word',
+              whiteSpace: 'pre-line',
+              minWidth: 0,
+            }}>{toastMessage}</span>
+          </div>
+        </Alert>
+      </div>
+
+      {/* Reminder Modal */}
+      <Modal show={showReminderModal} onHide={() => setShowReminderModal(false)} centered size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>
+            {reminderType === 'mfa' ? 'MFA-Einrichtung' : 'Passwort-Erneuerung'} Erinnerung senden
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form.Group className="mb-3">
+            <Form.Label>Nachricht</Form.Label>
+            <Form.Control
+              as="textarea"
+              rows={4}
+              value={reminderMessage}
+              onChange={(e) => setReminderMessage(e.target.value)}
+              style={{ resize: 'none' }}
+            />
+          </Form.Group>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button
+            variant="primary"
+            onClick={handleSendReminderConfirm}
+            style={{ background: '#064497', border: 'none' }}
+          >
+            Senden
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      <style>
+        {`
+          ${styles}
+          @keyframes slideIn {
+            from {
+              transform: translate(-50%, -20px);
+              opacity: 0;
+            }
+            to {
+              transform: translate(-50%, 0);
+              opacity: 1;
+            }
+          }
+        `}
+      </style>
 
       {error && (
         <Alert variant="danger" onClose={() => setError(null)} dismissible>
@@ -1568,16 +1710,16 @@ const GovernmentSettingsPage: React.FC = () => {
                         <div className="d-flex gap-2">
                           <Button
                             style={{
-                              background: !member.mfa_enabled && agentData?.id !== member.id ? '#064497' : '#e0e0e0',
-                              color: !member.mfa_enabled && agentData?.id !== member.id ? '#fff' : '#888',
+                              background: !member.mfa_enabled && agentData?.id !== member.id && !sentReminders.has(`${member.id}-mfa`) ? '#064497' : '#e0e0e0',
+                              color: !member.mfa_enabled && agentData?.id !== member.id && !sentReminders.has(`${member.id}-mfa`) ? '#fff' : '#888',
                               border: 'none',
                               borderRadius: 6,
                               pointerEvents: agentData?.id === member.id ? 'none' : undefined,
-                              opacity: !member.mfa_enabled && agentData?.id !== member.id ? 1 : 0.7,
+                              opacity: !member.mfa_enabled && agentData?.id !== member.id && !sentReminders.has(`${member.id}-mfa`) ? 1 : 0.7,
                               boxShadow: 'none',
                             }}
                             size="sm"
-                            disabled={member.mfa_enabled || agentData?.id === member.id}
+                            disabled={member.mfa_enabled || agentData?.id === member.id || sentReminders.has(`${member.id}-mfa`)}
                             variant="secondary"
                             onClick={() => handleSendReminder(member.id, 'mfa')}
                           >
@@ -1585,16 +1727,16 @@ const GovernmentSettingsPage: React.FC = () => {
                           </Button>
                           <Button
                             style={{
-                              background: agentData?.id !== member.id ? '#064497' : '#e0e0e0',
-                              color: agentData?.id !== member.id ? '#fff' : '#888',
+                              background: agentData?.id !== member.id && !sentReminders.has(`${member.id}-password`) ? '#064497' : '#e0e0e0',
+                              color: agentData?.id !== member.id && !sentReminders.has(`${member.id}-password`) ? '#fff' : '#888',
                               border: 'none',
                               borderRadius: 6,
                               pointerEvents: agentData?.id === member.id ? 'none' : undefined,
-                              opacity: agentData?.id !== member.id ? 1 : 0.7,
+                              opacity: agentData?.id !== member.id && !sentReminders.has(`${member.id}-password`) ? 1 : 0.7,
                               boxShadow: 'none',
                             }}
                             size="sm"
-                            disabled={agentData?.id === member.id}
+                            disabled={agentData?.id === member.id || sentReminders.has(`${member.id}-password`)}
                             variant="secondary"
                             onClick={() => handleSendReminder(member.id, 'password')}
                           >
