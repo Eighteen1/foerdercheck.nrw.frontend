@@ -450,14 +450,19 @@ const PersonalSpace: React.FC = () => {
           // Send email if enabled
           const shouldSendEmail = assignedAgentData.settings?.notifications?.emailNotifications?.applicationAssigned === true;
           if (shouldSendEmail) {
-            const { data: { session } } = await supabase.auth.getSession();
-            
-            if (session?.access_token) {
+            try {
+              // Get a system token
+              const tokenResponse = await fetch(`${BACKEND_URL}/api/system/token`);
+              if (!tokenResponse.ok) {
+                throw new Error('Failed to get system token');
+              }
+              const { token } = await tokenResponse.json();
+
               const response = await fetch(`${BACKEND_URL}/api/send-assignment-message`, {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${session.access_token}`
+                  'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({
                   to_email: assignedAgentData.email,
@@ -472,6 +477,8 @@ const PersonalSpace: React.FC = () => {
               if (!response.ok) {
                 console.error('Failed to send assignment email notification');
               }
+            } catch (error) {
+              console.error('Error sending assignment email:', error);
             }
           }
         }
