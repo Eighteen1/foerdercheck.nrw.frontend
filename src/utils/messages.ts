@@ -49,16 +49,112 @@ export const sendNewApplicationMessage = async (recipientId: string, application
   });
 };
 
-export const sendSharedApplicationMessage = async (recipientId: string, senderId: string, applicationId: string) => {
-  return sendMessage({
-    recipient_id: recipientId,
-    sender_id: senderId,
-    type: 'team',
-    category: 'shared_application',
-    title: 'Antrag geteilt',
-    content: 'Ein Antrag wurde mit Ihnen geteilt.',
-    metadata: { application_id: applicationId }
-  });
+export const sendSharedApplicationMessage = async (
+  recipientId: string,
+  senderId: string,
+  applicationIds: string[],
+  comment?: string,
+  emailData?: { toName?: string; appIds: string[]; customMessage: string }
+) => {
+  try {
+    // Get recipient's settings and info
+    const { data: recipientData, error: recipientError } = await supabase
+      .from('agents')
+      .select('name, email, settings')
+      .eq('id', recipientId)
+      .single();
+
+    if (recipientError) throw recipientError;
+
+    // Get sender's info
+    const { data: senderData, error: senderError } = await supabase
+      .from('agents')
+      .select('name, email')
+      .eq('id', senderId)
+      .single();
+
+    if (senderError) throw senderError;
+
+    // Plural/singular logic
+    const isPlural = applicationIds.length > 1;
+    const appList = applicationIds.map(id => `"${id}"`).join(isPlural ? ', ' : '');
+    const appListWithAnd = isPlural ? appList.replace(/, ([^,]*)$/, ' & $1') : appList;
+    const inAppTitle = isPlural ? 'Anträge geteilt' : 'Antrag geteilt';
+    const inAppIntro = isPlural
+      ? `${senderData.name ? `${senderData.name} (${senderData.email})` : senderData.email} hat Ihnen die Anträge ${appListWithAnd} geteilt.`
+      : `${senderData.name ? `${senderData.name} (${senderData.email})` : senderData.email} hat Ihnen den Antrag ${appListWithAnd} geteilt.`;
+    const messageContent = comment
+      ? comment
+      : `${inAppIntro}\n\nNachricht: ${emailData?.customMessage || ''}`;
+
+    // Send internal message
+    const messageSent = await sendMessage({
+      recipient_id: recipientId,
+      sender_id: senderId,
+      type: 'team',
+      category: 'shared_application',
+      title: inAppTitle,
+      content: messageContent,
+      metadata: { application_ids: applicationIds }
+    });
+
+    // Check if email notifications are enabled for shared applications
+    const shouldSendEmail = recipientData.settings?.notifications?.emailNotifications?.applicationShared === true;
+
+    // Send email if enabled
+    if (shouldSendEmail) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        console.error('No access token available in session');
+        throw new Error('No access token available');
+      }
+      const jwtToken = session.access_token;
+
+      // Compose email content
+      let emailContent = messageContent;
+      let emailTitle = inAppTitle;
+      if (emailData) {
+        const greeting = emailData.toName ? `Sehr geehrte/r ${emailData.toName},` : 'Guten Tag,';
+        const isPluralEmail = emailData.appIds.length > 1;
+        const appListEmail = emailData.appIds.map(id => `"${id}"`).join(isPluralEmail ? ', ' : '');
+        const appListWithAndEmail = isPluralEmail ? appListEmail.replace(/, ([^,]*)$/, ' & $1') : appListEmail;
+        const intro = isPluralEmail
+          ? `\n\nEin Team-Mitglied hat die Anträge ${appListWithAndEmail} mit folgender Nachricht an Sie geteilt:`
+          : `\n\nEin Team-Mitglied hat den Antrag ${appListWithAndEmail} mit folgender Nachricht an Sie geteilt:`;
+        const closing = `\n\nBitte antworten Sie nicht auf diese E-Mail.\nMit freundlichen Grüßen,\nFördercheck.NRW`;
+        emailContent = `${greeting}${intro}\n\n${emailData.customMessage}${closing}`;
+        emailTitle = isPluralEmail ? 'Anträge geteilt' : 'Antrag geteilt';
+      }
+
+      const response = await fetch(`${BACKEND_URL}/api/send-shared-application-message`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${jwtToken}`
+        },
+        body: JSON.stringify({
+          to_email: recipientData.email,
+          to_name: recipientData.name,
+          from_email: senderData.email,
+          from_name: senderData.name,
+          title: emailTitle,
+          content: emailContent,
+          application_id: applicationIds.join(', ')
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Failed to send email notification:', errorData);
+        throw new Error(errorData.detail || 'Failed to send email notification');
+      }
+    }
+
+    return messageSent;
+  } catch (err) {
+    console.error('Error in sendSharedApplicationMessage:', err);
+    return false;
+  }
 };
 
 export const sendPasswordReminderMessage = async (recipientId: string, senderId: string, content?: string) => {

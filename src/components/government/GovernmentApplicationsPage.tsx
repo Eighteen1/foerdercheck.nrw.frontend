@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Table, Button, ButtonGroup, Form, Spinner, Alert, Dropdown, Modal } from "react-bootstrap";
 import { supabase } from "../../lib/supabase";
 import { useNavigate } from 'react-router-dom';
-import { sendApplicationAssignedMessage, sendApplicationReassignedMessage, sendApplicationUnassignedMessage } from '../../utils/messages';
+import { sendApplicationAssignedMessage, sendApplicationReassignedMessage, sendApplicationUnassignedMessage, sendSharedApplicationMessage } from '../../utils/messages';
 
 // Add CSS styling for checkboxes
 const styles = `
@@ -91,6 +91,11 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
   const [hasExistingAssignments, setHasExistingAssignments] = useState(false);
   const [existingAssignments, setExistingAssignments] = useState<string[]>([]);
   const [isAssigning, setIsAssigning] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [selectedShareAgents, setSelectedShareAgents] = useState<any[]>([]);
+  const [shareAgentToAdd, setShareAgentToAdd] = useState("");
+  const [shareMessage, setShareMessage] = useState("");
+  const [isSharing, setIsSharing] = useState(false);
   const navigate = useNavigate();
 
   // Load current user and agents for their city
@@ -507,6 +512,15 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
     }
   };
 
+  // Helper for plural/singular
+  const getShareIntro = (agentName: string, appIds: string[]) => {
+    if (appIds.length === 1) {
+      return `Ein Team-Mitglied hat den Antrag "${appIds[0]}" mit folgender Nachricht an Sie geteilt:`;
+    } else {
+      return `Ein Team-Mitglied hat die Anträge ${appIds.map(id => `"${id}"`).join(", ")} mit folgender Nachricht an Sie geteilt:`;
+    }
+  };
+
   return (
     <div style={{ maxWidth: 1200, margin: "0 auto" }}>
       {/* Top status cards */}
@@ -597,6 +611,7 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
             variant="link" 
             style={{ color: selectedApplicationIds.length > 0 ? "#064497" : "#b0b0b0", fontSize: 22 }} 
             disabled={selectedApplicationIds.length === 0}
+            onClick={() => setShowShareModal(true)}
           >
             <span className="material-icons">share</span>
           </Button>
@@ -1164,6 +1179,143 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
             style={{ background: '#064497', border: 'none' }}
           >
             {selectedAgent === 'unassign' ? 'Zuweisung aufheben' : 'Zuweisen'}
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Share Modal */}
+      <Modal show={showShareModal} onHide={() => !isSharing && setShowShareModal(false)} centered>
+        <Modal.Header closeButton={!isSharing}>
+          <Modal.Title>Anträge teilen</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {isSharing ? (
+            <div style={{ 
+              position: 'absolute', 
+              top: 0, 
+              left: 0, 
+              right: 0, 
+              bottom: 0, 
+              background: 'rgba(255, 255, 255, 0.8)', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              zIndex: 1
+            }}>
+              <div style={{ textAlign: 'center' }}>
+                <Spinner animation="border" style={{ color: '#064497', marginBottom: 16 }} />
+                <div style={{ color: '#064497' }}>Anträge werden geteilt...</div>
+              </div>
+            </div>
+          ) : null}
+          <Form>
+            <Form.Group className="mb-3">
+              <Form.Label>Sachbearbeiter auswählen</Form.Label>
+              {/* Show selected application IDs as chips */}
+              <div style={{ marginBottom: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {selectedApplicationIds.map(id => (
+                  <span key={id} style={{ background: '#eaf2fb', color: '#064497', borderRadius: 5, padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 4, fontSize: 15, fontWeight: 500 }}>
+                    <span className="material-icons" style={{ fontSize: 18 }}>description</span>
+                    {id}
+                  </span>
+                ))}
+              </div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+                <Form.Select
+                  value={shareAgentToAdd}
+                  onChange={e => setShareAgentToAdd(e.target.value)}
+                  disabled={isSharing}
+                  style={{ maxWidth: 300 }}
+                >
+                  <option value="">Sachbearbeiter auswählen...</option>
+                  {agents
+                    .filter(agent => agent.id !== user?.id && !selectedShareAgents.some(a => a.id === agent.id))
+                    .map(agent => (
+                      <option key={agent.id} value={agent.id}>{agent.name || agent.email}</option>
+                    ))}
+                </Form.Select>
+                <Button
+                  variant="primary"
+                  style={{ background: '#064497', border: 'none', fontWeight: 500 }}
+                  disabled={!shareAgentToAdd || isSharing}
+                  onClick={() => {
+                    const agent = agents.find(a => a.id === shareAgentToAdd);
+                    if (agent && !selectedShareAgents.some(a => a.id === agent.id)) {
+                      setSelectedShareAgents(prev => [...prev, agent]);
+                      setShareAgentToAdd("");
+                    }
+                  }}
+                >
+                  Hinzufügen
+                </Button>
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+                {selectedShareAgents.map(agent => (
+                  <span key={agent.id} style={{ background: '#eaf2fb', color: '#064497', borderRadius: 5, padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 4, fontSize: 15, fontWeight: 500 }}>
+                    <span className="material-icons" style={{ fontSize: 18 }}>person</span>
+                    {agent.name || agent.email}
+                    <button onClick={() => setSelectedShareAgents(prev => prev.filter(a => a.id !== agent.id))} style={{ background: 'none', border: 'none', color: '#d32f2f', marginLeft: 4, cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', height: 24, width: 24 }} title="Entfernen">
+                      <span className="material-icons" style={{ fontSize: 22, display: 'block' }}>close</span>
+                    </button>
+                  </span>
+                ))}
+              </div>
+            </Form.Group>
+            <Form.Group>
+              <Form.Label>Nachricht (optional)</Form.Label>
+              <Form.Control
+                as="textarea"
+                rows={3}
+                value={shareMessage}
+                onChange={(e) => setShareMessage(e.target.value)}
+                placeholder="Fügen Sie hier eine Nachricht hinzu..."
+                disabled={isSharing}
+              />
+            </Form.Group>
+          </Form>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button 
+            variant="secondary" 
+            onClick={() => setShowShareModal(false)}
+            disabled={isSharing}
+          >
+            Abbrechen
+          </Button>
+          <Button 
+            variant="primary" 
+            onClick={async () => {
+              if (selectedShareAgents.length === 0) return;
+              setIsSharing(true);
+              try {
+                for (const agent of selectedShareAgents) {
+                  const senderName = user?.name ? `${user.name} (${user.email})` : user?.email || '';
+                  // In-app message (sender-focused, plural aware)
+                  const isPlural = selectedApplicationIds.length > 1;
+                  const appList = selectedApplicationIds.map(id => `"${id}"`).join(isPlural ? ', ' : '');
+                  const appListWithAnd = isPlural ? appList.replace(/, ([^,]*)$/, ' & $1') : appList;
+                  const inAppMsg = isPlural
+                    ? `${senderName} hat Ihnen die Anträge ${appListWithAnd} geteilt.\n\nNachricht: ${shareMessage}`
+                    : `${senderName} hat Ihnen den Antrag ${appListWithAnd} geteilt.\n\nNachricht: ${shareMessage}`;
+                  await sendSharedApplicationMessage(agent.id, user?.id || '', selectedApplicationIds, inAppMsg, {
+                    toName: agent.name,
+                    appIds: selectedApplicationIds,
+                    customMessage: shareMessage
+                  });
+                }
+                setShowShareModal(false);
+                setSelectedShareAgents([]);
+                setShareMessage("");
+              } catch (err) {
+                console.error('Error sharing applications:', err);
+              } finally {
+                setIsSharing(false);
+              }
+            }}
+            disabled={selectedShareAgents.length === 0 || isSharing}
+            style={{ background: '#064497', border: 'none' }}
+          >
+            Teilen
           </Button>
         </Modal.Footer>
       </Modal>
