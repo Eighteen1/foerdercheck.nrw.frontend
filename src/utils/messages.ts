@@ -297,7 +297,16 @@ export const sendApplicationReassignedMessage = async (oldAgentId: string, newAg
 
     if (senderError) throw senderError;
 
-    // Get new agent's info
+    // Get old agent's info and settings
+    const { data: oldAgentData, error: oldAgentError } = await supabase
+      .from('agents')
+      .select('name, email, settings')
+      .eq('id', oldAgentId)
+      .single();
+
+    if (oldAgentError) throw oldAgentError;
+
+    // Get new agent's info and settings
     const { data: newAgentData, error: newAgentError } = await supabase
       .from('agents')
       .select('name, email, settings')
@@ -307,6 +316,7 @@ export const sendApplicationReassignedMessage = async (oldAgentId: string, newAg
     if (newAgentError) throw newAgentError;
 
     const senderName = senderData.name ? `${senderData.name} (${senderData.email})` : senderData.email;
+    const oldAgentName = oldAgentData.name ? `${oldAgentData.name} (${oldAgentData.email})` : oldAgentData.email;
     const newAgentName = newAgentData.name ? `${newAgentData.name} (${newAgentData.email})` : newAgentData.email;
 
     // Send message to old agent if not self
@@ -327,6 +337,43 @@ export const sendApplicationReassignedMessage = async (oldAgentId: string, newAg
         content: content,
         metadata: { application_id: applicationId }
       });
+
+      // Check if old agent has email notifications enabled
+      const shouldSendEmailToOldAgent = oldAgentData.settings?.notifications?.emailNotifications?.applicationAssigned === true;
+
+      // Send email to old agent if enabled
+      if (shouldSendEmailToOldAgent) {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session?.access_token) {
+          console.error('No access token available in session');
+          throw new Error('No access token available');
+        }
+
+        const jwtToken = session.access_token;
+
+        const response = await fetch(`${BACKEND_URL}/api/send-assignment-message`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${jwtToken}`
+          },
+          body: JSON.stringify({
+            to_email: oldAgentData.email,
+            to_name: oldAgentData.name,
+            from_email: senderData.email,
+            from_name: senderData.name,
+            title: 'Antrag neu zugewiesen',
+            content: content
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          console.error('Failed to send email notification to old agent:', errorData);
+          throw new Error(errorData.detail || 'Failed to send email notification to old agent');
+        }
+      }
     }
 
     // Send message to new agent only if not self-assignment
@@ -348,11 +395,11 @@ export const sendApplicationReassignedMessage = async (oldAgentId: string, newAg
         metadata: { application_id: applicationId }
       });
 
-      // Check if email notifications are enabled for application assignments
-      const shouldSendEmail = newAgentData.settings?.notifications?.emailNotifications?.applicationAssigned === true;
+      // Check if new agent has email notifications enabled
+      const shouldSendEmailToNewAgent = newAgentData.settings?.notifications?.emailNotifications?.applicationAssigned === true;
 
-      // Send email if enabled
-      if (shouldSendEmail) {
+      // Send email to new agent if enabled
+      if (shouldSendEmailToNewAgent) {
         const { data: { session } } = await supabase.auth.getSession();
         
         if (!session?.access_token) {
@@ -380,8 +427,8 @@ export const sendApplicationReassignedMessage = async (oldAgentId: string, newAg
 
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
-          console.error('Failed to send email notification:', errorData);
-          throw new Error(errorData.detail || 'Failed to send email notification');
+          console.error('Failed to send email notification to new agent:', errorData);
+          throw new Error(errorData.detail || 'Failed to send email notification to new agent');
         }
       }
 
@@ -472,6 +519,120 @@ export const sendApplicationUnassignedMessage = async (oldAgentId: string, sende
     return messageSent;
   } catch (err) {
     console.error('Error in sendApplicationUnassignedMessage:', err);
+    return false;
+  }
+};
+
+export const sendNewApplicationNotification = async (applicationId: string, cityId: string, assignedAgentId: string | null) => {
+  try {
+    // Get all agents for the city
+    const { data: agents, error: agentsError } = await supabase
+      .from('agents')
+      .select('id, name, email, settings')
+      .eq('city_id', cityId);
+
+    if (agentsError) throw agentsError;
+
+    // Get application details
+    const { data: application, error: appError } = await supabase
+      .from('applications')
+      .select('type, resident_id')
+      .eq('id', applicationId)
+      .single();
+
+    if (appError) throw appError;
+
+    // Get resident details
+    const { data: resident, error: residentError } = await supabase
+      .from('user_data')
+      .select('firstname, lastname')
+      .eq('id', application.resident_id)
+      .single();
+
+    if (residentError) throw residentError;
+
+    const residentName = `${resident.firstname} ${resident.lastname}`.trim();
+    const applicationType = application.type;
+
+    // Get assigned agent details if there is one
+    let assignedAgentName = null;
+    if (assignedAgentId) {
+      const { data: assignedAgent, error: assignedAgentError } = await supabase
+        .from('agents')
+        .select('name')
+        .eq('id', assignedAgentId)
+        .single();
+
+      if (!assignedAgentError && assignedAgent) {
+        assignedAgentName = assignedAgent.name;
+      }
+    }
+
+    // Send notifications to each agent based on their settings
+    for (const agent of agents) {
+      // Skip if this is the assigned agent
+      if (agent.id === assignedAgentId) continue;
+
+      const settings = agent.settings?.notifications || {};
+      const shouldSendInApp = settings.newApplications?.enabled === true;
+      const shouldSendEmail = settings.newApplications?.email === true;
+
+      if (shouldSendInApp || shouldSendEmail) {
+        const assignmentInfo = assignedAgentName 
+          ? `Der Antrag wurde ${assignedAgentName} zugewiesen.`
+          : 'Der Antrag wurde noch keinem Sachbearbeiter zugewiesen.';
+
+        const messageContent = `Ein neuer Antrag vom Typ "${applicationType}" wurde eingereicht von ${residentName}. ${assignmentInfo}`;
+
+        // Send in-app message if enabled
+        if (shouldSendInApp) {
+          await sendMessage({
+            recipient_id: agent.id,
+            type: 'system',
+            category: 'new_application',
+            title: 'Neuer Antrag eingegangen',
+            content: messageContent,
+            metadata: { application_id: applicationId }
+          });
+        }
+
+        // Send email if enabled
+        if (shouldSendEmail) {
+          const { data: { session } } = await supabase.auth.getSession();
+          
+          if (!session?.access_token) {
+            console.error('No access token available in session');
+            throw new Error('No access token available');
+          }
+
+          const jwtToken = session.access_token;
+
+          const response = await fetch(`${BACKEND_URL}/api/send-new-application-message`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${jwtToken}`
+            },
+            body: JSON.stringify({
+              to_email: agent.email,
+              to_name: agent.name,
+              title: 'Neuer Antrag eingegangen',
+              content: messageContent
+            }),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            console.error('Failed to send email notification:', errorData);
+            throw new Error(errorData.detail || 'Failed to send email notification');
+          }
+        }
+      }
+    }
+
+    return true;
+  } catch (err) {
+    console.error('Error in sendNewApplicationNotification:', err);
     return false;
   }
 }; 

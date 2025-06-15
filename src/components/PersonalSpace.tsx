@@ -5,6 +5,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { supabase, storeEligibilityData, checkDocumentCheckStatus } from "../lib/supabase";
 import postcodeMap from '../utils/postcode_map.json';
 import { AssignmentRule } from '../types/city';
+import { sendMessage, sendNewApplicationNotification } from '../utils/messages';
 
 const STATUS_DISPLAY = {
   pending: 'Ausstehend',
@@ -17,6 +18,8 @@ const STATUS_DISPLAY = {
 } as const;
 
 type ApplicationStatus = keyof typeof STATUS_DISPLAY;
+
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
 
 const PersonalSpace: React.FC = () => {
   const navigate = useNavigate();
@@ -423,6 +426,59 @@ const PersonalSpace: React.FC = () => {
         console.error('User data update error:', userError);
         throw userError;
       }
+
+      // Send notifications
+      if (assignedAgent) {
+        // Get assigned agent's settings
+        const { data: assignedAgentData, error: assignedAgentError } = await supabase
+          .from('agents')
+          .select('name, email, settings')
+          .eq('id', assignedAgent)
+          .single();
+
+        if (!assignedAgentError && assignedAgentData) {
+          // Send in-app message
+          await sendMessage({
+            recipient_id: assignedAgent,
+            type: 'system',
+            category: 'application_assigned',
+            title: 'Neuer Antrag zugewiesen',
+            content: `Ein neuer Antrag vom Typ "${foerderVariante}" wurde Ihnen zugewiesen.`,
+            metadata: { application_id: data[0].id }
+          });
+
+          // Send email if enabled
+          const shouldSendEmail = assignedAgentData.settings?.notifications?.emailNotifications?.applicationAssigned === true;
+          if (shouldSendEmail) {
+            const { data: { session } } = await supabase.auth.getSession();
+            
+            if (session?.access_token) {
+              const response = await fetch(`${BACKEND_URL}/api/send-assignment-message`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${session.access_token}`
+                },
+                body: JSON.stringify({
+                  to_email: assignedAgentData.email,
+                  to_name: assignedAgentData.name,
+                  from_email: 'system@foerdercheck.nrw',
+                  from_name: 'Fördercheck.NRW',
+                  title: 'Neuer Antrag zugewiesen',
+                  content: `Ein neuer Antrag vom Typ "${foerderVariante}" wurde Ihnen zugewiesen.`
+                }),
+              });
+
+              if (!response.ok) {
+                console.error('Failed to send assignment email notification');
+              }
+            }
+          }
+        }
+      }
+
+      // Send notifications to other team members about new application
+      await sendNewApplicationNotification(data[0].id, cityId, assignedAgent);
   
       setApplicationStatus('submitted');
       setShowValidationModal(false);
