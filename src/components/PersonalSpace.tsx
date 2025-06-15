@@ -21,6 +21,15 @@ type ApplicationStatus = keyof typeof STATUS_DISPLAY;
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
 
+const TYPE_LABELS: Record<string, string> = {
+  "neubau": "Neubau Eigenheim",
+  "ersterwerb-eigenheim": "Ersterwerb Eigenheim",
+  "bestandserwerb-eigenheim": "Bestandserwerb Eigenheim",
+  "bestandserwerb-wohnung": "Bestandserwerb Eigentumswohnung",
+  "ersterwerb-wohnung": "Ersterwerb Eigentumswohnung",
+  "nutzungsaenderung": "Nutzungsänderung"
+};
+
 const PersonalSpace: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -437,13 +446,16 @@ const PersonalSpace: React.FC = () => {
           .single();
 
         if (!assignedAgentError && assignedAgentData) {
+          const formattedType = TYPE_LABELS[foerderVariante] || foerderVariante;
+          const messageContent = `Ein neuer Antrag vom Typ "${formattedType}" (ID: ${data[0].id}) wurde Ihnen zugewiesen.`;
+
           // Send in-app message
           await sendMessage({
             recipient_id: assignedAgent,
             type: 'system',
             category: 'application_assigned',
             title: 'Neuer Antrag zugewiesen',
-            content: `Ein neuer Antrag vom Typ "${foerderVariante}" wurde Ihnen zugewiesen.`,
+            content: messageContent,
             metadata: { application_id: data[0].id }
           });
 
@@ -452,7 +464,12 @@ const PersonalSpace: React.FC = () => {
           if (shouldSendEmail) {
             try {
               // Get a system token
-              const tokenResponse = await fetch(`${BACKEND_URL}/api/system/token`);
+              const tokenResponse = await fetch(`${BACKEND_URL}/api/system/token`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json'
+                }
+              });
               if (!tokenResponse.ok) {
                 throw new Error('Failed to get system token');
               }
@@ -470,7 +487,7 @@ const PersonalSpace: React.FC = () => {
                   from_email: 'system@foerdercheck.nrw',
                   from_name: 'Fördercheck.NRW',
                   title: 'Neuer Antrag zugewiesen',
-                  content: `Ein neuer Antrag vom Typ "${foerderVariante}" wurde Ihnen zugewiesen.`
+                  content: messageContent
                 }),
               });
 

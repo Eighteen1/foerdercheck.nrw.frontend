@@ -3,6 +3,16 @@ import { supabase } from '../lib/supabase';
 // Add backend URL constant
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
 
+// Add TYPE_LABELS at the top of the file
+const TYPE_LABELS: Record<string, string> = {
+  "neubau": "Neubau Eigenheim",
+  "ersterwerb-eigenheim": "Ersterwerb Eigenheim",
+  "bestandserwerb-eigenheim": "Bestandserwerb Eigenheim",
+  "bestandserwerb-wohnung": "Bestandserwerb Eigentumswohnung",
+  "ersterwerb-wohnung": "Ersterwerb Eigentumswohnung",
+  "nutzungsaenderung": "Nutzungsänderung"
+};
+
 export interface MessageData {
   recipient_id: string;
   sender_id?: string;
@@ -552,21 +562,35 @@ export const sendNewApplicationNotification = async (applicationId: string, city
     if (residentError) throw residentError;
 
     const residentName = `${resident.firstname} ${resident.lastname}`.trim();
-    const applicationType = application.type;
+    const formattedType = TYPE_LABELS[application.type] || application.type;
 
     // Get assigned agent details if there is one
     let assignedAgentName = null;
     if (assignedAgentId) {
       const { data: assignedAgent, error: assignedAgentError } = await supabase
         .from('agents')
-        .select('name')
+        .select('name, email')
         .eq('id', assignedAgentId)
         .single();
 
       if (!assignedAgentError && assignedAgent) {
-        assignedAgentName = assignedAgent.name;
+        assignedAgentName = assignedAgent.name 
+          ? `${assignedAgent.name} (${assignedAgent.email})`
+          : assignedAgent.email;
       }
     }
+
+    // Get system token
+    const tokenResponse = await fetch(`${BACKEND_URL}/api/system/token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    if (!tokenResponse.ok) {
+      throw new Error('Failed to get system token');
+    }
+    const { token } = await tokenResponse.json();
 
     // Send notifications to each agent based on their settings
     for (const agent of agents) {
@@ -582,7 +606,7 @@ export const sendNewApplicationNotification = async (applicationId: string, city
           ? `Der Antrag wurde ${assignedAgentName} zugewiesen.`
           : 'Der Antrag wurde noch keinem Sachbearbeiter zugewiesen.';
 
-        const messageContent = `Ein neuer Antrag vom Typ "${applicationType}" wurde eingereicht von ${residentName}. ${assignmentInfo}`;
+        const messageContent = `Ein neuer Antrag vom Typ "${formattedType}" (ID: ${applicationId}) wurde eingereicht von ${residentName}. ${assignmentInfo}`;
 
         // Send in-app message if enabled
         if (shouldSendInApp) {
@@ -598,24 +622,17 @@ export const sendNewApplicationNotification = async (applicationId: string, city
 
         // Send email if enabled
         if (shouldSendEmail) {
-          const { data: { session } } = await supabase.auth.getSession();
-          
-          if (!session?.access_token) {
-            console.error('No access token available in session');
-            throw new Error('No access token available');
-          }
-
-          const jwtToken = session.access_token;
-
           const response = await fetch(`${BACKEND_URL}/api/send-new-application-message`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${jwtToken}`
+              'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify({
               to_email: agent.email,
               to_name: agent.name,
+              from_email: 'system@foerdercheck.nrw',
+              from_name: 'Fördercheck.NRW',
               title: 'Neuer Antrag eingegangen',
               content: messageContent
             }),
