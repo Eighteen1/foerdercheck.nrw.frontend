@@ -751,7 +751,7 @@ const ReviewActionsPanel: React.FC<ReviewActionsPanelProps> = ({
                           </span>
                         </div>
                         <Collapse in={!!expandedSections[sec.key]}>
-                          <div>
+                          <div style={{ visibility: 'visible' }}>
                             <ul style={{ margin: 0, padding: '14px 32px', listStyle: 'disc', color: '#333', fontSize: 16 }}>
                               {groups[sec.key as SectionKey].map((item: ChecklistItem) => (
                                 <li key={item.id} style={{ marginBottom: 6 }}>{item.title}</li>
@@ -766,7 +766,17 @@ const ReviewActionsPanel: React.FC<ReviewActionsPanelProps> = ({
                   <div style={{ marginTop: 32, marginBottom: 8, display: 'flex', gap: 18, justifyContent: 'center' }}>
                     <Button
                       variant={decision === 'approved' ? 'success' : 'outline-success'}
-                      style={{ minWidth: 200, fontWeight: 600, fontSize: 18, boxShadow: decision === 'approved' ? '0 2px 8px #388e3c22' : undefined }}
+                      style={{
+                        minWidth: 200,
+                        fontWeight: 600,
+                        fontSize: 18,
+                        boxShadow: decision === 'approved' ? '0 2px 8px #388e3c22' : '0 2px 8px rgba(0,0,0,0.10)',
+                        background: decision === 'approved' ? undefined : '#fff',
+                        color: decision === 'approved' ? undefined : '#388e3c',
+                        borderRadius: 5,
+                        border: decision === 'approved' ? undefined : 'none',
+                        transition: 'all 0.2s',
+                      }}
                       onClick={() => setDecision('approved')}
                       disabled={decisionLoading}
                     >
@@ -774,7 +784,17 @@ const ReviewActionsPanel: React.FC<ReviewActionsPanelProps> = ({
                     </Button>
                     <Button
                       variant={decision === 'rejected' ? 'danger' : 'outline-danger'}
-                      style={{ minWidth: 200, fontWeight: 600, fontSize: 18, boxShadow: decision === 'rejected' ? '0 2px 8px #d32f2f22' : undefined }}
+                      style={{
+                        minWidth: 200,
+                        fontWeight: 600,
+                        fontSize: 18,
+                        boxShadow: decision === 'rejected' ? '0 2px 8px #d32f2f22' : '0 2px 8px rgba(0,0,0,0.10)',
+                        background: decision === 'rejected' ? undefined : '#fff',
+                        color: decision === 'rejected' ? undefined : '#d32f2f',
+                        borderRadius: 5,
+                        border: decision === 'rejected' ? undefined : 'none',
+                        transition: 'all 0.2s',
+                      }}
                       onClick={() => setDecision('rejected')}
                       disabled={decisionLoading}
                     >
