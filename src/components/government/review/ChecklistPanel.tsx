@@ -14,6 +14,7 @@ type ChecklistPanelProps = {
   openDocId?: string | null;
   onExpand: () => void;
   onProgressUpdate: (progress: number) => void;
+  openChecklistItemId?: string | null;
 };
 
 const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
@@ -24,6 +25,7 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
   openDocId,
   onExpand,
   onProgressUpdate,
+  openChecklistItemId
 }) => {
   const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -91,6 +93,16 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
 
     loadReviewData();
   }, [applicationId]);
+
+  // Effect to open a specific checklist item if openChecklistItemId is set
+  useEffect(() => {
+    if (openChecklistItemId && checklistItems.length > 0) {
+      const idx = checklistItems.findIndex(item => item.id === openChecklistItemId);
+      if (idx !== -1) {
+        setSelectedIndex(idx);
+      }
+    }
+  }, [openChecklistItemId, checklistItems]);
 
   const handleStatusChange = async (itemId: string, newStatus: string) => {
     try {

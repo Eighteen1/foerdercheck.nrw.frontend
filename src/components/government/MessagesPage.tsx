@@ -3,6 +3,7 @@ import { Table, Button, Badge, Spinner, Alert, Modal } from 'react-bootstrap';
 import { supabase } from '../../lib/supabase';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
+import { useNavigate } from 'react-router-dom';
 
 interface Message {
   id: string;
@@ -14,7 +15,10 @@ interface Message {
   content: string;
   is_read: boolean;
   created_at: string;
-  metadata: any;
+  metadata: {
+    application_id?: string | string[];
+    checklist_items?: {id: string, title: string}[];
+  };
   sender?: {
     name: string | null;
     email: string;
@@ -29,6 +33,7 @@ const MessagesPage: React.FC = () => {
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [activeType, setActiveType] = useState<'system' | 'team'>('team');
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchMessages();
@@ -115,6 +120,21 @@ const MessagesPage: React.FC = () => {
         verticalAlign: 'middle',
       }} />
     );
+  };
+
+  const handleOpenApplication = (applicationId: string, checklistItemId?: string) => {
+    // Close the modal
+    setShowModal(false);
+    setSelectedMessage(null);
+    
+    // Navigate to applications and set the selected application
+    navigate('/government/dashboard', { 
+      state: { 
+        selectedMenu: 'applications',
+        selectedApplicationId: applicationId,
+        openChecklistItemId: checklistItemId
+      }
+    });
   };
 
   // Filter messages by activeType
@@ -250,9 +270,84 @@ const MessagesPage: React.FC = () => {
             <div style={{ color: '#666', fontSize: '0.9rem', marginBottom: 16 }}>
               Datum: {selectedMessage?.created_at ? format(new Date(selectedMessage.created_at), 'dd.MM.yyyy HH:mm', { locale: de }) : '-'}
             </div>
-            <div style={{ whiteSpace: 'pre-wrap' }}>
+            <div style={{ whiteSpace: 'pre-wrap', marginBottom: 24 }}>
               {selectedMessage?.content}
             </div>
+            
+            {/* Application Reference Buttons */}
+            {selectedMessage?.metadata?.application_id && (
+              <div style={{ marginTop: 32, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {Array.isArray(selectedMessage.metadata.application_id) ? (
+                  selectedMessage.metadata.application_id.map((id) => (
+                    <Button
+                      key={id}
+                      onClick={() => handleOpenApplication(id)}
+                      style={{ 
+                        width: 'fit-content',
+                        backgroundColor: 'white',
+                        color: '#064497',
+                        border: 'none',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                        fontWeight: 500
+                      }}
+                    >
+                      {id} Öffnen
+                    </Button>
+                  ))
+                ) : (
+                  <Button
+                    onClick={() => handleOpenApplication(selectedMessage.metadata.application_id as string)}
+                    style={{ 
+                      width: 'fit-content',
+                      backgroundColor: 'white',
+                      color: '#064497',
+                      border: 'none',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                      fontWeight: 500
+                    }}
+                  >
+                    Antrag Öffnen
+                  </Button>
+                )}
+                {/* Checklist Item Buttons */}
+                {selectedMessage?.metadata?.checklist_items && Array.isArray(selectedMessage.metadata.checklist_items) && selectedMessage.metadata.checklist_items.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
+                    {selectedMessage.metadata.checklist_items.map((item: {id: string, title: string}) => (
+                      <Button
+                        key={item.id}
+                        onClick={() => handleOpenApplication(selectedMessage.metadata.application_id as string, item.id)}
+                        style={{
+                          width: 'fit-content',
+                          maxWidth: 340,
+                          backgroundColor: 'white',
+                          color: '#064497',
+                          border: 'none',
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                          fontWeight: 500,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 8,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          paddingRight: 16
+                        }}
+                        title={item.title}
+                      >
+                        <span className="material-icons" style={{ fontSize: 18, color: '#064497', flex: '0 0 auto' }}>checklist</span>
+                        <span style={{
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          display: 'inline-block',
+                          maxWidth: 260
+                        }}>{item.title}</span>
+                      </Button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </Modal.Body>
         <Modal.Footer>

@@ -1223,9 +1223,17 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
                 <Form.Select
                   value={shareAgentToAdd}
-                  onChange={e => setShareAgentToAdd(e.target.value)}
+                  onChange={e => {
+                    const agent = agents.find(a => a.id === e.target.value);
+                    if (agent && !selectedShareAgents.some(a => a.id === agent.id)) {
+                      setSelectedShareAgents(prev => [...prev, agent]);
+                      setShareAgentToAdd("");
+                    } else {
+                      setShareAgentToAdd("");
+                    }
+                  }}
                   disabled={isSharing}
-                  style={{ maxWidth: 300 }}
+                  style={{ width: '100%' }}
                 >
                   <option value="">Sachbearbeiter auswählen...</option>
                   {agents
@@ -1234,20 +1242,6 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
                       <option key={agent.id} value={agent.id}>{agent.name || agent.email}</option>
                     ))}
                 </Form.Select>
-                <Button
-                  variant="primary"
-                  style={{ background: '#064497', border: 'none', fontWeight: 500 }}
-                  disabled={!shareAgentToAdd || isSharing}
-                  onClick={() => {
-                    const agent = agents.find(a => a.id === shareAgentToAdd);
-                    if (agent && !selectedShareAgents.some(a => a.id === agent.id)) {
-                      setSelectedShareAgents(prev => [...prev, agent]);
-                      setShareAgentToAdd("");
-                    }
-                  }}
-                >
-                  Hinzufügen
-                </Button>
               </div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
                 {selectedShareAgents.map(agent => (

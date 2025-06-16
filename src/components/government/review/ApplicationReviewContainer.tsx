@@ -16,10 +16,11 @@ const TYPE_LABELS: Record<string, string> = {
 interface ApplicationReviewContainerProps {
   applicationId: string;
   onClose: () => void;
+  openChecklistItemId?: string | null;
 }
 
 // Modes: 'checklist' | 'forms'
-const ApplicationReviewContainer: React.FC<ApplicationReviewContainerProps> = ({ applicationId, onClose }) => {
+const ApplicationReviewContainer: React.FC<ApplicationReviewContainerProps> = ({ applicationId, onClose, openChecklistItemId }) => {
   const [mode, setMode] = useState<'checklist' | 'forms'>('checklist');
   const [splitViewFormId, setSplitViewFormId] = useState<string | null>(null);
   const [splitViewDocId, setSplitViewDocId] = useState<string | null>(null);
@@ -300,6 +301,7 @@ const ApplicationReviewContainer: React.FC<ApplicationReviewContainerProps> = ({
                   openDocId={splitViewDocId}
                   onExpand={handleExpandForm}
                   onProgressUpdate={handleProgressUpdate}
+                  openChecklistItemId={openChecklistItemId}
                 />
               </div>
             ) : (splitViewFormId && splitViewFormId !== '') ? (
@@ -313,6 +315,7 @@ const ApplicationReviewContainer: React.FC<ApplicationReviewContainerProps> = ({
                     openDocId={splitViewDocId}
                     onExpand={handleExpandForm}
                     onProgressUpdate={handleProgressUpdate}
+                    openChecklistItemId={openChecklistItemId}
                   />
                 </div>
                 <div style={{ flex: 3, minWidth: 0, borderLeft: '1px solid #eee', background: '#F7F8FA' }}>
@@ -338,6 +341,7 @@ const ApplicationReviewContainer: React.FC<ApplicationReviewContainerProps> = ({
                     openDocId={splitViewDocId}
                     onExpand={handleExpandForm}
                     onProgressUpdate={handleProgressUpdate}
+                    openChecklistItemId={openChecklistItemId}
                   />
                 </div>
                 <div style={{ flex: 3, minWidth: 0, borderLeft: '1px solid #eee', background: '#F7F8FA' }}>

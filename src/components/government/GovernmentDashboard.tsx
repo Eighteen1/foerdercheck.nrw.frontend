@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Container, Button, Spinner } from "react-bootstrap";
 import { supabase } from "../../lib/supabase";
 import Layout from "../Layout";
@@ -27,7 +27,9 @@ const GovernmentDashboard: React.FC = () => {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [selectedApplicationId, setSelectedApplicationId] = useState<string | null>(null);
+  const [openChecklistItemId, setOpenChecklistItemId] = useState<string | null>(null);
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     supabase.auth.getSession().then((res: any) => {
@@ -41,6 +43,21 @@ const GovernmentDashboard: React.FC = () => {
       }
     });
   }, [navigate]);
+
+  useEffect(() => {
+    // Handle navigation state for application selection
+    if (location.state?.selectedMenu) {
+      setSelectedMenu(location.state.selectedMenu);
+    }
+    if (location.state?.selectedApplicationId) {
+      setSelectedApplicationId(location.state.selectedApplicationId);
+    }
+    if (location.state?.openChecklistItemId) {
+      setOpenChecklistItemId(location.state.openChecklistItemId);
+      // Reset state after use to avoid repeated opening
+      navigate(location.pathname, { replace: true, state: { ...location.state, openChecklistItemId: null } });
+    }
+  }, [location.state, location.pathname, navigate]);
 
   const handleMenuClick = (key: string) => {
     if (key === "logout") {
@@ -184,7 +201,7 @@ const GovernmentDashboard: React.FC = () => {
             <GovernmentApplicationsPage onSelectApplication={setSelectedApplicationId} />
           )}
           {selectedMenu === "applications" && selectedApplicationId && (
-            <ApplicationReviewContainer applicationId={selectedApplicationId} onClose={() => setSelectedApplicationId(null)} />
+            <ApplicationReviewContainer applicationId={selectedApplicationId} onClose={() => setSelectedApplicationId(null)} openChecklistItemId={openChecklistItemId} />
           )}
           {selectedMenu === "profile" && (
             <GovernmentProfilePage />

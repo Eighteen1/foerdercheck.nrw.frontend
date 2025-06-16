@@ -1,7 +1,8 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Modal, Button, Spinner, Collapse } from 'react-bootstrap';
+import { Modal, Button, Spinner, Collapse, Form } from 'react-bootstrap';
 import { supabase } from '../../../lib/supabase';
 import type { ChecklistItem } from '../../../types/checklist';
+import { sendSharedApplicationMessage } from '../../../utils/messages';
 
 // Add styles
 const styles = `
@@ -105,6 +106,16 @@ const ReviewActionsPanel: React.FC<ReviewActionsPanelProps> = ({
   const [decisionLoading, setDecisionLoading] = useState(false);
   const [decisionError, setDecisionError] = useState<string | null>(null);
   const [decisionSuccess, setDecisionSuccess] = useState(false);
+
+  // Add state for share modal and checklist items
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
+  const [shareChecklistItems, setShareChecklistItems] = useState<ChecklistItem[]>([]);
+  const [selectedShareChecklistItems, setSelectedShareChecklistItems] = useState<ChecklistItem[]>([]);
+  const [shareMessage, setShareMessage] = useState('');
+  const [shareAgentToAdd, setShareAgentToAdd] = useState('');
+  const [selectedShareAgents, setSelectedShareAgents] = useState<Array<{ id: string; name: string | null; email: string }>>([]);
+  const [agents, setAgents] = useState<Array<{ id: string; name: string | null; email: string }>>([]);
 
   // Responsive logic using ResizeObserver
   useEffect(() => {
@@ -286,6 +297,98 @@ const ReviewActionsPanel: React.FC<ReviewActionsPanelProps> = ({
     return isComplete ? 'Prüfung Abschließen' : 'Dokumente Nachfordern';
   };
 
+  // Add function to fetch checklist items
+  const fetchChecklistItems = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('applications')
+        .select('review_data')
+        .eq('id', applicationId)
+        .single();
+      
+      if (error) throw error;
+      
+      const checklistItems: ChecklistItem[] = data?.review_data?.checklistItems || [];
+      setShareChecklistItems(checklistItems);
+    } catch (err) {
+      console.error('Error fetching checklist items:', err);
+    }
+  };
+
+  // Add function to fetch agents
+  const fetchAgents = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return;
+
+      const { data, error } = await supabase
+        .from('agents')
+        .select('id, name, email')
+        .neq('id', session.user.id);
+
+      if (error) throw error;
+      setAgents(data || []);
+    } catch (err) {
+      console.error('Error fetching agents:', err);
+    }
+  };
+
+  // Add function to handle opening share modal
+  const handleOpenShareModal = async () => {
+    setShowShareModal(true);
+    await Promise.all([fetchChecklistItems(), fetchAgents()]);
+  };
+
+  // Add function to handle closing share modal
+  const handleCloseShareModal = () => {
+    setShowShareModal(false);
+    setSelectedShareChecklistItems([]);
+    setShareMessage('');
+    setShareAgentToAdd('');
+    setSelectedShareAgents([]);
+  };
+
+  // Add function to handle sharing
+  const handleShare = async () => {
+    if (selectedShareAgents.length === 0) return;
+    setIsSharing(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) throw new Error('No user session');
+
+      for (const agent of selectedShareAgents) {
+        const senderName = session.user.user_metadata?.name 
+          ? `${session.user.user_metadata.name} (${session.user.email})` 
+          : session.user.email;
+
+        // Create message content with checklist items
+        const checklistItemsText = selectedShareChecklistItems.length > 0
+          ? `\n\nAusgewählte Checklistenpunkte:\n${selectedShareChecklistItems.map(item => `- ${item.title}`).join('\n')}`
+          : '';
+
+        const messageContent = `${senderName} hat Ihnen den Antrag "${applicationId}" geteilt.${checklistItemsText}\n\nNachricht: ${shareMessage}`;
+
+        await sendSharedApplicationMessage(
+          agent.id,
+          session.user.id,
+          [applicationId],
+          messageContent,
+          {
+            toName: agent.name || undefined,
+            appIds: [applicationId],
+            customMessage: shareMessage + (checklistItemsText ? `\n\nAusgewählte Checklistenpunkte:\n${selectedShareChecklistItems.map(item => `- ${item.title}`).join('\n')}` : ''),
+          },
+          selectedShareChecklistItems.length > 0 ? selectedShareChecklistItems.map(item => ({ id: item.id, title: item.title })) : undefined
+        );
+      }
+      handleCloseShareModal();
+    } catch (err) {
+      console.error('Error sharing application:', err);
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
   return (
     <div
       ref={panelRef}
@@ -455,7 +558,7 @@ const ReviewActionsPanel: React.FC<ReviewActionsPanelProps> = ({
               Antragsteller Kontaktieren
             </button>
             <button
-              onClick={() => onShareApplication && handleAction(onShareApplication)}
+              onClick={() => handleAction(handleOpenShareModal)}
               className="menu-item"
             >
               Antrag teilen
@@ -613,6 +716,136 @@ const ReviewActionsPanel: React.FC<ReviewActionsPanelProps> = ({
             <Button variant="secondary" onClick={handleCloseFinishModal}>Schließen</Button>
           </Modal.Footer>
         )}
+      </Modal>
+      {/* Share Modal */}
+      <Modal show={showShareModal} onHide={() => !isSharing && handleCloseShareModal()} centered>
+        <Modal.Header closeButton={!isSharing}>
+          <Modal.Title>Antrag teilen</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {isSharing ? (
+            <div style={{ 
+              position: 'absolute', 
+              top: 0, 
+              left: 0, 
+              right: 0, 
+              bottom: 0, 
+              background: 'rgba(255, 255, 255, 0.8)', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              zIndex: 1
+            }}>
+              <div style={{ textAlign: 'center' }}>
+                <Spinner animation="border" style={{ color: '#064497', marginBottom: 16 }} />
+                <div style={{ color: '#064497' }}>Antrag wird geteilt...</div>
+              </div>
+            </div>
+          ) : null}
+          <Form>
+            <Form.Group className="mb-3">
+              <Form.Label>Sachbearbeiter auswählen</Form.Label>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+                <Form.Select
+                  value={shareAgentToAdd}
+                  onChange={e => {
+                    const agent = agents.find(a => a.id === e.target.value);
+                    if (agent && !selectedShareAgents.some(a => a.id === agent.id)) {
+                      setSelectedShareAgents(prev => [...prev, agent]);
+                      setShareAgentToAdd("");
+                    } else {
+                      setShareAgentToAdd("");
+                    }
+                  }}
+                  disabled={isSharing}
+                  style={{ width: '100%' }}
+                >
+                  <option value="">Sachbearbeiter auswählen...</option>
+                  {agents
+                    .filter(agent => !selectedShareAgents.some(a => a.id === agent.id))
+                    .map(agent => (
+                      <option key={agent.id} value={agent.id}>{agent.name || agent.email}</option>
+                    ))}
+                </Form.Select>
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+                {selectedShareAgents.map(agent => (
+                  <span key={agent.id} style={{ background: '#eaf2fb', color: '#064497', borderRadius: 5, padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 4, fontSize: 15, fontWeight: 500 }}>
+                    <span className="material-icons" style={{ fontSize: 18 }}>person</span>
+                    {agent.name || agent.email}
+                    <button onClick={() => setSelectedShareAgents(prev => prev.filter(a => a.id !== agent.id))} style={{ background: 'none', border: 'none', color: '#d32f2f', marginLeft: 4, cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', height: 24, width: 24 }} title="Entfernen">
+                      <span className="material-icons" style={{ fontSize: 22, display: 'block' }}>close</span>
+                    </button>
+                  </span>
+                ))}
+              </div>
+            </Form.Group>
+
+            <Form.Group className="mb-3">
+              <Form.Label>Checklistenpunkte auswählen (optional)</Form.Label>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+                <Form.Select
+                  value={selectedShareChecklistItems.length > 0 ? selectedShareChecklistItems[selectedShareChecklistItems.length - 1].id : ''}
+                  onChange={e => {
+                    const item = shareChecklistItems.find(i => i.id === e.target.value);
+                    if (item && !selectedShareChecklistItems.some(i => i.id === item.id)) {
+                      setSelectedShareChecklistItems(prev => [...prev, item]);
+                    }
+                  }}
+                  disabled={isSharing}
+                  style={{ width: '100%' }}
+                >
+                  <option value="">Checklistenpunkt auswählen...</option>
+                  {shareChecklistItems
+                    .filter(item => !selectedShareChecklistItems.some(i => i.id === item.id))
+                    .map(item => (
+                      <option key={item.id} value={item.id}>{item.title}</option>
+                    ))}
+                </Form.Select>
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+                {selectedShareChecklistItems.map(item => (
+                  <span key={item.id} style={{ background: '#eaf2fb', color: '#064497', borderRadius: 5, padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 4, fontSize: 15, fontWeight: 500 }}>
+                    <span className="material-icons" style={{ fontSize: 18 }}>checklist</span>
+                    {item.title}
+                    <button onClick={() => setSelectedShareChecklistItems(prev => prev.filter(i => i.id !== item.id))} style={{ background: 'none', border: 'none', color: '#d32f2f', marginLeft: 4, cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', height: 24, width: 24 }} title="Entfernen">
+                      <span className="material-icons" style={{ fontSize: 22, display: 'block' }}>close</span>
+                    </button>
+                  </span>
+                ))}
+              </div>
+            </Form.Group>
+
+            <Form.Group>
+              <Form.Label>Nachricht (optional)</Form.Label>
+              <Form.Control
+                as="textarea"
+                rows={3}
+                value={shareMessage}
+                onChange={(e) => setShareMessage(e.target.value)}
+                placeholder="Fügen Sie hier eine Nachricht hinzu..."
+                disabled={isSharing}
+              />
+            </Form.Group>
+          </Form>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button 
+            variant="secondary" 
+            onClick={handleCloseShareModal}
+            disabled={isSharing}
+          >
+            Abbrechen
+          </Button>
+          <Button 
+            variant="primary" 
+            onClick={handleShare}
+            disabled={selectedShareAgents.length === 0 || isSharing}
+            style={{ background: '#064497', border: 'none' }}
+          >
+            Teilen
+          </Button>
+        </Modal.Footer>
       </Modal>
     </div>
   );

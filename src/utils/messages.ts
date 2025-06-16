@@ -54,7 +54,8 @@ export const sendSharedApplicationMessage = async (
   senderId: string,
   applicationIds: string[],
   comment?: string,
-  emailData?: { toName?: string; appIds: string[]; customMessage: string }
+  emailData?: { toName?: string; appIds: string[]; customMessage: string },
+  checklistItems?: { id: string; title: string }[]
 ) => {
   try {
     // Get recipient's settings and info
@@ -88,6 +89,10 @@ export const sendSharedApplicationMessage = async (
       : `${inAppIntro}\n\nNachricht: ${emailData?.customMessage || ''}`;
 
     // Send internal message
+    const metadata: any = { application_id: applicationIds };
+    if (checklistItems && checklistItems.length > 0) {
+      metadata.checklist_items = checklistItems;
+    }
     const messageSent = await sendMessage({
       recipient_id: recipientId,
       sender_id: senderId,
@@ -95,7 +100,7 @@ export const sendSharedApplicationMessage = async (
       category: 'shared_application',
       title: inAppTitle,
       content: messageContent,
-      metadata: { application_ids: applicationIds }
+      metadata
     });
 
     // Check if email notifications are enabled for shared applications
@@ -116,13 +121,14 @@ export const sendSharedApplicationMessage = async (
       if (emailData) {
         const greeting = emailData.toName ? `Sehr geehrte/r ${emailData.toName},` : 'Guten Tag,';
         const isPluralEmail = emailData.appIds.length > 1;
-        const appListEmail = emailData.appIds.map(id => `"${id}"`).join(isPluralEmail ? ', ' : '');
-        const appListWithAndEmail = isPluralEmail ? appListEmail.replace(/, ([^,]*)$/, ' & $1') : appListEmail;
+        const appListEmailHtml = emailData.appIds.map(id => `<b>"${id}"</b>`).join(isPluralEmail ? ', ' : '');
+        const appListWithAndEmail = isPluralEmail ? appListEmailHtml.replace(/, ([^,]*)$/, ' & $1') : appListEmailHtml;
+        const senderInfo = senderData.name ? `${senderData.name} (${senderData.email})` : senderData.email;
         const intro = isPluralEmail
-          ? `\n\nEin Team-Mitglied hat die Anträge ${appListWithAndEmail} mit folgender Nachricht an Sie geteilt:`
-          : `\n\nEin Team-Mitglied hat den Antrag ${appListWithAndEmail} mit folgender Nachricht an Sie geteilt:`;
-        const closing = `\n\nBitte antworten Sie nicht auf diese E-Mail.\nMit freundlichen Grüßen,\nFördercheck.NRW`;
-        emailContent = `${greeting}${intro}\n\n${emailData.customMessage}${closing}`;
+          ? `\n\n${senderInfo} hat die Anträge ${appListWithAndEmail} mit folgender Nachricht an Sie geteilt:`
+          : `\n\n${senderInfo} hat den Antrag ${appListWithAndEmail} mit folgender Nachricht an Sie geteilt:`;
+        const closing = `\n\nDies ist eine automatisch generierte E-Mail. Bitte antworten Sie nicht auf diese E-Mail.\n\nWenn Sie mit dem Absender in Kontakt treten möchten, wenden Sie sich bitte direkt an ${senderInfo}.\n\nMit freundlichen Grüßen,\nFördercheck.NRW`;
+        emailContent = `${greeting}${intro}\n\n<i style="color: #064497">${emailData.customMessage}</i>${closing}`;
         emailTitle = isPluralEmail ? 'Anträge geteilt' : 'Antrag geteilt';
       }
 
@@ -139,7 +145,8 @@ export const sendSharedApplicationMessage = async (
           from_name: senderData.name,
           title: emailTitle,
           content: emailContent,
-          application_id: applicationIds.join(', ')
+          application_id: applicationIds.join(', '),
+          checklist_items: checklistItems
         }),
       });
 
