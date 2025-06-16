@@ -117,6 +117,25 @@ const ReviewActionsPanel: React.FC<ReviewActionsPanelProps> = ({
   const [selectedShareAgents, setSelectedShareAgents] = useState<Array<{ id: string; name: string | null; email: string }>>([]);
   const [agents, setAgents] = useState<Array<{ id: string; name: string | null; email: string }>>([]);
 
+  // Add state for contact applicant modal
+  const [showContactModal, setShowContactModal] = useState(false);
+  const [contactEmail, setContactEmail] = useState<string | null>(null);
+  const [contactName, setContactName] = useState<string | null>(null);
+  const [contactMessage, setContactMessage] = useState('');
+  const [contactSending, setContactSending] = useState(false);
+  const [contactError, setContactError] = useState<string | null>(null);
+  const [contactSuccess, setContactSuccess] = useState(false);
+
+  // Copy to clipboard logic
+  const [copied, setCopied] = useState(false);
+  const handleCopyEmail = () => {
+    if (contactEmail) {
+      navigator.clipboard.writeText(contactEmail);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    }
+  };
+
   // Responsive logic using ResizeObserver
   useEffect(() => {
     if (!panelRef.current) return;
@@ -389,6 +408,89 @@ const ReviewActionsPanel: React.FC<ReviewActionsPanelProps> = ({
     }
   };
 
+  // Refactor: always fetch applicant info when opening contact modal
+  const handleOpenContactModal = async () => {
+    setContactError(null);
+    setContactSuccess(false);
+    setContactMessage('');
+    setContactEmail(null);
+    setContactName(null);
+    setShowContactModal(true);
+    setInfoLoading(true);
+    try {
+      // Always fetch fresh info
+      const { data: app, error: appError } = await supabase
+        .from('applications')
+        .select('id, type, resident_id')
+        .eq('id', applicationId)
+        .single();
+      if (appError || !app) throw new Error('Fehler beim Laden der Antragsdaten.');
+      const { data: user, error: userError } = await supabase
+        .from('user_data')
+        .select('*')
+        .eq('id', app.resident_id)
+        .single();
+      if (userError || !user || !user.email) {
+        setContactEmail(null);
+        setContactError('Für diesen Antragsteller ist keine E-Mail-Adresse hinterlegt. Eine Kontaktaufnahme per E-Mail ist nicht möglich.');
+      } else {
+        setContactEmail(user.email);
+        setContactName((user.firstname || '') + (user.lastname ? ' ' + user.lastname : ''));
+      }
+    } catch {
+      setContactEmail(null);
+      setContactError('Fehler beim Laden der Antragsdaten.');
+    } finally {
+      setInfoLoading(false);
+    }
+  };
+
+  const handleCloseContactModal = () => {
+    setShowContactModal(false);
+    setContactMessage('');
+    setContactError(null);
+    setContactSuccess(false);
+  };
+
+  const handleSendContactMessage = async () => {
+    if (!contactEmail) return;
+    setContactSending(true);
+    setContactError(null);
+    setContactSuccess(false);
+    try {
+      // Get agent info from supabase session
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) throw new Error('Kein Agenten-Login gefunden.');
+      const agentName = session.user.user_metadata?.name || null;
+      const agentEmail = session.user.email;
+      // Call backend endpoint
+      const response = await fetch(`${BACKEND_URL}/api/contact-applicant-message`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          to_email: contactEmail,
+          to_name: contactName,
+          from_email: agentEmail,
+          from_name: agentName,
+          content: contactMessage,
+        })
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.detail || 'Fehler beim Senden der Nachricht.');
+      }
+      setContactSuccess(true);
+      setContactMessage('');
+    } catch (err: any) {
+      setContactError(err.message || 'Fehler beim Senden der Nachricht.');
+    } finally {
+      setContactSending(false);
+    }
+  };
+
   return (
     <div
       ref={panelRef}
@@ -552,7 +654,7 @@ const ReviewActionsPanel: React.FC<ReviewActionsPanelProps> = ({
               )
             )}
             <button
-              onClick={() => onContactApplicant && handleAction(onContactApplicant)}
+              onClick={handleOpenContactModal}
               className="menu-item"
             >
               Antragsteller Kontaktieren
@@ -719,7 +821,7 @@ const ReviewActionsPanel: React.FC<ReviewActionsPanelProps> = ({
       </Modal>
       {/* Share Modal */}
       <Modal show={showShareModal} onHide={() => !isSharing && handleCloseShareModal()} centered>
-        <Modal.Header closeButton={!isSharing}>
+        <Modal.Header>
           <Modal.Title>Antrag teilen</Modal.Title>
         </Modal.Header>
         <Modal.Body>
@@ -844,6 +946,76 @@ const ReviewActionsPanel: React.FC<ReviewActionsPanelProps> = ({
             style={{ background: '#064497', border: 'none' }}
           >
             Teilen
+          </Button>
+        </Modal.Footer>
+      </Modal>
+      {/* Contact Applicant Modal */}
+      <Modal show={showContactModal} onHide={handleCloseContactModal} centered size="lg">
+        <Modal.Header>
+          <Modal.Title>Antragsteller Kontaktieren</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {infoLoading ? (
+            <div className="d-flex justify-content-center align-items-center" style={{ minHeight: 120 }}>
+              <Spinner animation="border" style={{ color: '#064497', width: 48, height: 48 }} />
+            </div>
+          ) : contactError ? (
+            <div className="alert alert-danger">{contactError}</div>
+          ) : contactSuccess ? (
+            <div className="alert alert-success" style={{ fontSize: 18, textAlign: 'center', padding: 24 }}>
+              Die Nachricht wurde erfolgreich an den Antragsteller gesendet.
+            </div>
+          ) : contactEmail ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+              <div style={{ fontSize: 17, color: '#333' }}>
+                Sie können den Antragsteller unter folgender E-Mail-Adresse kontaktieren:
+                <div style={{ fontWeight: 600, fontSize: 18, color: '#064497', marginTop: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {contactEmail}
+                  <button
+                    onClick={handleCopyEmail}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginLeft: 4, display: 'flex', alignItems: 'center' }}
+                    title="E-Mail-Adresse kopieren"
+                    aria-label="E-Mail-Adresse kopieren"
+                    type="button"
+                  >
+                    <span className="material-icons" style={{ fontSize: 20, color: copied ? '#388e3c' : '#064497' }}>
+                      {copied ? 'check' : 'content_copy'}
+                    </span>
+                  </button>
+                  {copied && <span style={{ color: '#388e3c', fontSize: 14, marginLeft: 2 }}>Kopiert!</span>}
+                </div>
+              </div>
+              <div style={{ fontSize: 16, color: '#444', background: '#f7f7f7', borderRadius: 8, padding: 12 }}>
+                Alternativ können Sie dem Antragsteller eine Nachricht senden. <b>Bitte beachten Sie:</b> Eine direkte Antwort auf diese E-Mail ist nicht möglich. Der Antragsteller kann Sie nur über die im Portal angegebenen Kontaktmöglichkeiten erreichen.
+              </div>
+              <Form.Group>
+                <Form.Label>Nachricht an den Antragsteller</Form.Label>
+                <Form.Control
+                  as="textarea"
+                  rows={4}
+                  value={contactMessage}
+                  onChange={e => setContactMessage(e.target.value)}
+                  placeholder="Geben Sie hier Ihre Nachricht ein..."
+                  disabled={contactSending}
+                  style={{ fontSize: 16, borderRadius: 8, border: '1.5px solid #bdbdbd', background: '#fff', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}
+                />
+              </Form.Group>
+              {contactError && <div className="alert alert-danger">{contactError}</div>}
+            </div>
+          ) : (
+            <div>Keine E-Mail-Adresse für den Antragsteller gefunden.</div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={handleCloseContactModal} disabled={contactSending}>Schließen</Button>
+          <Button
+            variant="primary"
+            onClick={handleSendContactMessage}
+            disabled={!contactEmail || !contactMessage.trim() || contactSending}
+            style={{ background: '#064497', border: 'none' }}
+          >
+            {contactSending ? <Spinner animation="border" size="sm" style={{ marginRight: 8 }} /> : null}
+            Senden
           </Button>
         </Modal.Footer>
       </Modal>

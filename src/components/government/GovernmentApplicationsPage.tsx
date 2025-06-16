@@ -1185,7 +1185,7 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
 
       {/* Share Modal */}
       <Modal show={showShareModal} onHide={() => !isSharing && setShowShareModal(false)} centered>
-        <Modal.Header closeButton={!isSharing}>
+        <Modal.Header>
           <Modal.Title>Anträge teilen</Modal.Title>
         </Modal.Header>
         <Modal.Body>
