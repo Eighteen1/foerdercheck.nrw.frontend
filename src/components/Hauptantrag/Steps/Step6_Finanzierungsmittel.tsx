@@ -69,6 +69,7 @@ interface Step6Props {
   hasLocationCostLoan: boolean | null;
   hasWoodConstructionLoan: boolean | null;
   showValidation?: boolean;
+  readOnly?: boolean;
 }
 
 const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
@@ -82,13 +83,34 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
   hasSupplementaryLoan,
   hasLocationCostLoan,
   hasWoodConstructionLoan,
-  showValidation = false
+  showValidation = false,
+  readOnly = false
 }) => {
   const [eigenleistungError, setEigenleistungError] = useState<string | null>(null);
   const [gesamtbetraegeError, setGesamtbetraegeError] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
+  // Local state for sums (for readonly mode)
+  const [localSummeNennbetrag, setLocalSummeNennbetrag] = useState('');
+  const [localSummeTilgungsnachlass, setLocalSummeTilgungsnachlass] = useState('');
+  const [localSummeEigenleistung, setLocalSummeEigenleistung] = useState('');
+  const [localGesamtbetraege, setLocalGesamtbetraege] = useState('');
+
+  // Helper function to get numeric value from currency string
+  const getNumericValue = (value: string) => {
+    return Number(value.replace(/[^0-9]/g, ''));
+  };
+  // Helper function to format currency
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('de-DE', {
+      style: 'currency',
+      currency: 'EUR',
+      minimumFractionDigits: 2
+    }).format(value/100);
+  };
+
   const handleFremddarlehenChange = (id: string, field: keyof Fremddarlehen, value: string) => {
+    //if (readOnly) return;
     const updatedDarlehen = formData.fremddarlehen.map(darlehen => {
       if (darlehen.id === id) {
         return {
@@ -106,6 +128,7 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
   };
 
   const addFremddarlehen = () => {
+    //if (readOnly) return;
     const newDarlehen: Fremddarlehen = {
       id: Date.now().toString(),
       darlehenGeber: '',
@@ -122,6 +145,7 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
   };
 
   const removeFremddarlehen = (id: string) => {
+    //) return;
     updateFormData({
       ...formData,
       fremddarlehen: formData.fremddarlehen.filter(darlehen => darlehen.id !== id)
@@ -129,6 +153,7 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
   };
 
   const handleNRWBankChange = (section: string, field: string, value: string) => {
+    //if (readOnly) return;
     const updatedFormData = { ...formData };
     
     if (section === 'grunddarlehen') {
@@ -162,6 +187,7 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
   };
 
   const handleEigenleistungChange = (field: keyof typeof formData.eigenleistung, value: string) => {
+    //if (readOnly) return;
     const updatedFormData = {
       ...formData,
       eigenleistung: {
@@ -174,20 +200,6 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
   };
 
   const calculateSums = () => {
-    // Helper function to get numeric value from currency string
-    const getNumericValue = (value: string) => {
-      return Number(value.replace(/[^0-9]/g, ''));
-    };
-
-    // Helper function to format currency
-    const formatCurrency = (value: number) => {
-      return new Intl.NumberFormat('de-DE', {
-        style: 'currency',
-        currency: 'EUR',
-        minimumFractionDigits: 2
-      }).format(value/100);
-    };
-
     // Calculate NRW Bank sums
     let nrwBankNennbetrag = getNumericValue(formData.darlehenNRWBank.grunddarlehen.nennbetrag);
     let nrwBankTilgungsnachlass = getNumericValue(formData.darlehenNRWBank.grunddarlehen.tilgungsnachlass);
@@ -338,6 +350,54 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
     calculateSums();
   }, [formData.fremddarlehen]);
 
+  // Calculate and set local sums for readonly mode
+  useEffect(() => {
+    // NRW Bank sums
+    let nrwBankNennbetrag = getNumericValue(formData.darlehenNRWBank.grunddarlehen.nennbetrag);
+    let nrwBankTilgungsnachlass = getNumericValue(formData.darlehenNRWBank.grunddarlehen.tilgungsnachlass);
+    if (parseInt(childCount) > 0) {
+      nrwBankNennbetrag += getNumericValue(formData.darlehenNRWBank.zusatzdarlehen.familienbonus.nennbetrag);
+      nrwBankTilgungsnachlass += getNumericValue(formData.darlehenNRWBank.zusatzdarlehen.familienbonus.tilgungsnachlass);
+    }
+    if (hasWoodConstructionLoan) {
+      nrwBankNennbetrag += getNumericValue(formData.darlehenNRWBank.zusatzdarlehen.bauenMitHolz.nennbetrag);
+      nrwBankTilgungsnachlass += getNumericValue(formData.darlehenNRWBank.zusatzdarlehen.bauenMitHolz.tilgungsnachlass);
+    }
+    const isNeubauOrErsterwerb = foerderVariante === 'neubau' || foerderVariante.includes('ersterwerb');
+    if (isNeubauOrErsterwerb && barrierefrei) {
+      nrwBankNennbetrag += getNumericValue(formData.darlehenNRWBank.zusatzdarlehen.barrierefreiheit.nennbetrag);
+      nrwBankTilgungsnachlass += getNumericValue(formData.darlehenNRWBank.zusatzdarlehen.barrierefreiheit.tilgungsnachlass);
+    }
+    if (isNeubauOrErsterwerb && hasLocationCostLoan) {
+      nrwBankNennbetrag += getNumericValue(formData.darlehenNRWBank.zusatzdarlehen.standortbedingteMehrkosten.nennbetrag);
+      nrwBankTilgungsnachlass += getNumericValue(formData.darlehenNRWBank.zusatzdarlehen.standortbedingteMehrkosten.tilgungsnachlass);
+    }
+    if (isNeubauOrErsterwerb && begEffizienzhaus40Standard) {
+      nrwBankNennbetrag += getNumericValue(formData.darlehenNRWBank.zusatzdarlehen.begEffizienzhaus40Standard.nennbetrag);
+      nrwBankTilgungsnachlass += getNumericValue(formData.darlehenNRWBank.zusatzdarlehen.begEffizienzhaus40Standard.tilgungsnachlass);
+    }
+    // Eigenleistung sum
+    let eigenleistungSum = 0;
+    eigenleistungSum += getNumericValue(formData.eigenleistung.eigeneGeldmittel);
+    eigenleistungSum += getNumericValue(formData.eigenleistung.zuschüsse);
+    eigenleistungSum += getNumericValue(formData.eigenleistung.selbsthilfe);
+    if (foerderVariante === 'neubau' || foerderVariante === 'nutzungsaenderung') {
+      eigenleistungSum += getNumericValue(formData.eigenleistung.wertVorhandenerGebaeudeteile);
+    }
+    if (foerderVariante === 'neubau') {
+      eigenleistungSum += getNumericValue(formData.eigenleistung.wertBaugrundstück);
+    }
+    // Fremddarlehen sum
+    const fremddarlehenSum = formData.fremddarlehen.reduce((sum, darlehen) => 
+      sum + getNumericValue(darlehen.nennbetrag), 0);
+    const ergaenzungsdarlehenSum = getNumericValue(formData.ergaenzungsdarlehen.nennbetrag);
+    const gesamtbetraege = fremddarlehenSum + nrwBankNennbetrag + ergaenzungsdarlehenSum;
+    setLocalSummeNennbetrag(formatCurrency(nrwBankNennbetrag));
+    setLocalSummeTilgungsnachlass(formatCurrency(nrwBankTilgungsnachlass));
+    setLocalSummeEigenleistung(formatCurrency(eigenleistungSum));
+    setLocalGesamtbetraege(formatCurrency(gesamtbetraege));
+  }, [formData, foerderVariante, childCount, barrierefrei, begEffizienzhaus40Standard, hasWoodConstructionLoan, hasLocationCostLoan]);
+
   // Add validation function
   const validateStep6 = () => {
     const errors: string[] = [];
@@ -437,6 +497,12 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
     </Tooltip>
   );
 
+  // On initial mount, always calculate sums (even in readonly mode)
+  useEffect(() => {
+    calculateSums();
+    // eslint-disable-next-line
+  }, []);
+
   return (
     <div>
       <style>
@@ -484,7 +550,7 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
           <div key={darlehen.id} className="mb-4">
             <div className="d-flex justify-content-between align-items-center mb-3">
               <h5 className="mb-0">Fremddarlehen {index + 1}</h5>
-              {index > 0 && (
+              {!readOnly && index > 0 && (
                 <Button
                   variant="outline-danger"
                   size="sm"
@@ -504,6 +570,7 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
                     value={darlehen.darlehenGeber}
                     onChange={(e) => handleFremddarlehenChange(darlehen.id, 'darlehenGeber', e.target.value)}
                     isInvalid={getFieldError(`Fremddarlehen ${index + 1}: Bitte geben Sie den Darlehensgeber ein`)}
+                    disabled={readOnly}
                   />
                   <label>Darlehen der</label>
                   <Form.Control.Feedback type="invalid">
@@ -518,6 +585,7 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
                   placeholder="Nennbetrag"
                   label="Nennbetrag"
                   isInvalid={getFieldError(`Fremddarlehen ${index + 1}: Bitte geben Sie den Nennbetrag ein`)}
+                  disabled={readOnly}
                 />
               </div>
             </div>
@@ -531,6 +599,7 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
                     value={darlehen.zinssatz}
                     onChange={(e) => handleFremddarlehenChange(darlehen.id, 'zinssatz', e.target.value)}
                     isInvalid={getFieldError(`Fremddarlehen ${index + 1}: Bitte geben Sie den Zinssatz ein`)}
+                    disabled={readOnly}
                   />
                   <label>Zinssatz %</label>
                   <Form.Control.Feedback type="invalid">
@@ -546,6 +615,7 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
                     value={darlehen.auszahlung}
                     onChange={(e) => handleFremddarlehenChange(darlehen.id, 'auszahlung', e.target.value)}
                     isInvalid={getFieldError(`Fremddarlehen ${index + 1}: Bitte geben Sie die Auszahlung ein`)}
+                    disabled={readOnly}
                   />
                   <label>Auszahlung %</label>
                   <Form.Control.Feedback type="invalid">
@@ -561,6 +631,7 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
                     value={darlehen.tilgung}
                     onChange={(e) => handleFremddarlehenChange(darlehen.id, 'tilgung', e.target.value)}
                     isInvalid={getFieldError(`Fremddarlehen ${index + 1}: Bitte geben Sie die Tilgung ein`)}
+                    disabled={readOnly}
                   />
                   <label>Tilgung %</label>
                   <Form.Control.Feedback type="invalid">
@@ -572,13 +643,15 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
           </div>
         ))}
 
-        <Button
-          variant="outline-primary"
-          onClick={addFremddarlehen}
-          className="mt-3 add-fremddarlehen-btn"
-        >
-          + Weiteres Fremddarlehen hinzufügen
-        </Button>
+        {!readOnly && (
+          <Button
+            variant="outline-primary"
+            onClick={addFremddarlehen}
+            className="mt-3 add-fremddarlehen-btn"
+          >
+            + Weiteres Fremddarlehen hinzufügen
+          </Button>
+        )}
       </div>
 
       {/* NRW Bank Section */}
@@ -615,6 +688,7 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
                 placeholder="Grunddarlehen"
                 label="Grunddarlehen"
                 isInvalid={getFieldError('Bitte geben Sie den Nennbetrag des Grunddarlehens ein')}
+                disabled={readOnly}
               />
               {getFieldError('Bitte geben Sie den Nennbetrag des Grunddarlehens ein') && (
                 <div className="text-danger mt-1">
@@ -628,7 +702,7 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
                 onChange={() => {}}
                 placeholder="Tilgungsnachlass"
                 label="Tilgungsnachlass"
-                disabled
+                disabled={readOnly}
               />
             </div>
           </div>
@@ -646,6 +720,7 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
                   placeholder="Familienbonus"
                   label="Familienbonus"
                   isInvalid={getFieldError('Bitte geben Sie den Nennbetrag des Familienbonus ein')}
+                  disabled={readOnly}
                 />
                 {getFieldError('Bitte geben Sie den Nennbetrag des Familienbonus ein') && (
                   <div className="text-danger mt-1">
@@ -659,7 +734,7 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
                   onChange={() => {}}
                   placeholder="Tilgungsnachlass"
                   label="Tilgungsnachlass"
-                  disabled
+                  disabled={readOnly}
                 />
               </div>
             </div>
@@ -675,6 +750,7 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
                   placeholder="Barrierefreiheit"
                   label="Barrierefreiheit"
                   isInvalid={getFieldError('Bitte geben Sie den Nennbetrag für Barrierefreiheit ein')}
+                  disabled={readOnly}
                 />
                 {getFieldError('Bitte geben Sie den Nennbetrag für Barrierefreiheit ein') && (
                   <div className="text-danger mt-1">
@@ -688,7 +764,7 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
                   onChange={() => {}}
                   placeholder="Tilgungsnachlass"
                   label="Tilgungsnachlass"
-                  disabled
+                  disabled={readOnly}
                 />
               </div>
             </div>
@@ -704,6 +780,7 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
                   placeholder="BEG Effizienzhaus 40 Standard"
                   label="BEG Effizienzhaus 40 Standard"
                   isInvalid={getFieldError('Bitte geben Sie den Nennbetrag für BEG Effizienzhaus 40 Standard ein')}
+                  disabled={readOnly}
                 />
                 {getFieldError('Bitte geben Sie den Nennbetrag für BEG Effizienzhaus 40 Standard ein') && (
                   <div className="text-danger mt-1">
@@ -717,7 +794,7 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
                   onChange={() => {}}
                   placeholder="Tilgungsnachlass"
                   label="Tilgungsnachlass"
-                  disabled
+                  disabled={readOnly}
                 />
               </div>
             </div>
@@ -733,6 +810,7 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
                   placeholder="Standortbedingte Mehrkosten"
                   label="Standortbedingte Mehrkosten"
                   isInvalid={getFieldError('Bitte geben Sie den Nennbetrag für standortbedingte Mehrkosten ein')}
+                  disabled={readOnly}
                 />
                 {getFieldError('Bitte geben Sie den Nennbetrag für standortbedingte Mehrkosten ein') && (
                   <div className="text-danger mt-1">
@@ -746,7 +824,7 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
                   onChange={() => {}}
                   placeholder="Tilgungsnachlass"
                   label="Tilgungsnachlass"
-                  disabled
+                  disabled={readOnly}
                 />
               </div>
             </div>
@@ -762,6 +840,7 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
                   placeholder="Bauen mit Holz"
                   label="Bauen mit Holz"
                   isInvalid={getFieldError('Bitte geben Sie den Nennbetrag für Bauen mit Holz ein')}
+                  disabled={readOnly}
                 />
                 {getFieldError('Bitte geben Sie den Nennbetrag für Bauen mit Holz ein') && (
                   <div className="text-danger mt-1">
@@ -775,7 +854,7 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
                   onChange={() => {}}
                   placeholder="Tilgungsnachlass"
                   label="Tilgungsnachlass"
-                  disabled
+                  disabled={readOnly}
                 />
               </div>
             </div>
@@ -785,8 +864,8 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
           <div className="d-flex justify-content-between align-items-center p-3 bg-light rounded mt-4">
             <h5 className="mb-0">Summe Förderdarlehen/Tilgungsnachlässe:</h5>
             <div className="d-flex gap-3">
-              <span>{formData.darlehenNRWBank.summeNennbetrag}</span>
-              <span>{formData.darlehenNRWBank.summeTilgungsnachlass}</span>
+              <span>{readOnly ? localSummeNennbetrag : formData.darlehenNRWBank.summeNennbetrag}</span>
+              <span>{readOnly ? localSummeTilgungsnachlass : formData.darlehenNRWBank.summeTilgungsnachlass}</span>
             </div>
           </div>
         </div>
@@ -832,6 +911,7 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
                 placeholder="Nennbetrag"
                 label="Nennbetrag"
                 isInvalid={getFieldError('Bitte geben Sie den Nennbetrag des Ergänzungsdarlehens ein')}
+                disabled={readOnly}
               />
               {getFieldError('Bitte geben Sie den Nennbetrag des Ergänzungsdarlehens ein') && (
                 <div className="text-danger mt-1">
@@ -875,6 +955,7 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
               placeholder="Eigene Geldmittel, bezahlte Rechnungen"
               label="Eigene Geldmittel, bezahlte Rechnungen"
               isInvalid={getFieldError('Bitte geben Sie die eigenen Geldmittel ein')}
+              disabled={readOnly}
             />
             {getFieldError('Bitte geben Sie die eigenen Geldmittel ein') && (
               <div className="text-danger mt-1">
@@ -889,6 +970,7 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
               placeholder="Zuschüsse"
               label="Zuschüsse"
               isInvalid={getFieldError('Bitte geben Sie die Zuschüsse ein')}
+              disabled={readOnly}
             />
             {getFieldError('Bitte geben Sie die Zuschüsse ein') && (
               <div className="text-danger mt-1">
@@ -903,6 +985,7 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
               placeholder="Selbsthilfe"
               label="Selbsthilfe"
               isInvalid={getFieldError('Bitte geben Sie die Selbsthilfe ein')}
+              disabled={readOnly}
             />
             {getFieldError('Bitte geben Sie die Selbsthilfe ein') && (
               <div className="text-danger mt-1">
@@ -918,6 +1001,7 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
                 placeholder="Wert vorhandener Gebäudeteile"
                 label="Wert vorhandener Gebäudeteile"
                 isInvalid={getFieldError('Bitte geben Sie den Wert vorhandener Gebäudeteile ein')}
+                disabled={readOnly}
               />
               {getFieldError('Bitte geben Sie den Wert vorhandener Gebäudeteile ein') && (
                 <div className="text-danger mt-1">
@@ -934,6 +1018,7 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
                 placeholder="Wert Baugrundstück"
                 label="Wert Baugrundstück"
                 isInvalid={getFieldError('Bitte geben Sie den Wert des Baugrundstücks ein')}
+                disabled={readOnly}
               />
               {getFieldError('Bitte geben Sie den Wert des Baugrundstücks ein') && (
                 <div className="text-danger mt-1">
@@ -947,7 +1032,7 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
         {/* Summe Eigenleistung */}
         <div className="d-flex justify-content-between align-items-center p-3 bg-light rounded mt-4">
           <h5 className="mb-0">Summe Eigenleistung:</h5>
-          <span>{formData.eigenleistung.summeEigenleistung}</span>
+          <span>{readOnly ? localSummeEigenleistung : formData.eigenleistung.summeEigenleistung}</span>
         </div>
 
         {eigenleistungError && (
@@ -961,7 +1046,7 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
       <div className="mb-5">
         <div className="d-flex justify-content-between align-items-center p-3 bg-light rounded">
           <h4 className="mb-0 text-[#000000] font-semibold">Gesamtbeträge Finanzierung:</h4>
-          <h4 className="mb-0 text-[#064497] font-bold">{formData.gesamtbetraege}</h4>
+          <h4 className="mb-0 text-[#064497] font-bold">{readOnly ? localGesamtbetraege : formData.gesamtbetraege}</h4>
         </div>
 
         {gesamtbetraegeError && (

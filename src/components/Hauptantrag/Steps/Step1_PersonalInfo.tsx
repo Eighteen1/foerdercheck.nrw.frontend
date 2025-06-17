@@ -277,12 +277,14 @@ interface Step1Props {
   formData: Step1Data;
   updateFormData: (data: Step1Data) => void;
   showValidation?: boolean;
+  readOnly?: boolean;
 }
 
 const Step1_PersonalInfo: React.FC<Step1Props> = ({ 
   formData, 
   updateFormData,
-  showValidation = false
+  showValidation = false,
+  readOnly = false
 }) => {
   const [expandedEmploymentSections, setExpandedEmploymentSections] = useState<Record<number, string | null>>({});
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
@@ -334,6 +336,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
   }, [formData.persons]);
 
   const handleRepresentativeChange = (field: keyof Representative, value: any) => {
+    if (readOnly) return;
     const updatedRepresentative = {
       ...formData.representative,
       [field]: value
@@ -363,6 +366,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
   };
 
   const handlePersonChange = (index: number, field: keyof Person, value: string) => {
+    if (readOnly) return;
     const updatedPersons = [...formData.persons];
     if (field === 'employment') {
       updatedPersons[index] = {
@@ -386,6 +390,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
   };
 
   const handleEmploymentDetailChange = (index: number, value: string) => {
+    if (readOnly) return;
     const updatedPersons = [...formData.persons];
     updatedPersons[index] = {
       ...updatedPersons[index],
@@ -401,6 +406,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
   };
 
   const toggleEmploymentSection = (personIndex: number, section: string) => {
+    if (readOnly) return;
     setExpandedEmploymentSections(prev => ({
       ...prev,
       [personIndex]: prev[personIndex] === section ? null : section
@@ -408,6 +414,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
   };
 
   const deletePerson = (index: number) => {
+    if (readOnly) return;
     const updatedPersons = formData.persons.filter((_, i) => i !== index);
     updateFormData(ensureRepresentativeState({
       ...formData,
@@ -416,6 +423,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
   };
 
   const addPerson = () => {
+    if (readOnly) return;
     updateFormData(ensureRepresentativeState({
       ...formData,
       persons: [
@@ -569,6 +577,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
               e.currentTarget.style.color = '#970606';
             }}
             onClick={() => deletePerson(index)}
+            disabled={readOnly}
           >
             -
           </Button>
@@ -606,6 +615,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
             name={`title-${index}`}
             checked={person.title === 'Herr'}
             onChange={() => handlePersonChange(index, 'title', 'Herr')}
+            disabled={readOnly}
           />
           <Form.Check
             inline
@@ -614,6 +624,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
             name={`title-${index}`}
             checked={person.title === 'Frau'}
             onChange={() => handlePersonChange(index, 'title', 'Frau')}
+            disabled={readOnly}
           />
           <Form.Check
             inline
@@ -622,6 +633,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
             name={`title-${index}`}
             checked={person.title === 'ohne Anrede'}
             onChange={() => handlePersonChange(index, 'title', 'ohne Anrede')}
+            disabled={readOnly}
           />
           {getFieldError(index, 'Titel') && (
             <div className="text-danger mt-1">
@@ -639,6 +651,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
                 value={person.firstName}
                 onChange={(e) => handlePersonChange(index, 'firstName', e.target.value)}
                 isInvalid={getFieldError(index, 'Vorname')}
+                disabled={readOnly}
               />
               <label>Vorname</label>
               <Form.Control.Feedback type="invalid">
@@ -654,6 +667,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
                 value={person.lastName}
                 onChange={(e) => handlePersonChange(index, 'lastName', e.target.value)}
                 isInvalid={getFieldError(index, 'Name')}
+                disabled={readOnly}
               />
               <label>Name</label>
               <Form.Control.Feedback type="invalid">
@@ -670,6 +684,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
                 value={person.nationality}
                 onChange={(e) => handlePersonChange(index, 'nationality', e.target.value)}
                 isInvalid={getFieldError(index, 'Staatsangehörigkeit')}
+                disabled={readOnly}
               >
                 <option value="">Bitte wählen</option>
                 {countries.map((country) => (
@@ -692,6 +707,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
                 value={person.birthDate}
                 onChange={(e) => handlePersonChange(index, 'birthDate', e.target.value)}
                 isInvalid={getFieldError(index, 'Geburtsdatum')}
+                disabled={readOnly}
               />
               <label>Geburtsdatum</label>
               <Form.Control.Feedback type="invalid">
@@ -758,6 +774,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
             postalCode: validationErrors[`person_${index}`]?.find(error => error.includes('Postleitzahl')) || '',
             city: validationErrors[`person_${index}`]?.find(error => error.includes('Ort')) || ''
           }}
+          disabled={readOnly}
         />
       </div>
 
@@ -793,6 +810,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
                 value={person.phone}
                 onChange={(e) => handlePersonChange(index, 'phone', e.target.value)}
                 isInvalid={getFieldError(index, 'Telefonnummer')}
+                disabled={readOnly}
               />
               <label>Telefonnummer</label>
               <Form.Control.Feedback type="invalid">
@@ -808,6 +826,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
                 value={person.email}
                 onChange={(e) => handlePersonChange(index, 'email', e.target.value)}
                 isInvalid={getFieldError(index, 'E-Mail')}
+                disabled={readOnly}
               />
               <label>E-Mail Adresse</label>
               <Form.Control.Feedback type="invalid">
@@ -858,6 +877,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
                 color: expandedEmploymentSections[index] === 'non-self-employed' ? '#fff' : '#000',
                 border: '1px solid #dee2e6'
               }}
+              disabled={readOnly}
             >
               <span>Wirtschaftlich nicht selbständig</span>
               <i className={`bi bi-chevron-${expandedEmploymentSections[index] === 'non-self-employed' ? 'up' : 'down'}`}></i>
@@ -871,6 +891,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
                   name={`employment-${index}`}
                   checked={person.employment.type === 'worker'}
                   onChange={() => handlePersonChange(index, 'employment', 'worker')}
+                  disabled={readOnly}
                 />
                 <Form.Check
                   type="radio"
@@ -878,6 +899,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
                   name={`employment-${index}`}
                   checked={person.employment.type === 'employee'}
                   onChange={() => handlePersonChange(index, 'employment', 'employee')}
+                  disabled={readOnly}
                 />
                 <Form.Check
                   type="radio"
@@ -885,6 +907,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
                   name={`employment-${index}`}
                   checked={person.employment.type === 'civil-servant'}
                   onChange={() => handlePersonChange(index, 'employment', 'civil-servant')}
+                  disabled={readOnly}
                 />
                 <Form.Check
                   type="radio"
@@ -892,6 +915,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
                   name={`employment-${index}`}
                   checked={person.employment.type === 'apprentice'}
                   onChange={() => handlePersonChange(index, 'employment', 'apprentice')}
+                  disabled={readOnly}
                 />
                 <Form.Check
                   type="radio"
@@ -899,6 +923,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
                   name={`employment-${index}`}
                   checked={person.employment.type === 'retired'}
                   onChange={() => handlePersonChange(index, 'employment', 'retired')}
+                  disabled={readOnly}
                 />
                 <Form.Check
                   type="radio"
@@ -906,6 +931,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
                   name={`employment-${index}`}
                   checked={person.employment.type === 'unemployed'}
                   onChange={() => handlePersonChange(index, 'employment', 'unemployed')}
+                  disabled={readOnly}
                 />
               </div>
             )}
@@ -921,6 +947,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
                 color: expandedEmploymentSections[index] === 'self-employed' ? '#fff' : '#000',
                 border: '1px solid #dee2e6'
               }}
+              disabled={readOnly}
             >
               <span>Wirtschaftlich selbständige Privatperson</span>
               <i className={`bi bi-chevron-${expandedEmploymentSections[index] === 'self-employed' ? 'up' : 'down'}`}></i>
@@ -934,6 +961,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
                   name={`employment-${index}`}
                   checked={person.employment.type === 'sole-trader'}
                   onChange={() => handlePersonChange(index, 'employment', 'sole-trader')}
+                  disabled={readOnly}
                 />
                 <Form.Check
                   type="radio"
@@ -941,6 +969,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
                   name={`employment-${index}`}
                   checked={person.employment.type === 'business-owner'}
                   onChange={() => handlePersonChange(index, 'employment', 'business-owner')}
+                  disabled={readOnly}
                 />
                 <Form.Check
                   type="radio"
@@ -948,6 +977,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
                   name={`employment-${index}`}
                   checked={person.employment.type === 'freelancer'}
                   onChange={() => handlePersonChange(index, 'employment', 'freelancer')}
+                  disabled={readOnly}
                 />
                 <Form.Check
                   type="radio"
@@ -955,6 +985,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
                   name={`employment-${index}`}
                   checked={person.employment.type === 'farmer'}
                   onChange={() => handlePersonChange(index, 'employment', 'farmer')}
+                  disabled={readOnly}
                 />
                 <Form.Check
                   type="radio"
@@ -962,6 +993,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
                   name={`employment-${index}`}
                   checked={person.employment.type === 'private-income'}
                   onChange={() => handlePersonChange(index, 'employment', 'private-income')}
+                  disabled={readOnly}
                 />
                 <div className="mt-2 ps-4">
                   <Form.Floating>
@@ -971,6 +1003,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
                       value={person.employment.details}
                       onChange={(e) => handleEmploymentDetailChange(index, e.target.value)}
                       isInvalid={getFieldError(index, 'Branche')}
+                      disabled={readOnly}
                     />
                     <label>Branche</label>
                     <Form.Control.Feedback type="invalid">
@@ -992,6 +1025,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
                 color: expandedEmploymentSections[index] === 'other' ? '#fff' : '#000',
                 border: '1px solid #dee2e6'
               }}
+              disabled={readOnly}
             >
               <span>Sonstige Privatperson</span>
               <i className={`bi bi-chevron-${expandedEmploymentSections[index] === 'other' ? 'up' : 'down'}`}></i>
@@ -1005,6 +1039,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
                   name={`employment-${index}`}
                   checked={person.employment.type === 'student'}
                   onChange={() => handlePersonChange(index, 'employment', 'student')}
+                  disabled={readOnly}
                 />
                 <Form.Check
                   type="radio"
@@ -1012,6 +1047,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
                   name={`employment-${index}`}
                   checked={person.employment.type === 'pupil'}
                   onChange={() => handlePersonChange(index, 'employment', 'pupil')}
+                  disabled={readOnly}
                 />
                 <Form.Check
                   type="radio"
@@ -1019,6 +1055,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
                   name={`employment-${index}`}
                   checked={person.employment.type === 'homemaker'}
                   onChange={() => handlePersonChange(index, 'employment', 'homemaker')}
+                  disabled={readOnly}
                 />
                 <Form.Check
                   type="radio"
@@ -1026,6 +1063,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
                   name={`employment-${index}`}
                   checked={person.employment.type === 'no-occupation'}
                   onChange={() => handlePersonChange(index, 'employment', 'no-occupation')}
+                  disabled={readOnly}
                 />
               </div>
             )}
@@ -1074,6 +1112,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
             checked={formData.representative.hasRepresentative === true}
             onChange={() => handleRepresentativeChange('hasRepresentative', true)}
             className="custom-radio"
+            disabled={readOnly}
           />
           <Form.Check
             inline
@@ -1083,6 +1122,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
             checked={formData.representative.hasRepresentative === false}
             onChange={() => handleRepresentativeChange('hasRepresentative', false)}
             className="custom-radio"
+            disabled={readOnly}
           />
         </div>
       </div>
@@ -1126,6 +1166,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
               checked={formData.representative.isCompany === true}
               onChange={() => handleRepresentativeChange('isCompany', true)}
               className="custom-radio"
+              disabled={readOnly}
             />
             <Form.Check
               inline
@@ -1135,6 +1176,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
               checked={formData.representative.isCompany === false}
               onChange={() => handleRepresentativeChange('isCompany', false)}
               className="custom-radio"
+              disabled={readOnly}
             />
           </div>
         </div>
@@ -1156,6 +1198,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
                 value={formData.representative.companyName}
                 onChange={(e) => handleRepresentativeChange('companyName', e.target.value)}
                 isInvalid={validationErrors['representative']?.includes('Bitte geben Sie den Namen der Bevollmächtigten Firma ein')}
+                disabled={readOnly}
               />
               <label>Firma</label>
               <Form.Control.Feedback type="invalid">
@@ -1171,6 +1214,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
                 value={formData.representative.postboxPostcode}
                 onChange={(e) => handleRepresentativeChange('postboxPostcode', e.target.value)}
                 isInvalid={validationErrors['representative']?.includes('Bitte geben Sie die Postleitzahl des Postfachs der Bevollmächtigten Firma ein')}
+                disabled={readOnly}
               />
               <label>Postfach PLZ</label>
               <Form.Control.Feedback type="invalid">
@@ -1186,6 +1230,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
                 value={formData.representative.postboxCity}
                 onChange={(e) => handleRepresentativeChange('postboxCity', e.target.value)}
                 isInvalid={validationErrors['representative']?.includes('Bitte geben Sie den Ort des Postfachs der Bevollmächtigten Firma ein')}
+                disabled={readOnly}
               />
               <label>Postfach Ort</label>
               <Form.Control.Feedback type="invalid">
@@ -1207,6 +1252,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
               name="representative-title"
               checked={formData.representative.title === 'Herr'}
               onChange={() => handleRepresentativeChange('title', 'Herr')}
+              disabled={readOnly}
             />
             <Form.Check
               inline
@@ -1215,6 +1261,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
               name="representative-title"
               checked={formData.representative.title === 'Frau'}
               onChange={() => handleRepresentativeChange('title', 'Frau')}
+              disabled={readOnly}
             />
             <Form.Check
               inline
@@ -1223,6 +1270,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
               name="representative-title"
               checked={formData.representative.title === 'ohne Anrede'}
               onChange={() => handleRepresentativeChange('title', 'ohne Anrede')}
+              disabled={readOnly}
             />
             {validationErrors['representative']?.includes('Bitte geben Sie den Titel des Bevollmächtigten ein') && (
               <div className="text-danger mt-1">
@@ -1240,6 +1288,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
                   value={formData.representative.firstName}
                   onChange={(e) => handleRepresentativeChange('firstName', e.target.value)}
                   isInvalid={validationErrors['representative']?.includes('Bitte geben Sie den Vornamen des Bevollmächtigten ein')}
+                  disabled={readOnly}
                 />
                 <label>Vorname</label>
                 <Form.Control.Feedback type="invalid">
@@ -1255,6 +1304,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
                   value={formData.representative.lastName}
                   onChange={(e) => handleRepresentativeChange('lastName', e.target.value)}
                   isInvalid={validationErrors['representative']?.includes('Bitte geben Sie den Nachnamen des Bevollmächtigten ein')}
+                  disabled={readOnly}
                 />
                 <label>Name</label>
                 <Form.Control.Feedback type="invalid">
@@ -1273,6 +1323,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
                   value={formData.representative.street}
                   onChange={(e) => handleRepresentativeChange('street', e.target.value)}
                   isInvalid={validationErrors['representative']?.includes('Bitte geben Sie die Straße des Bevollmächtigten ein')}
+                  disabled={readOnly}
                 />
                 <label>Straße</label>
                 <Form.Control.Feedback type="invalid">
@@ -1288,6 +1339,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
                   value={formData.representative.houseNumber}
                   onChange={(e) => handleRepresentativeChange('houseNumber', e.target.value)}
                   isInvalid={validationErrors['representative']?.includes('Bitte geben Sie die Hausnummer des Bevollmächtigten ein')}
+                  disabled={readOnly}
                 />
                 <label>Hausnummer</label>
                 <Form.Control.Feedback type="invalid">
@@ -1306,6 +1358,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
                   value={formData.representative.postalCode}
                   onChange={(e) => handleRepresentativeChange('postalCode', e.target.value)}
                   isInvalid={validationErrors['representative']?.includes('Bitte geben Sie die Postleitzahl des Bevollmächtigten ein')}
+                  disabled={readOnly}
                 />
                 <label>Postleitzahl</label>
                 <Form.Control.Feedback type="invalid">
@@ -1321,6 +1374,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
                   value={formData.representative.city}
                   onChange={(e) => handleRepresentativeChange('city', e.target.value)}
                   isInvalid={validationErrors['representative']?.includes('Bitte geben Sie die Stadt des Bevollmächtigten ein')}
+                  disabled={readOnly}
                 />
                 <label>Ort</label>
                 <Form.Control.Feedback type="invalid">
@@ -1339,6 +1393,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
                   value={formData.representative.phone}
                   onChange={(e) => handleRepresentativeChange('phone', e.target.value)}
                   isInvalid={validationErrors['representative']?.includes('Bitte geben Sie die Telefonnummer des Bevollmächtigten ein')}
+                  disabled={readOnly}
                 />
                 <label>Telefonnummer</label>
                 <Form.Control.Feedback type="invalid">
@@ -1354,6 +1409,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
                   value={formData.representative.email}
                   onChange={(e) => handleRepresentativeChange('email', e.target.value)}
                   isInvalid={validationErrors['representative']?.includes('Bitte geben Sie die E-Mail des Bevollmächtigten ein')}
+                  disabled={readOnly}
                 />
                 <label>E-Mail Adresse</label>
                 <Form.Control.Feedback type="invalid">
@@ -1414,13 +1470,13 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
       {formData.persons.map((person, index) => renderPersonForm(person, index))}
       
       <div className="text-center mb-8">
-        <Button
+        { !readOnly && <Button
           onClick={addPerson}
           variant="outline-primary"
           className="rounded-pill add-person-button"
         >
           + Weitere Antragstellende Person hinzufügen
-        </Button>
+        </Button> }
       </div>
     </div>
   );

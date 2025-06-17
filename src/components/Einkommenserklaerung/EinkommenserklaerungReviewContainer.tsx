@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Container, Modal, Form, Button } from 'react-bootstrap';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
@@ -173,10 +173,42 @@ const EinkommenserklaerungReviewContainer: React.FC<EinkommenserklaerungReviewCo
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [showSearchModal, setShowSearchModal] = useState(false);
+  const [showScrollHint, setShowScrollHint] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollHintTimeout = useRef<any>(null);
 
   useEffect(() => {
     loadSavedData();
   }, [residentId]);
+
+  useEffect(() => {
+    const checkOverflow = () => {
+      const el = scrollRef.current;
+      if (el && el.scrollWidth > el.clientWidth) {
+        setShowScrollHint(true);
+        if (scrollHintTimeout.current) clearTimeout(scrollHintTimeout.current);
+        scrollHintTimeout.current = setTimeout(() => setShowScrollHint(false), 6500);
+      } else {
+        setShowScrollHint(false);
+      }
+    };
+    checkOverflow();
+    window.addEventListener('resize', checkOverflow);
+    return () => {
+      window.removeEventListener('resize', checkOverflow);
+      if (scrollHintTimeout.current) clearTimeout(scrollHintTimeout.current);
+    };
+  }, [mainFinancials, additionalApplicants]);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      if (showScrollHint) setShowScrollHint(false);
+    };
+    el.addEventListener('scroll', onScroll);
+    return () => el.removeEventListener('scroll', onScroll);
+  }, [showScrollHint]);
 
   const loadSavedData = async () => {
     if (!residentId) return;
@@ -196,8 +228,9 @@ const EinkommenserklaerungReviewContainer: React.FC<EinkommenserklaerungReviewCo
       }
       
       // Set showValidation based on shouldShowErrorEink from database
-      const shouldShowError = userData?.should_show_error_einkommenserklaerung ?? false;
-      setShowValidation(shouldShowError);
+      // const shouldShowError = userData?.should_show_error_einkommenserklaerung ?? false;
+      // setShowValidation(shouldShowError);
+      setShowValidation(true);
 
       // Load financial data
       const { data: financialData, error: financialError } = await supabase
@@ -508,102 +541,164 @@ const EinkommenserklaerungReviewContainer: React.FC<EinkommenserklaerungReviewCo
             width: 90%;
           }
         `}
-      </style>
-      <div className="review-header">
-        <div className="applicant-switcher">
-          <button
-            onClick={() => setCurrentApplicantIndex(0)}
-            className={currentApplicantIndex === 0 ? 'active' : ''}
-          >
-            Hauptantragsteller
-          </button>
-          {additionalApplicants.map((_, index) => (
-            <button
-              key={index}
-              onClick={() => setCurrentApplicantIndex(index + 1)}
-              className={currentApplicantIndex === index + 1 ? 'active' : ''}
-            >
-              {`Antragsteller ${index + 1}`}
-            </button>
-          ))}
-        </div>
+        </style>
+        <div className="review-header">
         <div className="search-container">
-          <button onClick={() => setShowSearchModal(true)}>
-            <span className="material-icons">search</span>
-          </button>
-        </div>
-      </div>
-      <div className="form-content">
-        <EinkommenserklaerungForm
-          data={getCurrentApplicant()}
-          onChange={() => {}} // No-op since this is read-only
-          isMainApplicant={currentApplicantIndex === 0}
-          showValidation={showValidation}
-          isReadOnly={true}
-        />
-      </div>
-
-      <Modal show={showSearchModal} onHide={() => setShowSearchModal(false)} centered dialogClassName="search-modal">
-        <Modal.Header closeButton>
-          <Modal.Title>Im Formular Suchen</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <Form.Group className="mb-4">
-            <Form.Control
-              type="text"
-              placeholder="Suchen Sie nach Begriffen..."
-              value={searchQuery}
-              onChange={handleSearchInputChange}
-              className="form-control"
-              style={{ fontSize: '0.9rem' }}
-            />
-            {searchQuery.length > 0 && searchQuery.length < 3 && (
-              <Form.Text className="text-muted">
-                Bitte geben Sie mindestens 3 Zeichen ein
-              </Form.Text>
-            )}
-          </Form.Group>
-
-          {searchResults.length > 0 ? (
-            <div className="search-results">
-              {searchResults.map((result) => (
-                <div key={result.section} className="mb-3 p-3 border rounded">
-                  <div className="d-flex justify-content-between align-items-center mb-2">
-                    <h5 className="mb-0">{sectionTitles[result.section as keyof typeof sectionTitles]}</h5>
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={() => navigateToSection(result.section)}
-                      style={{ backgroundColor: '#064497', border: 'none' }}
+                <button onClick={() => setShowSearchModal(true)} title="Suchen">
+                    <span className="material-icons" style={{ color: '#064497' }}>search</span>
+                </button>
+            </div>
+            <div style={{ position: 'relative', flex: 1 }}>
+              <div className="step-scrollbar" ref={scrollRef}>
+                <button
+                    onClick={() => setCurrentApplicantIndex(0)}
+                    className={
+                        'applicant-switcher-button' + (currentApplicantIndex === 0 ? ' active' : '')
+                    }
+                >
+                    Hauptantragsteller
+                </button>
+                {additionalApplicants.map((_, index) => (
+                    <button
+                        key={index}
+                        onClick={() => setCurrentApplicantIndex(index + 1)}
+                        className={
+                            'applicant-switcher-button' + (currentApplicantIndex === index + 1 ? ' active' : '')
+                        }
                     >
-                      Zum Abschnitt
-                    </Button>
-                  </div>
-                  <div className="matches">
-                    {result.matches.map((match, index) => (
-                      <span key={index} className="badge bg-light text-dark me-2 mb-2">
-                        {match}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ))}
+                        {`Antragsteller ${index + 1}`}
+                    </button>
+                ))}
+              </div>
             </div>
-          ) : searchQuery.length >= 3 ? (
-            <div className="text-center text-muted">
-              Keine Ergebnisse gefunden
+        </div>
+        {/* SCROLL HINT BELOW HEADER */}
+        {showScrollHint && (
+          <div style={{
+            position: 'relative',
+            width: '100%',
+            display: 'flex',
+            justifyContent: 'center',
+            zIndex: 20,
+            marginTop: 4
+          }}>
+            <div style={{
+              position: 'relative',
+              background: '#fff',
+              color: '#222',
+              borderRadius: 8,
+              boxShadow: '0 4px 16px rgba(0,0,0,0.13)',
+              padding: '10px 18px 10px 14px',
+              fontSize: '1rem',
+              display: 'flex',
+              alignItems: 'center',
+              minWidth: 320,
+              maxWidth: 420,
+              border: '1px solid #f3b13c',
+            }}>
+              <span className="material-icons" style={{ color: '#f3b13c', fontSize: 28, marginRight: 10 }}>info</span>
+              <span>Scrollen Sie nach rechts, um alle Schritte zu sehen.</span>
+              {/* Arrow */}
+              <span style={{
+                position: 'absolute',
+                top: -12,
+                left: '10%',
+                transform: 'translateX(-50%)',
+                width: 0,
+                height: 0,
+                borderLeft: '10px solid transparent',
+                borderRight: '10px solid transparent',
+                borderBottom: '12px solid #fff',
+                filter: 'drop-shadow(0 -2px 2px rgba(0,0,0,0.07))',
+                zIndex: 1
+              }} />
+              {/* Arrow border for outline */}
+              <span style={{
+                position: 'absolute',
+                top: -14,
+                left: '10%',
+                transform: 'translateX(-50%)',
+                width: 0,
+                height: 0,
+                borderLeft: '11px solid transparent',
+                borderRight: '11px solid transparent',
+                borderBottom: '14px solid #f3b13c',
+                zIndex: 0
+              }} />
             </div>
-          ) : null}
-        </Modal.Body>
-        <Modal.Footer>
-          <Button 
-            onClick={() => setShowSearchModal(false)}
-            style={{ backgroundColor: '#064497', border: 'none' }}
-          >
-            Schließen
-          </Button>
-        </Modal.Footer>
-      </Modal>
+          </div>
+        )}
+        <div className="form-content">
+            <EinkommenserklaerungForm
+                data={getCurrentApplicant()}
+                onChange={() => {}} // No-op since this is read-only
+                isMainApplicant={currentApplicantIndex === 0}
+                showValidation={showValidation}
+                isReadOnly={true}
+            />
+        </div>
+
+        <Modal show={showSearchModal} onHide={() => setShowSearchModal(false)} centered dialogClassName="search-modal">
+            <Modal.Header closeButton>
+                <Modal.Title>Im Formular Suchen</Modal.Title>
+            </Modal.Header>
+            <Modal.Body>
+                <Form.Group className="mb-4">
+                    <Form.Control
+                        type="text"
+                        placeholder="Suchen Sie nach Begriffen..."
+                        value={searchQuery}
+                        onChange={handleSearchInputChange}
+                        className="form-control"
+                        style={{ fontSize: '0.9rem' }}
+                    />
+                    {searchQuery.length > 0 && searchQuery.length < 3 && (
+                        <Form.Text className="text-muted">
+                            Bitte geben Sie mindestens 3 Zeichen ein
+                        </Form.Text>
+                    )}
+                </Form.Group>
+
+                {searchResults.length > 0 ? (
+                    <div className="search-results">
+                        {searchResults.map((result) => (
+                            <div key={result.section} className="mb-3 p-3 border rounded">
+                                <div className="d-flex justify-content-between align-items-center mb-2">
+                                    <h5 className="mb-0">{sectionTitles[result.section as keyof typeof sectionTitles]}</h5>
+                                    <Button
+                                        variant="primary"
+                                        size="sm"
+                                        onClick={() => navigateToSection(result.section)}
+                                        style={{ backgroundColor: '#064497', border: 'none' }}
+                                    >
+                                        Zum Abschnitt
+                                    </Button>
+                                </div>
+                                <div className="matches">
+                                    {result.matches.map((match, index) => (
+                                        <span key={index} className="badge bg-light text-dark me-2 mb-2">
+                                            {match}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ) : searchQuery.length >= 3 ? (
+                    <div className="text-center text-muted">
+                        Keine Ergebnisse gefunden
+                    </div>
+                ) : null}
+            </Modal.Body>
+            <Modal.Footer>
+                <Button 
+                    onClick={() => setShowSearchModal(false)}
+                    style={{ backgroundColor: '#064497', border: 'none' }}
+                >
+                    Schließen
+                </Button>
+            </Modal.Footer>
+        </Modal>
     </div>
   );
 };

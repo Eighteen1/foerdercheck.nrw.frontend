@@ -62,9 +62,10 @@ interface Step3Props {
   formData: Step3Data;
   updateFormData: (data: Step3Data) => void;
   showValidation?: boolean;
+  readOnly?: boolean;
 }
 
-const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, showValidation = false }) => {
+const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, showValidation = false, readOnly = false }) => {
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
@@ -192,6 +193,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
   };
 
   const handleInputChange = (section: keyof Step3Data, field: string, value: any) => {
+    if (readOnly) return;
     const sectionData = formData[section] as Record<string, any>;
     updateFormData({
       ...formData,
@@ -299,6 +301,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
             city: validationErrors.find(error => error.includes('Stadt')) || ''
           }}
           state="NRW"
+          disabled={readOnly}
         />
       </div>
 
@@ -346,6 +349,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
                   foerderVariante: option.id
                 })}
                 className="custom-checkbox"
+                disabled={readOnly}
               />
             </Col>
           ))}
@@ -390,6 +394,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
                 value={formData.objektDetailsAllgemein.wohnflaecheSelbstgenutzt}
                 onChange={(e) => handleNestedInputChange('objektDetailsAllgemein', '', 'wohnflaecheSelbstgenutzt', e.target.value)}
                 isInvalid={getFieldError('selbstgenutzte Wohnfläche')}
+                disabled={readOnly}
               />
               <label>Wohnfläche selbstgenutzte Wohneinheit (m²)</label>
               <Form.Control.Feedback type="invalid">
@@ -405,6 +410,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
                 value={formData.objektDetailsAllgemein.gesamtWohnflaeche}
                 onChange={(e) => handleNestedInputChange('objektDetailsAllgemein', '', 'gesamtWohnflaeche', e.target.value)}
                 isInvalid={getFieldError('Gesamtwohnfläche')}
+                disabled={readOnly}
               />
               <label>Gesamtwohnfläche bei zwei Wohnungen im Objekt (m²)</label>
               <Form.Control.Feedback type="invalid">
@@ -423,6 +429,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
                 value={formData.objektDetailsAllgemein.anzahlZimmer}
                 onChange={(e) => handleNestedInputChange('objektDetailsAllgemein', '', 'anzahlZimmer', e.target.value)}
                 isInvalid={getFieldError('Anzahl der Zimmer')}
+                disabled={readOnly}
               />
               <label>Anzahl Zimmer der selbstgenutzten Wohneinheit</label>
               <Form.Control.Feedback type="invalid">
@@ -438,6 +445,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
                 value={formData.objektDetailsAllgemein.anzahlGaragen}
                 onChange={(e) => handleNestedInputChange('objektDetailsAllgemein', '', 'anzahlGaragen', e.target.value)}
                 isInvalid={getFieldError('Anzahl der Garagen')}
+                disabled={readOnly}
               />
               <label>Anzahl Garagen/Einstellplätze</label>
               <Form.Control.Feedback type="invalid">
@@ -480,6 +488,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
                 checked={formData.objektDetailsAllgemein.gewerbeflaeche.hasGewerbeflaeche === true}
                 onChange={() => handleNestedInputChange('objektDetailsAllgemein', 'gewerbeflaeche', 'hasGewerbeflaeche', true)}
                 className="custom-radio"
+                disabled={readOnly}
               />
               <Form.Check
                 inline
@@ -489,6 +498,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
                 checked={formData.objektDetailsAllgemein.gewerbeflaeche.hasGewerbeflaeche === false}
                 onChange={() => handleNestedInputChange('objektDetailsAllgemein', 'gewerbeflaeche', 'hasGewerbeflaeche', false)}
                 className="custom-radio"
+                disabled={readOnly}
               />
             </div>
           </div>
@@ -508,6 +518,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
                     value={formData.objektDetailsAllgemein.gewerbeflaeche.flaeche}
                     onChange={(e) => handleNestedInputChange('objektDetailsAllgemein', 'gewerbeflaeche', 'flaeche', e.target.value)}
                     isInvalid={getFieldError('Größe der Gewerbefläche')}
+                    disabled={readOnly}
                   />
                   <label>Größe der Gewerbefläche (m²)</label>
                   <Form.Control.Feedback type="invalid">
@@ -552,6 +563,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
                 checked={formData.objektDetailsAllgemein.ertraege.hasErtraege === true}
                 onChange={() => handleNestedInputChange('objektDetailsAllgemein', 'ertraege', 'hasErtraege', true)}
                 className="custom-radio"
+                disabled={readOnly}
               />
               <Form.Check
                 inline
@@ -561,6 +573,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
                 checked={formData.objektDetailsAllgemein.ertraege.hasErtraege === false}
                 onChange={() => handleNestedInputChange('objektDetailsAllgemein', 'ertraege', 'hasErtraege', false)}
                 className="custom-radio"
+                disabled={readOnly}
               />
             </div>
           </div>
@@ -579,6 +592,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
                   placeholder="Vermietete zweite Wohnung"
                   label="Vermietete zweite Wohnung (€/Jahr)"
                   isInvalid={getFieldError('Ertragswert')}
+                  disabled={readOnly}
                 />
               </div>
               <div className="col-md-6">
@@ -588,6 +602,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
                   placeholder="Vermietete Garage/Stellplatz"
                   label="Vermietete Garage/Stellplatz (€/Jahr)"
                   isInvalid={getFieldError('Ertragswert')}
+                  disabled={readOnly}
                 />
               </div>
               {showValidation && getFieldError('Ertragswert') && (
@@ -629,6 +644,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
                 checked={formData.objektDetailsAllgemein.hasWoodConstructionLoan === true}
                 onChange={() => handleRadioChange('objektDetailsAllgemein', 'hasWoodConstructionLoan', true)}
                 className="custom-radio"
+                disabled={readOnly}
               />
               <Form.Check
                 inline
@@ -638,6 +654,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
                 checked={formData.objektDetailsAllgemein.hasWoodConstructionLoan === false}
                 onChange={() => handleRadioChange('objektDetailsAllgemein', 'hasWoodConstructionLoan', false)}
                 className="custom-radio"
+                disabled={readOnly}
               />
             </div>
           </div>
@@ -689,6 +706,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
                 checked={formData.objektDetailsAllgemein.barrierefrei === true}
                 onChange={() => handleRadioChange('objektDetailsAllgemein', 'barrierefrei', true)}
                 className="custom-radio"
+                disabled={readOnly}
               />
               <Form.Check
                 inline
@@ -698,6 +716,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
                 checked={formData.objektDetailsAllgemein.barrierefrei === false}
                 onChange={() => handleRadioChange('objektDetailsAllgemein', 'barrierefrei', false)}
                 className="custom-radio"
+                disabled={readOnly}
               />
             </div>
           </div>
@@ -738,6 +757,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
                 checked={formData.objektDetailsAllgemein.begEffizienzhaus40Standard === true}
                 onChange={() => handleRadioChange('objektDetailsAllgemein', 'begEffizienzhaus40Standard', true)}
                 className="custom-radio"
+                disabled={readOnly}
               />
               <Form.Check
                 inline
@@ -747,6 +767,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
                 checked={formData.objektDetailsAllgemein.begEffizienzhaus40Standard === false}
                 onChange={() => handleRadioChange('objektDetailsAllgemein', 'begEffizienzhaus40Standard', false)}
                 className="custom-radio"
+                disabled={readOnly}
               />
             </div>
           </div>
@@ -787,6 +808,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
                 checked={formData.objektDetailsAllgemein.hasLocationCostLoan === true}
                 onChange={() => handleRadioChange('objektDetailsAllgemein', 'hasLocationCostLoan', true)}
                 className="custom-radio"
+                disabled={readOnly}
               />
               <Form.Check
                 inline
@@ -796,6 +818,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
                 checked={formData.objektDetailsAllgemein.hasLocationCostLoan === false}
                 onChange={() => handleRadioChange('objektDetailsAllgemein', 'hasLocationCostLoan', false)}
                 className="custom-radio"
+                disabled={readOnly}
               />
             </div>
           </div>
@@ -836,6 +859,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
                 checked={formData.objektDetailsNeubauErsterwerb.baugenehmigungErforderlich === true}
                 onChange={() => handleRadioChange('objektDetailsNeubauErsterwerb', 'baugenehmigungErforderlich', true)}
                 className="custom-radio"
+                disabled={readOnly}
               />
               <Form.Check
                 inline
@@ -845,6 +869,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
                 checked={formData.objektDetailsNeubauErsterwerb.baugenehmigungErforderlich === false}
                 onChange={() => handleRadioChange('objektDetailsNeubauErsterwerb', 'baugenehmigungErforderlich', false)}
                 className="custom-radio"
+                disabled={readOnly}
               />
             </div>
           </div>
@@ -864,6 +889,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
                   checked={formData.objektDetailsNeubauErsterwerb.baugenehmigung.wurdeErteilt === false}
                   onChange={() => handleNestedInputChange('objektDetailsNeubauErsterwerb', 'baugenehmigung', 'wurdeErteilt', false)}
                   className="custom-radio mb-2"
+                  disabled={readOnly}
                 />
                 <Form.Check
                   type="radio"
@@ -872,6 +898,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
                   checked={formData.objektDetailsNeubauErsterwerb.baugenehmigung.wurdeErteilt === true}
                   onChange={() => handleNestedInputChange('objektDetailsNeubauErsterwerb', 'baugenehmigung', 'wurdeErteilt', true)}
                   className="custom-radio"
+                  disabled={readOnly}
                 />
                 {showValidation && getFieldError('Baugenehmigung erteilt') && (
                   <div className="text-danger mt-1">
@@ -890,6 +917,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
                         value={formData.objektDetailsNeubauErsterwerb.baugenehmigung.erteilungsDatum}
                         onChange={(e) => handleNestedInputChange('objektDetailsNeubauErsterwerb', 'baugenehmigung', 'erteilungsDatum', e.target.value)}
                         isInvalid={getFieldError('Erteilungsdatum der Baugenehmigung')}
+                        disabled={readOnly}
                       />
                       <label>Erteilungsdatum</label>
                       <Form.Control.Feedback type="invalid">
@@ -905,6 +933,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
                         value={formData.objektDetailsNeubauErsterwerb.baugenehmigung.aktenzeichen}
                         onChange={(e) => handleNestedInputChange('objektDetailsNeubauErsterwerb', 'baugenehmigung', 'aktenzeichen', e.target.value)}
                         isInvalid={getFieldError('Aktenzeichen der Baugenehmigung')}
+                        disabled={readOnly}
                       />
                       <label>Aktenzeichen</label>
                       <Form.Control.Feedback type="invalid">
@@ -920,6 +949,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
                         value={formData.objektDetailsNeubauErsterwerb.baugenehmigung.erteilungsBehoerde}
                         onChange={(e) => handleNestedInputChange('objektDetailsNeubauErsterwerb', 'baugenehmigung', 'erteilungsBehoerde', e.target.value)}
                         isInvalid={getFieldError('erteilende Behörde der Baugenehmigung')}
+                        disabled={readOnly}
                       />
                       <label>Erteilende Behörde</label>
                       <Form.Control.Feedback type="invalid">
@@ -963,6 +993,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
                 checked={formData.objektDetailsNeubauErsterwerb.bauanzeige.wurdeEingereicht === true}
                 onChange={() => handleNestedInputChange('objektDetailsNeubauErsterwerb', 'bauanzeige', 'wurdeEingereicht', true)}
                 className="custom-radio"
+                disabled={readOnly}
               />
               <Form.Check
                 inline
@@ -972,6 +1003,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
                 checked={formData.objektDetailsNeubauErsterwerb.bauanzeige.wurdeEingereicht === false}
                 onChange={() => handleNestedInputChange('objektDetailsNeubauErsterwerb', 'bauanzeige', 'wurdeEingereicht', false)}
                 className="custom-radio"
+                disabled={readOnly}
               />
             </div>
           </div>
@@ -991,6 +1023,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
                     value={formData.objektDetailsNeubauErsterwerb.bauanzeige.einreichungsDatum}
                     onChange={(e) => handleNestedInputChange('objektDetailsNeubauErsterwerb', 'bauanzeige', 'einreichungsDatum', e.target.value)}
                     isInvalid={getFieldError('Einreichungsdatum der Bauanzeige')}
+                    disabled={readOnly}
                   />
                   <label>Einreichungsdatum</label>
                   <Form.Control.Feedback type="invalid">
@@ -1032,6 +1065,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
                 checked={formData.objektDetailsNeubauErsterwerb.bauarbeiten.wurdeBegonnen === true}
                 onChange={() => handleNestedInputChange('objektDetailsNeubauErsterwerb', 'bauarbeiten', 'wurdeBegonnen', true)}
                 className="custom-radio"
+                disabled={readOnly}
               />
               <Form.Check
                 inline
@@ -1041,6 +1075,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
                 checked={formData.objektDetailsNeubauErsterwerb.bauarbeiten.wurdeBegonnen === false}
                 onChange={() => handleNestedInputChange('objektDetailsNeubauErsterwerb', 'bauarbeiten', 'wurdeBegonnen', false)}
                 className="custom-radio"
+                disabled={readOnly}
               />
             </div>
           </div>
@@ -1060,6 +1095,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
                     value={formData.objektDetailsNeubauErsterwerb.bauarbeiten.beginnDatum}
                     onChange={(e) => handleNestedInputChange('objektDetailsNeubauErsterwerb', 'bauarbeiten', 'beginnDatum', e.target.value)}
                     isInvalid={getFieldError('Datum des Baubeginns')}
+                    disabled={readOnly}
                   />
                   <label>Datum Baubeginn</label>
                   <Form.Control.Feedback type="invalid">
@@ -1088,6 +1124,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
                   value={formData.objektDetailsEigentumswohnung.anzahlVollgeschosse}
                   onChange={(e) => handleNestedInputChange('objektDetailsEigentumswohnung', '', 'anzahlVollgeschosse', e.target.value)}
                   isInvalid={getFieldError('Anzahl der Vollgeschosse')}
+                  disabled={readOnly}
                 />
                 <label>Anzahl Vollgeschosse</label>
                 <Form.Control.Feedback type="invalid">
@@ -1103,6 +1140,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
                   value={formData.objektDetailsEigentumswohnung.wohnungenAmHauseingang}
                   onChange={(e) => handleNestedInputChange('objektDetailsEigentumswohnung', '', 'wohnungenAmHauseingang', e.target.value)}
                   isInvalid={getFieldError('Anzahl der Wohnungen am Hauseingang')}
+                  disabled={readOnly}
                 />
                 <label>Wohnungen am Hauseingang</label>
                 <Form.Control.Feedback type="invalid">
@@ -1121,6 +1159,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
                   value={formData.objektDetailsEigentumswohnung.lageImGebaeude}
                   onChange={(e) => handleNestedInputChange('objektDetailsEigentumswohnung', '', 'lageImGebaeude', e.target.value)}
                   isInvalid={getFieldError('Lage im Gebäude')}
+                  disabled={readOnly}
                 />
                 <label>Lage im Gebäude (z. B. EG, 1. OG)</label>
                 <Form.Control.Feedback type="invalid">
@@ -1136,6 +1175,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
                   value={formData.objektDetailsEigentumswohnung.lageImGeschoss}
                   onChange={(e) => handleNestedInputChange('objektDetailsEigentumswohnung', '', 'lageImGeschoss', e.target.value)}
                   isInvalid={getFieldError('Lage im Geschoss')}
+                  disabled={readOnly}
                 />
                 <label>Lage im Geschoss (z. B. links)</label>
                 <Form.Control.Feedback type="invalid">
@@ -1182,6 +1222,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
                   value={formData.objektDetailsBestandserwerb.baujahr}
                   onChange={(e) => handleNestedInputChange('objektDetailsBestandserwerb', '', 'baujahr', e.target.value)}
                   isInvalid={getFieldError('Baujahr')}
+                  disabled={readOnly}
                 />
                 <label>Baujahr des Förderobjekts</label>
                 <Form.Control.Feedback type="invalid">

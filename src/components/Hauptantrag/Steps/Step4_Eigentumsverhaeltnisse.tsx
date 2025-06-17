@@ -34,10 +34,12 @@ interface Step4Props {
   formData: Step4Data;
   updateFormData: (data: Step4Data) => void;
   showValidation?: boolean;
+  readOnly?: boolean;
 }
 
-const Step4_Eigentumsverhaeltnisse: React.FC<Step4Props> = ({ formData, updateFormData, showValidation = false }) => {
+const Step4_Eigentumsverhaeltnisse: React.FC<Step4Props> = ({ formData, updateFormData, showValidation = false, readOnly = false }) => {
   const handleInputChange = (field: keyof Step4Data | string, value: any) => {
+    if (readOnly) return;
     if (field.includes('.')) {
       const [parent, child] = field.split('.');
       const parentKey = parent as keyof Step4Data;
@@ -193,6 +195,7 @@ const Step4_Eigentumsverhaeltnisse: React.FC<Step4Props> = ({ formData, updateFo
                   label="Grundbuch"
                   checked={formData.grundbuch.type === 'grundbuch'}
                   onChange={() => handleInputChange('grundbuch.type', 'grundbuch')}
+                  disabled={readOnly}
                 />
               </div>
               <div className="col-md-4">
@@ -202,6 +205,7 @@ const Step4_Eigentumsverhaeltnisse: React.FC<Step4Props> = ({ formData, updateFo
                   label="Wohnungsgrundbuch"
                   checked={formData.grundbuch.type === 'wohnungsgrundbuch'}
                   onChange={() => handleInputChange('grundbuch.type', 'wohnungsgrundbuch')}
+                  disabled={readOnly}
                 />
               </div>
               <div className="col-md-4">
@@ -211,6 +215,7 @@ const Step4_Eigentumsverhaeltnisse: React.FC<Step4Props> = ({ formData, updateFo
                   label="Teileigentumsgrundbuch"
                   checked={formData.grundbuch.type === 'teileigentumsgrundbuch'}
                   onChange={() => handleInputChange('grundbuch.type', 'teileigentumsgrundbuch')}
+                  disabled={readOnly}
                 />
               </div>
             </div>
@@ -226,6 +231,7 @@ const Step4_Eigentumsverhaeltnisse: React.FC<Step4Props> = ({ formData, updateFo
                 label="Erbbaugrundbuch"
                 checked={formData.grundbuch.type === 'erbbaugrundbuch'}
                 onChange={() => handleInputChange('grundbuch.type', 'erbbaugrundbuch')}
+                disabled={readOnly}
               />
             </div>
             <div className="col-md-4">
@@ -235,6 +241,7 @@ const Step4_Eigentumsverhaeltnisse: React.FC<Step4Props> = ({ formData, updateFo
                 label="Wohnungserbbaugrundbuch"
                 checked={formData.grundbuch.type === 'wohnungserbbaugrundbuch'}
                 onChange={() => handleInputChange('grundbuch.type', 'wohnungserbbaugrundbuch')}
+                disabled={readOnly}
               />
             </div>
             <div className="col-md-4">
@@ -244,6 +251,7 @@ const Step4_Eigentumsverhaeltnisse: React.FC<Step4Props> = ({ formData, updateFo
                 label="Teileigentumserbbaugrundbuch"
                 checked={formData.grundbuch.type === 'teileigentumserbbaugrundbuch'}
                 onChange={() => handleInputChange('grundbuch.type', 'teileigentumserbbaugrundbuch')}
+                disabled={readOnly}
               />
             </div>
           </div>
@@ -264,6 +272,7 @@ const Step4_Eigentumsverhaeltnisse: React.FC<Step4Props> = ({ formData, updateFo
                 value={formData.grundbuch.amtsgericht}
                 onChange={(e) => handleInputChange('grundbuch.amtsgericht', e.target.value)}
                 isInvalid={getFieldError('Amtsgericht')}
+                disabled={readOnly}
               />
               <label>Amtsgericht</label>
               <Form.Control.Feedback type="invalid">
@@ -279,6 +288,7 @@ const Step4_Eigentumsverhaeltnisse: React.FC<Step4Props> = ({ formData, updateFo
                 value={formData.grundbuch.ortGrundbuch}
                 onChange={(e) => handleInputChange('grundbuch.ortGrundbuch', e.target.value)}
                 isInvalid={getFieldError('Ort des Grundbuchs')}
+                disabled={readOnly}
               />
               <label>Ort Grundbuch</label>
               <Form.Control.Feedback type="invalid">
@@ -297,6 +307,7 @@ const Step4_Eigentumsverhaeltnisse: React.FC<Step4Props> = ({ formData, updateFo
                 value={formData.grundbuch.gemarkung}
                 onChange={(e) => handleInputChange('grundbuch.gemarkung', e.target.value)}
                 isInvalid={getFieldError('Gemarkung')}
+                disabled={readOnly}
               />
               <label>Gemarkung</label>
               <Form.Control.Feedback type="invalid">
@@ -312,6 +323,7 @@ const Step4_Eigentumsverhaeltnisse: React.FC<Step4Props> = ({ formData, updateFo
                 value={formData.grundbuch.blatt}
                 onChange={(e) => handleInputChange('grundbuch.blatt', e.target.value)}
                 isInvalid={getFieldError('Blatt')}
+                disabled={readOnly}
               />
               <label>Blatt</label>
               <Form.Control.Feedback type="invalid">
@@ -330,6 +342,7 @@ const Step4_Eigentumsverhaeltnisse: React.FC<Step4Props> = ({ formData, updateFo
                 value={formData.grundbuch.flur}
                 onChange={(e) => handleInputChange('grundbuch.flur', e.target.value)}
                 isInvalid={getFieldError('Flur')}
+                disabled={readOnly}
               />
               <label>Flur</label>
               <Form.Control.Feedback type="invalid">
@@ -345,6 +358,7 @@ const Step4_Eigentumsverhaeltnisse: React.FC<Step4Props> = ({ formData, updateFo
                 value={formData.grundbuch.flurstueck}
                 onChange={(e) => handleInputChange('grundbuch.flurstueck', e.target.value)}
                 isInvalid={getFieldError('Flurstück')}
+                disabled={readOnly}
               />
               <label>Flurstück(e)</label>
               <Form.Control.Feedback type="invalid">
@@ -362,6 +376,7 @@ const Step4_Eigentumsverhaeltnisse: React.FC<Step4Props> = ({ formData, updateFo
                 placeholder="Flurstück(e) neu"
                 value={formData.grundbuch.flurstueckNeu}
                 onChange={(e) => handleInputChange('grundbuch.flurstueckNeu', e.target.value)}
+                disabled={readOnly}
               />
               <label>Flurstück(e) neu</label>
             </Form.Floating>
@@ -374,6 +389,7 @@ const Step4_Eigentumsverhaeltnisse: React.FC<Step4Props> = ({ formData, updateFo
                 value={formData.grundbuch.grundstuecksgroesse}
                 onChange={(e) => handleInputChange('grundbuch.grundstuecksgroesse', e.target.value)}
                 isInvalid={getFieldError('Grundstücksgröße')}
+                disabled={readOnly}
               />
               <label>Grundstücksgröße (m²)</label>
               <Form.Control.Feedback type="invalid">
@@ -428,6 +444,7 @@ const Step4_Eigentumsverhaeltnisse: React.FC<Step4Props> = ({ formData, updateFo
             label="im Eigentum der antragstellenden Person(en)"
             checked={formData.eigentumsverhaeltnis === true}
             onChange={() => handleInputChange('eigentumsverhaeltnis', true)}
+            disabled={readOnly}
             className="mb-2"
           />
           <Form.Check
@@ -436,6 +453,7 @@ const Step4_Eigentumsverhaeltnisse: React.FC<Step4Props> = ({ formData, updateFo
             label="noch nicht im Eigentum der antragstellenden Person(en)"
             checked={formData.eigentumsverhaeltnis === false}
             onChange={() => handleInputChange('eigentumsverhaeltnis', false)}
+            disabled={readOnly}
             className="mb-2"
           />
           {showValidation && getFieldError('Eigentum der antragstellenden Person(en)') && (
@@ -460,6 +478,7 @@ const Step4_Eigentumsverhaeltnisse: React.FC<Step4Props> = ({ formData, updateFo
                     });
                   }}
                   name="kaufvertrag-status"
+                  disabled={readOnly}
                 />
                 <div className="d-flex align-items-center gap-2">
                   <Form.Check
@@ -474,6 +493,7 @@ const Step4_Eigentumsverhaeltnisse: React.FC<Step4Props> = ({ formData, updateFo
                       });
                     }}
                     name="kaufvertrag-status"
+                    disabled={readOnly}
                   />
                   {formData.kaufvertrag.wurdeAbgeschlossen === true && (
                     <Form.Control
@@ -485,6 +505,7 @@ const Step4_Eigentumsverhaeltnisse: React.FC<Step4Props> = ({ formData, updateFo
                       })}
                       style={{ width: '200px' }}
                       isInvalid={getFieldError('Abschlussdatum des Kaufvertrags')}
+                      disabled={readOnly}
                     />
                   )}
                 </div>
@@ -541,6 +562,7 @@ const Step4_Eigentumsverhaeltnisse: React.FC<Step4Props> = ({ formData, updateFo
                 name="erbbaurecht"
                 checked={formData.erbbaurecht === true}
                 onChange={() => handleInputChange('erbbaurecht', true)}
+                disabled={readOnly}
                 className="custom-radio"
               />
               <Form.Check
@@ -550,6 +572,7 @@ const Step4_Eigentumsverhaeltnisse: React.FC<Step4Props> = ({ formData, updateFo
                 name="erbbaurecht"
                 checked={formData.erbbaurecht === false}
                 onChange={() => handleInputChange('erbbaurecht', false)}
+                disabled={readOnly}
                 className="custom-radio"
               />
             </div>
@@ -570,6 +593,7 @@ const Step4_Eigentumsverhaeltnisse: React.FC<Step4Props> = ({ formData, updateFo
                     value={formData.restlaufzeitErbbaurecht}
                     onChange={(e) => handleInputChange('restlaufzeitErbbaurecht', e.target.value)}
                     isInvalid={getFieldError('Restlaufzeit des Erbbaurechts')}
+                    disabled={readOnly}
                   />
                   <label>Restlaufzeit Erbbaurecht (Jahre)</label>
                   <Form.Control.Feedback type="invalid">
@@ -622,6 +646,7 @@ const Step4_Eigentumsverhaeltnisse: React.FC<Step4Props> = ({ formData, updateFo
                 name="baulasten"
                 checked={formData.baulasten.vorhanden === true}
                 onChange={() => handleInputChange('baulasten.vorhanden', true)}
+                disabled={readOnly}
                 className="custom-radio"
               />
               <Form.Check
@@ -631,6 +656,7 @@ const Step4_Eigentumsverhaeltnisse: React.FC<Step4Props> = ({ formData, updateFo
                 name="baulasten"
                 checked={formData.baulasten.vorhanden === false}
                 onChange={() => handleInputChange('baulasten.vorhanden', false)}
+                disabled={readOnly}
                 className="custom-radio"
               />
             </div>
@@ -651,6 +677,7 @@ const Step4_Eigentumsverhaeltnisse: React.FC<Step4Props> = ({ formData, updateFo
                     value={formData.baulasten.art}
                     onChange={(e) => handleInputChange('baulasten.art', e.target.value)}
                     isInvalid={getFieldError('Art der Baulasten')}
+                    disabled={readOnly}
                   />
                   <label>Art der Baulasten</label>
                   <Form.Control.Feedback type="invalid">
@@ -675,6 +702,7 @@ const Step4_Eigentumsverhaeltnisse: React.FC<Step4Props> = ({ formData, updateFo
                 name="altlasten"
                 checked={formData.altlasten.vorhanden === true}
                 onChange={() => handleInputChange('altlasten.vorhanden', true)}
+                disabled={readOnly}
                 className="custom-radio"
               />
               <Form.Check
@@ -684,6 +712,7 @@ const Step4_Eigentumsverhaeltnisse: React.FC<Step4Props> = ({ formData, updateFo
                 name="altlasten"
                 checked={formData.altlasten.vorhanden === false}
                 onChange={() => handleInputChange('altlasten.vorhanden', false)}
+                disabled={readOnly}
                 className="custom-radio"
               />
             </div>
@@ -704,6 +733,7 @@ const Step4_Eigentumsverhaeltnisse: React.FC<Step4Props> = ({ formData, updateFo
                     value={formData.altlasten.art}
                     onChange={(e) => handleInputChange('altlasten.art', e.target.value)}
                     isInvalid={getFieldError('Art der Altlasten')}
+                    disabled={readOnly}
                   />
                   <label>Art der Altlasten</label>
                   <Form.Control.Feedback type="invalid">

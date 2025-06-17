@@ -24,10 +24,12 @@ interface Step2Props {
   formData: Step2Data;
   updateFormData: (data: Step2Data) => void;
   showValidation?: boolean;
+  readOnly?: boolean;
 }
 
-const Step2_HouseholdInfo: React.FC<Step2Props> = ({ formData, updateFormData, showValidation = false }) => {
+const Step2_HouseholdInfo: React.FC<Step2Props> = ({ formData, updateFormData, showValidation = false, readOnly = false }) => {
   const handleInputChange = (field: keyof Step2Data, value: string | boolean) => {
+    if (readOnly) return;
     updateFormData({
       ...formData,
       [field]: value
@@ -165,6 +167,7 @@ const Step2_HouseholdInfo: React.FC<Step2Props> = ({ formData, updateFormData, s
                 value={formData.adultCount}
                 onChange={(e) => handleInputChange('adultCount', e.target.value)}
                 isInvalid={getFieldError('Anzahl der Erwachsenen')}
+                disabled={readOnly}
               />
               <label>Anzahl Erwachsene</label>
               {showValidation && getFieldError('Anzahl der Erwachsenen') && (
@@ -182,6 +185,7 @@ const Step2_HouseholdInfo: React.FC<Step2Props> = ({ formData, updateFormData, s
                 value={formData.childCount}
                 onChange={(e) => handleInputChange('childCount', e.target.value)}
                 isInvalid={getFieldError('Anzahl der Kinder')}
+                disabled={readOnly}
               />
               <label>Anzahl Kinder</label>
               {showValidation && getFieldError('Anzahl der Kinder') && (
@@ -203,6 +207,7 @@ const Step2_HouseholdInfo: React.FC<Step2Props> = ({ formData, updateFormData, s
                   value={formData.childrenAges}
                   onChange={(e) => handleInputChange('childrenAges', e.target.value)}
                   isInvalid={getFieldError('Alter der Kinder')}
+                  disabled={readOnly}
                 />
                 <label>Alter der Kinder (Trennung per Comma)</label>
                 {showValidation && getFieldError('Alter der Kinder') && (
@@ -250,6 +255,7 @@ const Step2_HouseholdInfo: React.FC<Step2Props> = ({ formData, updateFormData, s
               checked={formData.isDisabled === true}
               onChange={() => handleInputChange('isDisabled', true)}
               className="custom-radio"
+              disabled={readOnly}
             />
             <Form.Check
               inline
@@ -259,6 +265,7 @@ const Step2_HouseholdInfo: React.FC<Step2Props> = ({ formData, updateFormData, s
               checked={formData.isDisabled === false}
               onChange={() => handleInputChange('isDisabled', false)}
               className="custom-radio"
+              disabled={readOnly}
             />
           </div>
         </div>
@@ -278,6 +285,7 @@ const Step2_HouseholdInfo: React.FC<Step2Props> = ({ formData, updateFormData, s
                   value={formData.disabledAdultsCount || '1'}
                   onChange={(e) => handleInputChange('disabledAdultsCount', e.target.value)}
                   isInvalid={getFieldError('behinderten Menschen')}
+                  disabled={readOnly}
                 />
                 <label>davon Erwachsene mit Schwerbehinderung</label>
                 {showValidation && getFieldError('behinderten Menschen') && (
@@ -295,6 +303,7 @@ const Step2_HouseholdInfo: React.FC<Step2Props> = ({ formData, updateFormData, s
                   value={formData.disabledChildrenCount || '0'}
                   onChange={(e) => handleInputChange('disabledChildrenCount', e.target.value)}
                   isInvalid={getFieldError('behinderten Menschen')}
+                  disabled={readOnly}
                 />
                 <label>davon Kinder mit Schwerbehinderung</label>
                 {showValidation && getFieldError('behinderten Menschen') && (
@@ -324,6 +333,7 @@ const Step2_HouseholdInfo: React.FC<Step2Props> = ({ formData, updateFormData, s
               checked={formData.isMarried === true}
               onChange={() => handleInputChange('isMarried', true)}
               className="custom-radio"
+              disabled={readOnly}
             />
             <Form.Check
               inline
@@ -333,6 +343,7 @@ const Step2_HouseholdInfo: React.FC<Step2Props> = ({ formData, updateFormData, s
               checked={formData.isMarried === false}
               onChange={() => handleInputChange('isMarried', false)}
               className="custom-radio"
+              disabled={readOnly}
             />
           </div>
         </div>
@@ -381,6 +392,7 @@ const Step2_HouseholdInfo: React.FC<Step2Props> = ({ formData, updateFormData, s
               checked={formData.hasAdditionalAssets === true}
               onChange={() => handleInputChange('hasAdditionalAssets', true)}
               className="custom-radio"
+              disabled={readOnly}
             />
             <Form.Check
               inline
@@ -390,6 +402,7 @@ const Step2_HouseholdInfo: React.FC<Step2Props> = ({ formData, updateFormData, s
               checked={formData.hasAdditionalAssets === false}
               onChange={() => handleInputChange('hasAdditionalAssets', false)}
               className="custom-radio"
+              disabled={readOnly}
             />
           </div>
         </div>
@@ -409,6 +422,7 @@ const Step2_HouseholdInfo: React.FC<Step2Props> = ({ formData, updateFormData, s
                   value={formData.additionalAssetsDetails}
                   onChange={(e) => handleInputChange('additionalAssetsDetails', e.target.value)}
                   isInvalid={getFieldError('weitere Vermögen')}
+                  disabled={readOnly}
                 />
                 <label>Bitte beschreiben Sie das weitere Vermögen</label>
                 {showValidation && getFieldError('weitere Vermögen') && (
@@ -460,6 +474,7 @@ const Step2_HouseholdInfo: React.FC<Step2Props> = ({ formData, updateFormData, s
               checked={formData.hasDoubleSubsidy === true}
               onChange={() => handleInputChange('hasDoubleSubsidy', true)}
               className="custom-radio"
+              disabled={readOnly}
             />
             <Form.Check
               inline
@@ -469,6 +484,7 @@ const Step2_HouseholdInfo: React.FC<Step2Props> = ({ formData, updateFormData, s
               checked={formData.hasDoubleSubsidy === false}
               onChange={() => handleInputChange('hasDoubleSubsidy', false)}
               className="custom-radio"
+              disabled={readOnly}
             />
           </div>
         </div>
@@ -493,6 +509,7 @@ const Step2_HouseholdInfo: React.FC<Step2Props> = ({ formData, updateFormData, s
                   checked={formData.hasRepaidSubsidy === true}
                   onChange={() => handleInputChange('hasRepaidSubsidy', true)}
                   className="custom-radio"
+                  disabled={readOnly}
                 />
                 <Form.Check
                   inline
@@ -502,6 +519,7 @@ const Step2_HouseholdInfo: React.FC<Step2Props> = ({ formData, updateFormData, s
                   checked={formData.hasRepaidSubsidy === false}
                   onChange={() => handleInputChange('hasRepaidSubsidy', false)}
                   className="custom-radio"
+                  disabled={readOnly}
                 />
               </div>
             </div>
@@ -519,6 +537,7 @@ const Step2_HouseholdInfo: React.FC<Step2Props> = ({ formData, updateFormData, s
                   placeholder="Betrag"
                   label="Betrag"
                   isInvalid={getFieldError('Betrag der Fördermittel')}
+                  disabled={readOnly}
                 />
                 {showValidation && getFieldError('Betrag der Fördermittel') && (
                   <Form.Control.Feedback type="invalid">
@@ -534,6 +553,7 @@ const Step2_HouseholdInfo: React.FC<Step2Props> = ({ formData, updateFormData, s
                     value={formData.subsidyFileNumber}
                     onChange={(e) => handleInputChange('subsidyFileNumber', e.target.value)}
                     isInvalid={getFieldError('Aktenzeichen')}
+                    disabled={readOnly}
                   />
                   <label>Aktenzeichen</label>
                   {showValidation && getFieldError('Aktenzeichen') && (
@@ -551,6 +571,7 @@ const Step2_HouseholdInfo: React.FC<Step2Props> = ({ formData, updateFormData, s
                     value={formData.subsidyAuthority}
                     onChange={(e) => handleInputChange('subsidyAuthority', e.target.value)}
                     isInvalid={getFieldError('Bewilligungsbehörde')}
+                    disabled={readOnly}
                   />
                   <label>Bewilligungsbehörde</label>
                   {showValidation && getFieldError('Bewilligungsbehörde') && (
@@ -603,6 +624,7 @@ const Step2_HouseholdInfo: React.FC<Step2Props> = ({ formData, updateFormData, s
               checked={formData.hasSupplementaryLoan === true}
               onChange={() => handleInputChange('hasSupplementaryLoan', true)}
               className="custom-radio"
+              disabled={readOnly}
             />
             <Form.Check
               inline
@@ -612,6 +634,7 @@ const Step2_HouseholdInfo: React.FC<Step2Props> = ({ formData, updateFormData, s
               checked={formData.hasSupplementaryLoan === false}
               onChange={() => handleInputChange('hasSupplementaryLoan', false)}
               className="custom-radio"
+              disabled={readOnly}
             />
           </div>
         </div>

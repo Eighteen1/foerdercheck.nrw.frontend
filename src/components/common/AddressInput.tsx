@@ -28,6 +28,7 @@ interface AddressInputProps {
     city?: string;
   };
   state?: 'NRW' | 'Bayern' | 'Baden-Württemberg' | 'Berlin' | 'Brandenburg' | 'Bremen' | 'Hamburg' | 'Hessen' | 'Mecklenburg-Vorpommern' | 'Niedersachsen' | 'Rheinland-Pfalz' | 'Saarland' | 'Sachsen' | 'Sachsen-Anhalt' | 'Schleswig-Holstein' | 'Thüringen';
+  disabled?: boolean;
 }
 
 const libraries: ("places")[] = ["places"];
@@ -57,7 +58,8 @@ const AddressInput: React.FC<AddressInputProps> = ({
   onChange,
   isInvalid = { street: false, houseNumber: false, postalCode: false, city: false },
   errorMessages = { street: '', houseNumber: '', postalCode: '', city: '' },
-  state
+  state,
+  disabled = false
 }) => {
   const [autocomplete, setAutocomplete] = useState<google.maps.places.Autocomplete | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -205,6 +207,7 @@ const AddressInput: React.FC<AddressInputProps> = ({
   }, [isLoaded, loadError, onChange, state]);
 
   const handleStreetChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (disabled) return;
     const newAddress = {
       ...value,
       street: e.target.value
@@ -213,6 +216,7 @@ const AddressInput: React.FC<AddressInputProps> = ({
   };
 
   const handleHouseNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (disabled) return;
     const newAddress = {
       ...value,
       houseNumber: e.target.value
@@ -221,6 +225,7 @@ const AddressInput: React.FC<AddressInputProps> = ({
   };
 
   const handlePostalCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (disabled) return;
     const newAddress = {
       ...value,
       postalCode: e.target.value
@@ -229,6 +234,7 @@ const AddressInput: React.FC<AddressInputProps> = ({
   };
 
   const handleCityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (disabled) return;
     const newAddress = {
       ...value,
       city: e.target.value
@@ -256,6 +262,7 @@ const AddressInput: React.FC<AddressInputProps> = ({
               value={value.street}
               onChange={handleStreetChange}
               isInvalid={isInvalid.street}
+              disabled={disabled}
             />
             <label>Straße</label>
             {isInvalid.street && errorMessages.street && (
@@ -273,6 +280,7 @@ const AddressInput: React.FC<AddressInputProps> = ({
               value={value.houseNumber}
               onChange={handleHouseNumberChange}
               isInvalid={isInvalid.houseNumber}
+              disabled={disabled}
             />
             <label>Hausnummer</label>
             {isInvalid.houseNumber && errorMessages.houseNumber && (
@@ -293,6 +301,7 @@ const AddressInput: React.FC<AddressInputProps> = ({
               value={value.postalCode}
               onChange={handlePostalCodeChange}
               isInvalid={isInvalid.postalCode}
+              disabled={disabled}
             />
             <label>Postleitzahl</label>
             {isInvalid.postalCode && errorMessages.postalCode && (
@@ -310,6 +319,7 @@ const AddressInput: React.FC<AddressInputProps> = ({
               value={value.city}
               onChange={handleCityChange}
               isInvalid={isInvalid.city}
+              disabled={disabled}
             />
             <label>Ort</label>
             {isInvalid.city && errorMessages.city && (
