@@ -613,6 +613,18 @@ const EinkommenserklaerungContainer: React.FC<EinkommenserklaerungContainerProps
         return;
       }
 
+      // Get existing financial data to preserve fields from other forms (like unterhaltszahlungenTotal from Selbstauskunft)
+      const { data: existingFinancialData, error: fetchFinancialError } = await supabase
+        .from('user_financials')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+      if (fetchFinancialError && fetchFinancialError.code !== 'PGRST116') {
+        console.error('Error fetching existing financial data:', fetchFinancialError);
+        return;
+      }
+
       // Update user_data with personal information
       const { error: userError } = await supabase
         .from('user_data')
@@ -650,251 +662,268 @@ const EinkommenserklaerungContainer: React.FC<EinkommenserklaerungContainerProps
 
       if (userError) throw userError;
 
+      // Prepare the main applicant data
+      const mainApplicantData = {
+        user_id: user.id,
+        isEarningRegularIncome: mainFinancials.hasEmploymentIncome,
+        prior_year: mainFinancials.incomeYear,
+        prior_year_earning: mainFinancials.incomeYearAmount ? formatCurrencyForDatabase(mainFinancials.incomeYearAmount) : null,
+        end_month_past12: mainFinancials.incomeEndMonth,
+        end_year_past12: mainFinancials.incomeEndYear,
+        income_month1: (() => {
+          const month = (parseInt(mainFinancials.incomeEndMonth) - 11 + 12) % 12;
+          const year = parseInt(mainFinancials.incomeEndYear) - (parseInt(mainFinancials.incomeEndMonth) < 11 ? 1 : 0);
+          return mainFinancials.monthlyIncome?.[`${year}-${month}`] ? formatCurrencyForDatabase(mainFinancials.monthlyIncome[`${year}-${month}`]) : null;
+        })(),
+        income_month2: (() => {
+          const month = (parseInt(mainFinancials.incomeEndMonth) - 10 + 12) % 12;
+          const year = parseInt(mainFinancials.incomeEndYear) - (parseInt(mainFinancials.incomeEndMonth) < 10 ? 1 : 0);
+          return mainFinancials.monthlyIncome?.[`${year}-${month}`] ? formatCurrencyForDatabase(mainFinancials.monthlyIncome[`${year}-${month}`]) : null;
+        })(),
+        income_month3: (() => {
+          const month = (parseInt(mainFinancials.incomeEndMonth) - 9 + 12) % 12;
+          const year = parseInt(mainFinancials.incomeEndYear) - (parseInt(mainFinancials.incomeEndMonth) < 9 ? 1 : 0);
+          return mainFinancials.monthlyIncome?.[`${year}-${month}`] ? formatCurrencyForDatabase(mainFinancials.monthlyIncome[`${year}-${month}`]) : null;
+        })(),
+        income_month4: (() => {
+          const month = (parseInt(mainFinancials.incomeEndMonth) - 8 + 12) % 12;
+          const year = parseInt(mainFinancials.incomeEndYear) - (parseInt(mainFinancials.incomeEndMonth) < 8 ? 1 : 0);
+          return mainFinancials.monthlyIncome?.[`${year}-${month}`] ? formatCurrencyForDatabase(mainFinancials.monthlyIncome[`${year}-${month}`]) : null;
+        })(),
+        income_month5: (() => {
+          const month = (parseInt(mainFinancials.incomeEndMonth) - 7 + 12) % 12;
+          const year = parseInt(mainFinancials.incomeEndYear) - (parseInt(mainFinancials.incomeEndMonth) < 7 ? 1 : 0);
+          return mainFinancials.monthlyIncome?.[`${year}-${month}`] ? formatCurrencyForDatabase(mainFinancials.monthlyIncome[`${year}-${month}`]) : null;
+        })(),
+        income_month6: (() => {
+          const month = (parseInt(mainFinancials.incomeEndMonth) - 6 + 12) % 12;
+          const year = parseInt(mainFinancials.incomeEndYear) - (parseInt(mainFinancials.incomeEndMonth) < 6 ? 1 : 0);
+          return mainFinancials.monthlyIncome?.[`${year}-${month}`] ? formatCurrencyForDatabase(mainFinancials.monthlyIncome[`${year}-${month}`]) : null;
+        })(),
+        income_month7: (() => {
+          const month = (parseInt(mainFinancials.incomeEndMonth) - 5 + 12) % 12;
+          const year = parseInt(mainFinancials.incomeEndYear) - (parseInt(mainFinancials.incomeEndMonth) < 5 ? 1 : 0);
+          return mainFinancials.monthlyIncome?.[`${year}-${month}`] ? formatCurrencyForDatabase(mainFinancials.monthlyIncome[`${year}-${month}`]) : null;
+        })(),
+        income_month8: (() => {
+          const month = (parseInt(mainFinancials.incomeEndMonth) - 4 + 12) % 12;
+          const year = parseInt(mainFinancials.incomeEndYear) - (parseInt(mainFinancials.incomeEndMonth) < 4 ? 1 : 0);
+          return mainFinancials.monthlyIncome?.[`${year}-${month}`] ? formatCurrencyForDatabase(mainFinancials.monthlyIncome[`${year}-${month}`]) : null;
+        })(),
+        income_month9: (() => {
+          const month = (parseInt(mainFinancials.incomeEndMonth) - 3 + 12) % 12;
+          const year = parseInt(mainFinancials.incomeEndYear) - (parseInt(mainFinancials.incomeEndMonth) < 3 ? 1 : 0);
+          return mainFinancials.monthlyIncome?.[`${year}-${month}`] ? formatCurrencyForDatabase(mainFinancials.monthlyIncome[`${year}-${month}`]) : null;
+        })(),
+        income_month10: (() => {
+          const month = (parseInt(mainFinancials.incomeEndMonth) - 2 + 12) % 12;
+          const year = parseInt(mainFinancials.incomeEndYear) - (parseInt(mainFinancials.incomeEndMonth) < 2 ? 1 : 0);
+          return mainFinancials.monthlyIncome?.[`${year}-${month}`] ? formatCurrencyForDatabase(mainFinancials.monthlyIncome[`${year}-${month}`]) : null;
+        })(),
+        income_month11: (() => {
+          const month = (parseInt(mainFinancials.incomeEndMonth) - 1 + 12) % 12;
+          const year = parseInt(mainFinancials.incomeEndYear) - (parseInt(mainFinancials.incomeEndMonth) < 1 ? 1 : 0);
+          return mainFinancials.monthlyIncome?.[`${year}-${month}`] ? formatCurrencyForDatabase(mainFinancials.monthlyIncome[`${year}-${month}`]) : null;
+        })(),
+        income_month12: (() => {
+          const month = parseInt(mainFinancials.incomeEndMonth);
+          const year = parseInt(mainFinancials.incomeEndYear);
+          return mainFinancials.monthlyIncome?.[`${year}-${month}`] ? formatCurrencyForDatabase(mainFinancials.monthlyIncome[`${year}-${month}`]) : null;
+        })(),
+        wheinachtsgeld_last12: mainFinancials.sonderzuwendungenVergangen?.weihnachtsgeld ? formatCurrencyForDatabase(mainFinancials.sonderzuwendungenVergangen.weihnachtsgeld) : null,
+        wheinachtsgeld_next12: mainFinancials.sonderzuwendungenKommend?.weihnachtsgeld ? formatCurrencyForDatabase(mainFinancials.sonderzuwendungenKommend.weihnachtsgeld) : null,
+        urlaubsgeld_last12: mainFinancials.sonderzuwendungenVergangen?.urlaubsgeld ? formatCurrencyForDatabase(mainFinancials.sonderzuwendungenVergangen.urlaubsgeld) : null,
+        urlaubsgeld_next12: mainFinancials.sonderzuwendungenKommend?.urlaubsgeld ? formatCurrencyForDatabase(mainFinancials.sonderzuwendungenKommend.urlaubsgeld) : null,
+        otherincome_last12: mainFinancials.sonderzuwendungenVergangen?.sonstige ? formatCurrencyForDatabase(mainFinancials.sonderzuwendungenVergangen.sonstige) : null,
+        otherincome_next12: mainFinancials.sonderzuwendungenKommend?.sonstige ? formatCurrencyForDatabase(mainFinancials.sonderzuwendungenKommend.sonstige) : null,
+        willchangeincome: mainFinancials.willChangeIncome,
+        incomechangedate: mainFinancials.incomeChangeDate || null,
+        willchangeincrease: mainFinancials.willChangeIncrease,
+        newincome: mainFinancials.newIncome ? formatCurrencyForDatabase(mainFinancials.newIncome) : null,
+        isnewincomemonthly: mainFinancials.isNewIncomeMonthly,
+        newincomereason: mainFinancials.newIncomeReason || null,
+        startemployment: mainFinancials.startEmployment || null,
+        iscontractlimited: mainFinancials.isContractLimited,
+        endofcontract: mainFinancials.endOfContract || null,
+        haspensionincome: mainFinancials.weitereEinkuenfte?.selectedTypes?.includes('renten') || false,
+        incomepension: mainFinancials.weitereEinkuenfte?.renten?.betrag ? formatCurrencyForDatabase(mainFinancials.weitereEinkuenfte.renten.betrag) : null,
+        hasrentincome: mainFinancials.weitereEinkuenfte?.selectedTypes?.includes('vermietung') || false,
+        incomerent: mainFinancials.weitereEinkuenfte?.vermietung?.betrag ? formatCurrencyForDatabase(mainFinancials.weitereEinkuenfte.vermietung.betrag) : null,
+        incomerentyear: mainFinancials.weitereEinkuenfte?.vermietung?.jahr || null,
+        hasbusinessincome: mainFinancials.weitereEinkuenfte?.selectedTypes?.includes('gewerbe') || false,
+        incomebusiness: mainFinancials.weitereEinkuenfte?.gewerbe?.betrag ? formatCurrencyForDatabase(mainFinancials.weitereEinkuenfte.gewerbe.betrag) : null,
+        incomebusinessyear: mainFinancials.weitereEinkuenfte?.gewerbe?.jahr || null,
+        hasagricultureincome: mainFinancials.weitereEinkuenfte?.selectedTypes?.includes('landforst') || false,
+        incomeagriculture: mainFinancials.weitereEinkuenfte?.landforst?.betrag ? formatCurrencyForDatabase(mainFinancials.weitereEinkuenfte.landforst.betrag) : null,
+        incomeagricultureyear: mainFinancials.weitereEinkuenfte?.landforst?.jahr || null,
+        hasothercome: mainFinancials.weitereEinkuenfte?.selectedTypes?.includes('sonstige') || false,
+        incomeothers: mainFinancials.weitereEinkuenfte?.sonstige?.betrag ? formatCurrencyForDatabase(mainFinancials.weitereEinkuenfte.sonstige.betrag) : null,
+        incomeothersyear: mainFinancials.weitereEinkuenfte?.sonstige?.jahr || null,
+        hastaxfreeunterhaltincome: mainFinancials.weitereEinkuenfte?.selectedTypes?.includes('unterhaltsteuerfrei') || false,
+        incomeunterhalttaxfree: mainFinancials.weitereEinkuenfte?.unterhaltsteuerfrei?.betrag ? formatCurrencyForDatabase(mainFinancials.weitereEinkuenfte.unterhaltsteuerfrei.betrag) : null,
+        hastaxableunterhaltincome: mainFinancials.weitereEinkuenfte?.selectedTypes?.includes('unterhaltsteuerpflichtig') || false,
+        incomeunterhalttaxable: mainFinancials.weitereEinkuenfte?.unterhaltsteuerpflichtig?.betrag ? formatCurrencyForDatabase(mainFinancials.weitereEinkuenfte.unterhaltsteuerpflichtig.betrag) : null,
+        hasforeignincome: mainFinancials.weitereEinkuenfte?.selectedTypes?.includes('ausland') || false,
+        incomeforeign: mainFinancials.weitereEinkuenfte?.ausland?.betrag ? formatCurrencyForDatabase(mainFinancials.weitereEinkuenfte.ausland.betrag) : null,
+        incomeforeignyear: mainFinancials.weitereEinkuenfte?.ausland?.turnus === 'jährlich' ? (mainFinancials.weitereEinkuenfte?.ausland?.jahr || null) : null,
+        incomeforeignmonthly: mainFinancials.weitereEinkuenfte?.ausland?.turnus === 'monatlich' ? true : mainFinancials.weitereEinkuenfte?.ausland?.turnus === 'jährlich' ? false : null,
+        haspauschalincome: mainFinancials.weitereEinkuenfte?.selectedTypes?.includes('pauschal') || false,
+        incomepauschal: mainFinancials.weitereEinkuenfte?.pauschal?.betrag ? formatCurrencyForDatabase(mainFinancials.weitereEinkuenfte.pauschal.betrag) : null,
+        hasablgincome: mainFinancials.weitereEinkuenfte?.selectedTypes?.includes('arbeitslosengeld') || false,
+        incomeablg: mainFinancials.weitereEinkuenfte?.arbeitslosengeld?.betrag ? formatCurrencyForDatabase(mainFinancials.weitereEinkuenfte.arbeitslosengeld.betrag) : null,
+        incomealbgtype: mainFinancials.weitereEinkuenfte?.arbeitslosengeld?.turnus === 'täglich' ? 0 : mainFinancials.weitereEinkuenfte?.arbeitslosengeld?.turnus === 'monatlich' ? 1 : mainFinancials.weitereEinkuenfte?.arbeitslosengeld?.turnus === 'jährlich' ? 2 : null,
+        // Add new fields
+        werbungskosten: mainFinancials.werbungskosten ? formatCurrencyForDatabase(mainFinancials.werbungskosten) : null,
+        kinderbetreuungskosten: mainFinancials.kinderbetreuungskosten ? formatCurrencyForDatabase(mainFinancials.kinderbetreuungskosten) : null,
+        ispayingincometax: mainFinancials.ispayingincometax,
+        ispayinghealthinsurance: mainFinancials.ispayinghealthinsurance,
+        ispayingpension: mainFinancials.ispayingpension,
+        ispayingunterhalt: mainFinancials.ispayingunterhalt,
+        unterhaltszahlungen: mainFinancials.unterhaltszahlungen || [],
+        addition_change_inincome: mainFinancials.additionalIncomeChanges ? JSON.stringify(mainFinancials.additionalIncomeChanges) : null,
+        finanzamt: mainFinancials.finanzamt || null,
+        steuerid: mainFinancials.steuerid || null,
+      };
+
+      // Prepare additional applicants data
+      const additionalApplicantsData = additionalApplicants.map(applicant => ({
+        isEarningRegularIncome: applicant.hasEmploymentIncome,
+        prior_year: applicant.incomeYear,
+        prior_year_earning: applicant.incomeYearAmount ? formatCurrencyForDatabase(applicant.incomeYearAmount) : null,
+        end_month_past12: applicant.incomeEndMonth,
+        end_year_past12: applicant.incomeEndYear,
+        income_month1: (() => {
+          const month = (parseInt(applicant.incomeEndMonth) - 11 + 12) % 12;
+          const year = parseInt(applicant.incomeEndYear) - (parseInt(applicant.incomeEndMonth) < 11 ? 1 : 0);
+          return applicant.monthlyIncome?.[`${year}-${month}`] ? formatCurrencyForDatabase(applicant.monthlyIncome[`${year}-${month}`]) : null;
+        })(),
+        income_month2: (() => {
+          const month = (parseInt(applicant.incomeEndMonth) - 10 + 12) % 12;
+          const year = parseInt(applicant.incomeEndYear) - (parseInt(applicant.incomeEndMonth) < 10 ? 1 : 0);
+          return applicant.monthlyIncome?.[`${year}-${month}`] ? formatCurrencyForDatabase(applicant.monthlyIncome[`${year}-${month}`]) : null;
+        })(),
+        income_month3: (() => {
+          const month = (parseInt(applicant.incomeEndMonth) - 9 + 12) % 12;
+          const year = parseInt(applicant.incomeEndYear) - (parseInt(applicant.incomeEndMonth) < 9 ? 1 : 0);
+          return applicant.monthlyIncome?.[`${year}-${month}`] ? formatCurrencyForDatabase(applicant.monthlyIncome[`${year}-${month}`]) : null;
+        })(),
+        income_month4: (() => {
+          const month = (parseInt(applicant.incomeEndMonth) - 8 + 12) % 12;
+          const year = parseInt(applicant.incomeEndYear) - (parseInt(applicant.incomeEndMonth) < 8 ? 1 : 0);
+          return applicant.monthlyIncome?.[`${year}-${month}`] ? formatCurrencyForDatabase(applicant.monthlyIncome[`${year}-${month}`]) : null;
+        })(),
+        income_month5: (() => {
+          const month = (parseInt(applicant.incomeEndMonth) - 7 + 12) % 12;
+          const year = parseInt(applicant.incomeEndYear) - (parseInt(applicant.incomeEndMonth) < 7 ? 1 : 0);
+          return applicant.monthlyIncome?.[`${year}-${month}`] ? formatCurrencyForDatabase(applicant.monthlyIncome[`${year}-${month}`]) : null;
+        })(),
+        income_month6: (() => {
+          const month = (parseInt(applicant.incomeEndMonth) - 6 + 12) % 12;
+          const year = parseInt(applicant.incomeEndYear) - (parseInt(applicant.incomeEndMonth) < 6 ? 1 : 0);
+          return applicant.monthlyIncome?.[`${year}-${month}`] ? formatCurrencyForDatabase(applicant.monthlyIncome[`${year}-${month}`]) : null;
+        })(),
+        income_month7: (() => {
+          const month = (parseInt(applicant.incomeEndMonth) - 5 + 12) % 12;
+          const year = parseInt(applicant.incomeEndYear) - (parseInt(applicant.incomeEndMonth) < 5 ? 1 : 0);
+          return applicant.monthlyIncome?.[`${year}-${month}`] ? formatCurrencyForDatabase(applicant.monthlyIncome[`${year}-${month}`]) : null;
+        })(),
+        income_month8: (() => {
+          const month = (parseInt(applicant.incomeEndMonth) - 4 + 12) % 12;
+          const year = parseInt(applicant.incomeEndYear) - (parseInt(applicant.incomeEndMonth) < 4 ? 1 : 0);
+          return applicant.monthlyIncome?.[`${year}-${month}`] ? formatCurrencyForDatabase(applicant.monthlyIncome[`${year}-${month}`]) : null;
+        })(),
+        income_month9: (() => {
+          const month = (parseInt(applicant.incomeEndMonth) - 3 + 12) % 12;
+          const year = parseInt(applicant.incomeEndYear) - (parseInt(applicant.incomeEndMonth) < 3 ? 1 : 0);
+          return applicant.monthlyIncome?.[`${year}-${month}`] ? formatCurrencyForDatabase(applicant.monthlyIncome[`${year}-${month}`]) : null;
+        })(),
+        income_month10: (() => {
+          const month = (parseInt(applicant.incomeEndMonth) - 2 + 12) % 12;
+          const year = parseInt(applicant.incomeEndYear) - (parseInt(applicant.incomeEndMonth) < 2 ? 1 : 0);
+          return applicant.monthlyIncome?.[`${year}-${month}`] ? formatCurrencyForDatabase(applicant.monthlyIncome[`${year}-${month}`]) : null;
+        })(),
+        income_month11: (() => {
+          const month = (parseInt(applicant.incomeEndMonth) - 1 + 12) % 12;
+          const year = parseInt(applicant.incomeEndYear) - (parseInt(applicant.incomeEndMonth) < 1 ? 1 : 0);
+          return applicant.monthlyIncome?.[`${year}-${month}`] ? formatCurrencyForDatabase(applicant.monthlyIncome[`${year}-${month}`]) : null;
+        })(),
+        income_month12: (() => {
+          const month = parseInt(applicant.incomeEndMonth);
+          const year = parseInt(applicant.incomeEndYear);
+          return applicant.monthlyIncome?.[`${year}-${month}`] ? formatCurrencyForDatabase(applicant.monthlyIncome[`${year}-${month}`]) : null;
+        })(),
+        wheinachtsgeld_last12: applicant.sonderzuwendungenVergangen?.weihnachtsgeld ? formatCurrencyForDatabase(applicant.sonderzuwendungenVergangen.weihnachtsgeld) : null,
+        wheinachtsgeld_next12: applicant.sonderzuwendungenKommend?.weihnachtsgeld ? formatCurrencyForDatabase(applicant.sonderzuwendungenKommend.weihnachtsgeld) : null,
+        urlaubsgeld_last12: applicant.sonderzuwendungenVergangen?.urlaubsgeld ? formatCurrencyForDatabase(applicant.sonderzuwendungenVergangen.urlaubsgeld) : null,
+        urlaubsgeld_next12: applicant.sonderzuwendungenKommend?.urlaubsgeld ? formatCurrencyForDatabase(applicant.sonderzuwendungenKommend.urlaubsgeld) : null,
+        otherincome_last12: applicant.sonderzuwendungenVergangen?.sonstige ? formatCurrencyForDatabase(applicant.sonderzuwendungenVergangen.sonstige) : null,
+        otherincome_next12: applicant.sonderzuwendungenKommend?.sonstige ? formatCurrencyForDatabase(applicant.sonderzuwendungenKommend.sonstige) : null,
+        willchangeincome: applicant.willChangeIncome,
+        incomechangedate: applicant.incomeChangeDate || null,
+        willchangeincrease: applicant.willChangeIncrease,
+        newincome: applicant.newIncome ? formatCurrencyForDatabase(applicant.newIncome) : null,
+        isnewincomemonthly: applicant.isNewIncomeMonthly,
+        newincomereason: applicant.newIncomeReason || null,
+        startemployment: applicant.startEmployment || null,
+        iscontractlimited: applicant.isContractLimited,
+        endofcontract: applicant.endOfContract || null,
+        haspensionincome: applicant.weitereEinkuenfte?.selectedTypes?.includes('renten') || false,
+        incomepension: applicant.weitereEinkuenfte?.renten?.betrag ? formatCurrencyForDatabase(applicant.weitereEinkuenfte.renten.betrag) : null,
+        hasrentincome: applicant.weitereEinkuenfte?.selectedTypes?.includes('vermietung') || false,
+        incomerent: applicant.weitereEinkuenfte?.vermietung?.betrag ? formatCurrencyForDatabase(applicant.weitereEinkuenfte.vermietung.betrag) : null,
+        incomerentyear: applicant.weitereEinkuenfte?.vermietung?.jahr || null,
+        hasbusinessincome: applicant.weitereEinkuenfte?.selectedTypes?.includes('gewerbe') || false,
+        incomebusiness: applicant.weitereEinkuenfte?.gewerbe?.betrag ? formatCurrencyForDatabase(applicant.weitereEinkuenfte.gewerbe.betrag) : null,
+        incomebusinessyear: applicant.weitereEinkuenfte?.gewerbe?.jahr || null,
+        hasagricultureincome: applicant.weitereEinkuenfte?.selectedTypes?.includes('landforst') || false,
+        incomeagriculture: applicant.weitereEinkuenfte?.landforst?.betrag ? formatCurrencyForDatabase(applicant.weitereEinkuenfte.landforst.betrag) : null,
+        incomeagricultureyear: applicant.weitereEinkuenfte?.landforst?.jahr || null,
+        hasothercome: applicant.weitereEinkuenfte?.selectedTypes?.includes('sonstige') || false,
+        incomeothers: applicant.weitereEinkuenfte?.sonstige?.betrag ? formatCurrencyForDatabase(applicant.weitereEinkuenfte.sonstige.betrag) : null,
+        incomeothersyear: applicant.weitereEinkuenfte?.sonstige?.jahr || null,
+        hastaxfreeunterhaltincome: applicant.weitereEinkuenfte?.selectedTypes?.includes('unterhaltsteuerfrei') || false,
+        incomeunterhalttaxfree: applicant.weitereEinkuenfte?.unterhaltsteuerfrei?.betrag ? formatCurrencyForDatabase(applicant.weitereEinkuenfte.unterhaltsteuerfrei.betrag) : null,
+        hastaxableunterhaltincome: applicant.weitereEinkuenfte?.selectedTypes?.includes('unterhaltsteuerpflichtig') || false,
+        incomeunterhalttaxable: applicant.weitereEinkuenfte?.unterhaltsteuerpflichtig?.betrag ? formatCurrencyForDatabase(applicant.weitereEinkuenfte.unterhaltsteuerpflichtig.betrag) : null,
+        hasforeignincome: applicant.weitereEinkuenfte?.selectedTypes?.includes('ausland') || false,
+        incomeforeign: applicant.weitereEinkuenfte?.ausland?.betrag ? formatCurrencyForDatabase(applicant.weitereEinkuenfte.ausland.betrag) : null,
+        incomeforeignyear: applicant.weitereEinkuenfte?.ausland?.turnus === 'jährlich' ? (applicant.weitereEinkuenfte?.ausland?.jahr || null) : null,
+        incomeforeignmonthly: applicant.weitereEinkuenfte?.ausland?.turnus === 'monatlich' ? true : applicant.weitereEinkuenfte?.ausland?.turnus === 'jährlich' ? false : null,
+        haspauschalincome: applicant.weitereEinkuenfte?.selectedTypes?.includes('pauschal') || false,
+        incomepauschal: applicant.weitereEinkuenfte?.pauschal?.betrag ? formatCurrencyForDatabase(applicant.weitereEinkuenfte.pauschal.betrag) : null,
+        hasablgincome: applicant.weitereEinkuenfte?.selectedTypes?.includes('arbeitslosengeld') || false,
+        incomeablg: applicant.weitereEinkuenfte?.arbeitslosengeld?.betrag ? formatCurrencyForDatabase(applicant.weitereEinkuenfte.arbeitslosengeld.betrag) : null,
+        incomealbgtype: applicant.weitereEinkuenfte?.arbeitslosengeld?.turnus === 'täglich' ? 0 : applicant.weitereEinkuenfte?.arbeitslosengeld?.turnus === 'monatlich' ? 1 : applicant.weitereEinkuenfte?.arbeitslosengeld?.turnus === 'jährlich' ? 2 : null,
+        // Add new fields
+        werbungskosten: applicant.werbungskosten ? formatCurrencyForDatabase(applicant.werbungskosten) : null,
+        kinderbetreuungskosten: applicant.kinderbetreuungskosten ? formatCurrencyForDatabase(applicant.kinderbetreuungskosten) : null,
+        ispayingincometax: applicant.ispayingincometax,
+        ispayinghealthinsurance: applicant.ispayinghealthinsurance,
+        ispayingpension: applicant.ispayingpension,
+        ispayingunterhalt: applicant.ispayingunterhalt,
+        unterhaltszahlungen: applicant.unterhaltszahlungen || [],
+        addition_change_inincome: applicant.additionalIncomeChanges ? JSON.stringify(applicant.additionalIncomeChanges) : null,
+        finanzamt: applicant.finanzamt || null,
+        steuerid: applicant.steuerid || null,
+      }));
+
+      // Merge with existing data to preserve fields from Selbstauskunft (like unterhaltszahlungenTotal)
+      const updateData = {
+        ...existingFinancialData, // Preserve all existing data
+        ...mainApplicantData, // Override with Einkommenserklaerung data
+        additional_applicants_financials: additionalApplicantsData.map((newData, index) => {
+          const existingAdditionalData = existingFinancialData?.additional_applicants_financials?.[index] || {};
+          return {
+            ...existingAdditionalData, // Preserve existing additional applicant data
+            ...newData // Override with new Einkommenserklaerung data
+          };
+        })
+      };
+
       // Save main applicant data and additional applicants financial data
       const { error: mainError } = await supabase
         .from('user_financials')
-        .upsert({
-          user_id: user.id,
-          isEarningRegularIncome: mainFinancials.hasEmploymentIncome,
-          prior_year: mainFinancials.incomeYear,
-          prior_year_earning: mainFinancials.incomeYearAmount ? formatCurrencyForDatabase(mainFinancials.incomeYearAmount) : null,
-          end_month_past12: mainFinancials.incomeEndMonth,
-          end_year_past12: mainFinancials.incomeEndYear,
-          income_month1: (() => {
-            const month = (parseInt(mainFinancials.incomeEndMonth) - 11 + 12) % 12;
-            const year = parseInt(mainFinancials.incomeEndYear) - (parseInt(mainFinancials.incomeEndMonth) < 11 ? 1 : 0);
-            return mainFinancials.monthlyIncome?.[`${year}-${month}`] ? formatCurrencyForDatabase(mainFinancials.monthlyIncome[`${year}-${month}`]) : null;
-          })(),
-          income_month2: (() => {
-            const month = (parseInt(mainFinancials.incomeEndMonth) - 10 + 12) % 12;
-            const year = parseInt(mainFinancials.incomeEndYear) - (parseInt(mainFinancials.incomeEndMonth) < 10 ? 1 : 0);
-            return mainFinancials.monthlyIncome?.[`${year}-${month}`] ? formatCurrencyForDatabase(mainFinancials.monthlyIncome[`${year}-${month}`]) : null;
-          })(),
-          income_month3: (() => {
-            const month = (parseInt(mainFinancials.incomeEndMonth) - 9 + 12) % 12;
-            const year = parseInt(mainFinancials.incomeEndYear) - (parseInt(mainFinancials.incomeEndMonth) < 9 ? 1 : 0);
-            return mainFinancials.monthlyIncome?.[`${year}-${month}`] ? formatCurrencyForDatabase(mainFinancials.monthlyIncome[`${year}-${month}`]) : null;
-          })(),
-          income_month4: (() => {
-            const month = (parseInt(mainFinancials.incomeEndMonth) - 8 + 12) % 12;
-            const year = parseInt(mainFinancials.incomeEndYear) - (parseInt(mainFinancials.incomeEndMonth) < 8 ? 1 : 0);
-            return mainFinancials.monthlyIncome?.[`${year}-${month}`] ? formatCurrencyForDatabase(mainFinancials.monthlyIncome[`${year}-${month}`]) : null;
-          })(),
-          income_month5: (() => {
-            const month = (parseInt(mainFinancials.incomeEndMonth) - 7 + 12) % 12;
-            const year = parseInt(mainFinancials.incomeEndYear) - (parseInt(mainFinancials.incomeEndMonth) < 7 ? 1 : 0);
-            return mainFinancials.monthlyIncome?.[`${year}-${month}`] ? formatCurrencyForDatabase(mainFinancials.monthlyIncome[`${year}-${month}`]) : null;
-          })(),
-          income_month6: (() => {
-            const month = (parseInt(mainFinancials.incomeEndMonth) - 6 + 12) % 12;
-            const year = parseInt(mainFinancials.incomeEndYear) - (parseInt(mainFinancials.incomeEndMonth) < 6 ? 1 : 0);
-            return mainFinancials.monthlyIncome?.[`${year}-${month}`] ? formatCurrencyForDatabase(mainFinancials.monthlyIncome[`${year}-${month}`]) : null;
-          })(),
-          income_month7: (() => {
-            const month = (parseInt(mainFinancials.incomeEndMonth) - 5 + 12) % 12;
-            const year = parseInt(mainFinancials.incomeEndYear) - (parseInt(mainFinancials.incomeEndMonth) < 5 ? 1 : 0);
-            return mainFinancials.monthlyIncome?.[`${year}-${month}`] ? formatCurrencyForDatabase(mainFinancials.monthlyIncome[`${year}-${month}`]) : null;
-          })(),
-          income_month8: (() => {
-            const month = (parseInt(mainFinancials.incomeEndMonth) - 4 + 12) % 12;
-            const year = parseInt(mainFinancials.incomeEndYear) - (parseInt(mainFinancials.incomeEndMonth) < 4 ? 1 : 0);
-            return mainFinancials.monthlyIncome?.[`${year}-${month}`] ? formatCurrencyForDatabase(mainFinancials.monthlyIncome[`${year}-${month}`]) : null;
-          })(),
-          income_month9: (() => {
-            const month = (parseInt(mainFinancials.incomeEndMonth) - 3 + 12) % 12;
-            const year = parseInt(mainFinancials.incomeEndYear) - (parseInt(mainFinancials.incomeEndMonth) < 3 ? 1 : 0);
-            return mainFinancials.monthlyIncome?.[`${year}-${month}`] ? formatCurrencyForDatabase(mainFinancials.monthlyIncome[`${year}-${month}`]) : null;
-          })(),
-          income_month10: (() => {
-            const month = (parseInt(mainFinancials.incomeEndMonth) - 2 + 12) % 12;
-            const year = parseInt(mainFinancials.incomeEndYear) - (parseInt(mainFinancials.incomeEndMonth) < 2 ? 1 : 0);
-            return mainFinancials.monthlyIncome?.[`${year}-${month}`] ? formatCurrencyForDatabase(mainFinancials.monthlyIncome[`${year}-${month}`]) : null;
-          })(),
-          income_month11: (() => {
-            const month = (parseInt(mainFinancials.incomeEndMonth) - 1 + 12) % 12;
-            const year = parseInt(mainFinancials.incomeEndYear) - (parseInt(mainFinancials.incomeEndMonth) < 1 ? 1 : 0);
-            return mainFinancials.monthlyIncome?.[`${year}-${month}`] ? formatCurrencyForDatabase(mainFinancials.monthlyIncome[`${year}-${month}`]) : null;
-          })(),
-          income_month12: (() => {
-            const month = parseInt(mainFinancials.incomeEndMonth);
-            const year = parseInt(mainFinancials.incomeEndYear);
-            return mainFinancials.monthlyIncome?.[`${year}-${month}`] ? formatCurrencyForDatabase(mainFinancials.monthlyIncome[`${year}-${month}`]) : null;
-          })(),
-          wheinachtsgeld_last12: mainFinancials.sonderzuwendungenVergangen?.weihnachtsgeld ? formatCurrencyForDatabase(mainFinancials.sonderzuwendungenVergangen.weihnachtsgeld) : null,
-          wheinachtsgeld_next12: mainFinancials.sonderzuwendungenKommend?.weihnachtsgeld ? formatCurrencyForDatabase(mainFinancials.sonderzuwendungenKommend.weihnachtsgeld) : null,
-          urlaubsgeld_last12: mainFinancials.sonderzuwendungenVergangen?.urlaubsgeld ? formatCurrencyForDatabase(mainFinancials.sonderzuwendungenVergangen.urlaubsgeld) : null,
-          urlaubsgeld_next12: mainFinancials.sonderzuwendungenKommend?.urlaubsgeld ? formatCurrencyForDatabase(mainFinancials.sonderzuwendungenKommend.urlaubsgeld) : null,
-          otherincome_last12: mainFinancials.sonderzuwendungenVergangen?.sonstige ? formatCurrencyForDatabase(mainFinancials.sonderzuwendungenVergangen.sonstige) : null,
-          otherincome_next12: mainFinancials.sonderzuwendungenKommend?.sonstige ? formatCurrencyForDatabase(mainFinancials.sonderzuwendungenKommend.sonstige) : null,
-          willchangeincome: mainFinancials.willChangeIncome,
-          incomechangedate: mainFinancials.incomeChangeDate || null,
-          willchangeincrease: mainFinancials.willChangeIncrease,
-          newincome: mainFinancials.newIncome ? formatCurrencyForDatabase(mainFinancials.newIncome) : null,
-          isnewincomemonthly: mainFinancials.isNewIncomeMonthly,
-          newincomereason: mainFinancials.newIncomeReason || null,
-          startemployment: mainFinancials.startEmployment || null,
-          iscontractlimited: mainFinancials.isContractLimited,
-          endofcontract: mainFinancials.endOfContract || null,
-          haspensionincome: mainFinancials.weitereEinkuenfte?.selectedTypes?.includes('renten') || false,
-          incomepension: mainFinancials.weitereEinkuenfte?.renten?.betrag ? formatCurrencyForDatabase(mainFinancials.weitereEinkuenfte.renten.betrag) : null,
-          hasrentincome: mainFinancials.weitereEinkuenfte?.selectedTypes?.includes('vermietung') || false,
-          incomerent: mainFinancials.weitereEinkuenfte?.vermietung?.betrag ? formatCurrencyForDatabase(mainFinancials.weitereEinkuenfte.vermietung.betrag) : null,
-          incomerentyear: mainFinancials.weitereEinkuenfte?.vermietung?.jahr || null,
-          hasbusinessincome: mainFinancials.weitereEinkuenfte?.selectedTypes?.includes('gewerbe') || false,
-          incomebusiness: mainFinancials.weitereEinkuenfte?.gewerbe?.betrag ? formatCurrencyForDatabase(mainFinancials.weitereEinkuenfte.gewerbe.betrag) : null,
-          incomebusinessyear: mainFinancials.weitereEinkuenfte?.gewerbe?.jahr || null,
-          hasagricultureincome: mainFinancials.weitereEinkuenfte?.selectedTypes?.includes('landforst') || false,
-          incomeagriculture: mainFinancials.weitereEinkuenfte?.landforst?.betrag ? formatCurrencyForDatabase(mainFinancials.weitereEinkuenfte.landforst.betrag) : null,
-          incomeagricultureyear: mainFinancials.weitereEinkuenfte?.landforst?.jahr || null,
-          hasothercome: mainFinancials.weitereEinkuenfte?.selectedTypes?.includes('sonstige') || false,
-          incomeothers: mainFinancials.weitereEinkuenfte?.sonstige?.betrag ? formatCurrencyForDatabase(mainFinancials.weitereEinkuenfte.sonstige.betrag) : null,
-          incomeothersyear: mainFinancials.weitereEinkuenfte?.sonstige?.jahr || null,
-          hastaxfreeunterhaltincome: mainFinancials.weitereEinkuenfte?.selectedTypes?.includes('unterhaltsteuerfrei') || false,
-          incomeunterhalttaxfree: mainFinancials.weitereEinkuenfte?.unterhaltsteuerfrei?.betrag ? formatCurrencyForDatabase(mainFinancials.weitereEinkuenfte.unterhaltsteuerfrei.betrag) : null,
-          hastaxableunterhaltincome: mainFinancials.weitereEinkuenfte?.selectedTypes?.includes('unterhaltsteuerpflichtig') || false,
-          incomeunterhalttaxable: mainFinancials.weitereEinkuenfte?.unterhaltsteuerpflichtig?.betrag ? formatCurrencyForDatabase(mainFinancials.weitereEinkuenfte.unterhaltsteuerpflichtig.betrag) : null,
-          hasforeignincome: mainFinancials.weitereEinkuenfte?.selectedTypes?.includes('ausland') || false,
-          incomeforeign: mainFinancials.weitereEinkuenfte?.ausland?.betrag ? formatCurrencyForDatabase(mainFinancials.weitereEinkuenfte.ausland.betrag) : null,
-          incomeforeignyear: mainFinancials.weitereEinkuenfte?.ausland?.turnus === 'jährlich' ? (mainFinancials.weitereEinkuenfte?.ausland?.jahr || null) : null,
-          incomeforeignmonthly: mainFinancials.weitereEinkuenfte?.ausland?.turnus === 'monatlich' ? true : mainFinancials.weitereEinkuenfte?.ausland?.turnus === 'jährlich' ? false : null,
-          haspauschalincome: mainFinancials.weitereEinkuenfte?.selectedTypes?.includes('pauschal') || false,
-          incomepauschal: mainFinancials.weitereEinkuenfte?.pauschal?.betrag ? formatCurrencyForDatabase(mainFinancials.weitereEinkuenfte.pauschal.betrag) : null,
-          hasablgincome: mainFinancials.weitereEinkuenfte?.selectedTypes?.includes('arbeitslosengeld') || false,
-          incomeablg: mainFinancials.weitereEinkuenfte?.arbeitslosengeld?.betrag ? formatCurrencyForDatabase(mainFinancials.weitereEinkuenfte.arbeitslosengeld.betrag) : null,
-          incomealbgtype: mainFinancials.weitereEinkuenfte?.arbeitslosengeld?.turnus === 'täglich' ? 0 : mainFinancials.weitereEinkuenfte?.arbeitslosengeld?.turnus === 'monatlich' ? 1 : mainFinancials.weitereEinkuenfte?.arbeitslosengeld?.turnus === 'jährlich' ? 2 : null,
-          // Add new fields
-          werbungskosten: mainFinancials.werbungskosten ? formatCurrencyForDatabase(mainFinancials.werbungskosten) : null,
-          kinderbetreuungskosten: mainFinancials.kinderbetreuungskosten ? formatCurrencyForDatabase(mainFinancials.kinderbetreuungskosten) : null,
-          ispayingincometax: mainFinancials.ispayingincometax,
-          ispayinghealthinsurance: mainFinancials.ispayinghealthinsurance,
-          ispayingpension: mainFinancials.ispayingpension,
-          ispayingunterhalt: mainFinancials.ispayingunterhalt,
-          unterhaltszahlungen: mainFinancials.unterhaltszahlungen || [],
-          addition_change_inincome: mainFinancials.additionalIncomeChanges ? JSON.stringify(mainFinancials.additionalIncomeChanges) : null,
-          finanzamt: mainFinancials.finanzamt || null,
-          steuerid: mainFinancials.steuerid || null,
-          // Add additional applicants financial data as JSONB
-          additional_applicants_financials: additionalApplicants.map(applicant => ({
-            isEarningRegularIncome: applicant.hasEmploymentIncome,
-            prior_year: applicant.incomeYear,
-            prior_year_earning: applicant.incomeYearAmount ? formatCurrencyForDatabase(applicant.incomeYearAmount) : null,
-            end_month_past12: applicant.incomeEndMonth,
-            end_year_past12: applicant.incomeEndYear,
-            income_month1: (() => {
-              const month = (parseInt(applicant.incomeEndMonth) - 11 + 12) % 12;
-              const year = parseInt(applicant.incomeEndYear) - (parseInt(applicant.incomeEndMonth) < 11 ? 1 : 0);
-              return applicant.monthlyIncome?.[`${year}-${month}`] ? formatCurrencyForDatabase(applicant.monthlyIncome[`${year}-${month}`]) : null;
-            })(),
-            income_month2: (() => {
-              const month = (parseInt(applicant.incomeEndMonth) - 10 + 12) % 12;
-              const year = parseInt(applicant.incomeEndYear) - (parseInt(applicant.incomeEndMonth) < 10 ? 1 : 0);
-              return applicant.monthlyIncome?.[`${year}-${month}`] ? formatCurrencyForDatabase(applicant.monthlyIncome[`${year}-${month}`]) : null;
-            })(),
-            income_month3: (() => {
-              const month = (parseInt(applicant.incomeEndMonth) - 9 + 12) % 12;
-              const year = parseInt(applicant.incomeEndYear) - (parseInt(applicant.incomeEndMonth) < 9 ? 1 : 0);
-              return applicant.monthlyIncome?.[`${year}-${month}`] ? formatCurrencyForDatabase(applicant.monthlyIncome[`${year}-${month}`]) : null;
-            })(),
-            income_month4: (() => {
-              const month = (parseInt(applicant.incomeEndMonth) - 8 + 12) % 12;
-              const year = parseInt(applicant.incomeEndYear) - (parseInt(applicant.incomeEndMonth) < 8 ? 1 : 0);
-              return applicant.monthlyIncome?.[`${year}-${month}`] ? formatCurrencyForDatabase(applicant.monthlyIncome[`${year}-${month}`]) : null;
-            })(),
-            income_month5: (() => {
-              const month = (parseInt(applicant.incomeEndMonth) - 7 + 12) % 12;
-              const year = parseInt(applicant.incomeEndYear) - (parseInt(applicant.incomeEndMonth) < 7 ? 1 : 0);
-              return applicant.monthlyIncome?.[`${year}-${month}`] ? formatCurrencyForDatabase(applicant.monthlyIncome[`${year}-${month}`]) : null;
-            })(),
-            income_month6: (() => {
-              const month = (parseInt(applicant.incomeEndMonth) - 6 + 12) % 12;
-              const year = parseInt(applicant.incomeEndYear) - (parseInt(applicant.incomeEndMonth) < 6 ? 1 : 0);
-              return applicant.monthlyIncome?.[`${year}-${month}`] ? formatCurrencyForDatabase(applicant.monthlyIncome[`${year}-${month}`]) : null;
-            })(),
-            income_month7: (() => {
-              const month = (parseInt(applicant.incomeEndMonth) - 5 + 12) % 12;
-              const year = parseInt(applicant.incomeEndYear) - (parseInt(applicant.incomeEndMonth) < 5 ? 1 : 0);
-              return applicant.monthlyIncome?.[`${year}-${month}`] ? formatCurrencyForDatabase(applicant.monthlyIncome[`${year}-${month}`]) : null;
-            })(),
-            income_month8: (() => {
-              const month = (parseInt(applicant.incomeEndMonth) - 4 + 12) % 12;
-              const year = parseInt(applicant.incomeEndYear) - (parseInt(applicant.incomeEndMonth) < 4 ? 1 : 0);
-              return applicant.monthlyIncome?.[`${year}-${month}`] ? formatCurrencyForDatabase(applicant.monthlyIncome[`${year}-${month}`]) : null;
-            })(),
-            income_month9: (() => {
-              const month = (parseInt(applicant.incomeEndMonth) - 3 + 12) % 12;
-              const year = parseInt(applicant.incomeEndYear) - (parseInt(applicant.incomeEndMonth) < 3 ? 1 : 0);
-              return applicant.monthlyIncome?.[`${year}-${month}`] ? formatCurrencyForDatabase(applicant.monthlyIncome[`${year}-${month}`]) : null;
-            })(),
-            income_month10: (() => {
-              const month = (parseInt(applicant.incomeEndMonth) - 2 + 12) % 12;
-              const year = parseInt(applicant.incomeEndYear) - (parseInt(applicant.incomeEndMonth) < 2 ? 1 : 0);
-              return applicant.monthlyIncome?.[`${year}-${month}`] ? formatCurrencyForDatabase(applicant.monthlyIncome[`${year}-${month}`]) : null;
-            })(),
-            income_month11: (() => {
-              const month = (parseInt(applicant.incomeEndMonth) - 1 + 12) % 12;
-              const year = parseInt(applicant.incomeEndYear) - (parseInt(applicant.incomeEndMonth) < 1 ? 1 : 0);
-              return applicant.monthlyIncome?.[`${year}-${month}`] ? formatCurrencyForDatabase(applicant.monthlyIncome[`${year}-${month}`]) : null;
-            })(),
-            income_month12: (() => {
-              const month = parseInt(applicant.incomeEndMonth);
-              const year = parseInt(applicant.incomeEndYear);
-              return applicant.monthlyIncome?.[`${year}-${month}`] ? formatCurrencyForDatabase(applicant.monthlyIncome[`${year}-${month}`]) : null;
-            })(),
-            wheinachtsgeld_last12: applicant.sonderzuwendungenVergangen?.weihnachtsgeld ? formatCurrencyForDatabase(applicant.sonderzuwendungenVergangen.weihnachtsgeld) : null,
-            wheinachtsgeld_next12: applicant.sonderzuwendungenKommend?.weihnachtsgeld ? formatCurrencyForDatabase(applicant.sonderzuwendungenKommend.weihnachtsgeld) : null,
-            urlaubsgeld_last12: applicant.sonderzuwendungenVergangen?.urlaubsgeld ? formatCurrencyForDatabase(applicant.sonderzuwendungenVergangen.urlaubsgeld) : null,
-            urlaubsgeld_next12: applicant.sonderzuwendungenKommend?.urlaubsgeld ? formatCurrencyForDatabase(applicant.sonderzuwendungenKommend.urlaubsgeld) : null,
-            otherincome_last12: applicant.sonderzuwendungenVergangen?.sonstige ? formatCurrencyForDatabase(applicant.sonderzuwendungenVergangen.sonstige) : null,
-            otherincome_next12: applicant.sonderzuwendungenKommend?.sonstige ? formatCurrencyForDatabase(applicant.sonderzuwendungenKommend.sonstige) : null,
-            willchangeincome: applicant.willChangeIncome,
-            incomechangedate: applicant.incomeChangeDate || null,
-            willchangeincrease: applicant.willChangeIncrease,
-            newincome: applicant.newIncome ? formatCurrencyForDatabase(applicant.newIncome) : null,
-            isnewincomemonthly: applicant.isNewIncomeMonthly,
-            newincomereason: applicant.newIncomeReason || null,
-            startemployment: applicant.startEmployment || null,
-            iscontractlimited: applicant.isContractLimited,
-            endofcontract: applicant.endOfContract || null,
-            haspensionincome: applicant.weitereEinkuenfte?.selectedTypes?.includes('renten') || false,
-            incomepension: applicant.weitereEinkuenfte?.renten?.betrag ? formatCurrencyForDatabase(applicant.weitereEinkuenfte.renten.betrag) : null,
-            hasrentincome: applicant.weitereEinkuenfte?.selectedTypes?.includes('vermietung') || false,
-            incomerent: applicant.weitereEinkuenfte?.vermietung?.betrag ? formatCurrencyForDatabase(applicant.weitereEinkuenfte.vermietung.betrag) : null,
-            incomerentyear: applicant.weitereEinkuenfte?.vermietung?.jahr || null,
-            hasbusinessincome: applicant.weitereEinkuenfte?.selectedTypes?.includes('gewerbe') || false,
-            incomebusiness: applicant.weitereEinkuenfte?.gewerbe?.betrag ? formatCurrencyForDatabase(applicant.weitereEinkuenfte.gewerbe.betrag) : null,
-            incomebusinessyear: applicant.weitereEinkuenfte?.gewerbe?.jahr || null,
-            hasagricultureincome: applicant.weitereEinkuenfte?.selectedTypes?.includes('landforst') || false,
-            incomeagriculture: applicant.weitereEinkuenfte?.landforst?.betrag ? formatCurrencyForDatabase(applicant.weitereEinkuenfte.landforst.betrag) : null,
-            incomeagricultureyear: applicant.weitereEinkuenfte?.landforst?.jahr || null,
-            hasothercome: applicant.weitereEinkuenfte?.selectedTypes?.includes('sonstige') || false,
-            incomeothers: applicant.weitereEinkuenfte?.sonstige?.betrag ? formatCurrencyForDatabase(applicant.weitereEinkuenfte.sonstige.betrag) : null,
-            incomeothersyear: applicant.weitereEinkuenfte?.sonstige?.jahr || null,
-            hastaxfreeunterhaltincome: applicant.weitereEinkuenfte?.selectedTypes?.includes('unterhaltsteuerfrei') || false,
-            incomeunterhalttaxfree: applicant.weitereEinkuenfte?.unterhaltsteuerfrei?.betrag ? formatCurrencyForDatabase(applicant.weitereEinkuenfte.unterhaltsteuerfrei.betrag) : null,
-            hastaxableunterhaltincome: applicant.weitereEinkuenfte?.selectedTypes?.includes('unterhaltsteuerpflichtig') || false,
-            incomeunterhalttaxable: applicant.weitereEinkuenfte?.unterhaltsteuerpflichtig?.betrag ? formatCurrencyForDatabase(applicant.weitereEinkuenfte.unterhaltsteuerpflichtig.betrag) : null,
-            hasforeignincome: applicant.weitereEinkuenfte?.selectedTypes?.includes('ausland') || false,
-            incomeforeign: applicant.weitereEinkuenfte?.ausland?.betrag ? formatCurrencyForDatabase(applicant.weitereEinkuenfte.ausland.betrag) : null,
-            incomeforeignyear: applicant.weitereEinkuenfte?.ausland?.turnus === 'jährlich' ? (applicant.weitereEinkuenfte?.ausland?.jahr || null) : null,
-            incomeforeignmonthly: applicant.weitereEinkuenfte?.ausland?.turnus === 'monatlich' ? true : applicant.weitereEinkuenfte?.ausland?.turnus === 'jährlich' ? false : null,
-            haspauschalincome: applicant.weitereEinkuenfte?.selectedTypes?.includes('pauschal') || false,
-            incomepauschal: applicant.weitereEinkuenfte?.pauschal?.betrag ? formatCurrencyForDatabase(applicant.weitereEinkuenfte.pauschal.betrag) : null,
-            hasablgincome: applicant.weitereEinkuenfte?.selectedTypes?.includes('arbeitslosengeld') || false,
-            incomeablg: applicant.weitereEinkuenfte?.arbeitslosengeld?.betrag ? formatCurrencyForDatabase(applicant.weitereEinkuenfte.arbeitslosengeld.betrag) : null,
-            incomealbgtype: applicant.weitereEinkuenfte?.arbeitslosengeld?.turnus === 'täglich' ? 0 : applicant.weitereEinkuenfte?.arbeitslosengeld?.turnus === 'monatlich' ? 1 : applicant.weitereEinkuenfte?.arbeitslosengeld?.turnus === 'jährlich' ? 2 : null,
-            // Add new fields
-            werbungskosten: applicant.werbungskosten ? formatCurrencyForDatabase(applicant.werbungskosten) : null,
-            kinderbetreuungskosten: applicant.kinderbetreuungskosten ? formatCurrencyForDatabase(applicant.kinderbetreuungskosten) : null,
-            ispayingincometax: applicant.ispayingincometax,
-            ispayinghealthinsurance: applicant.ispayinghealthinsurance,
-            ispayingpension: applicant.ispayingpension,
-            ispayingunterhalt: applicant.ispayingunterhalt,
-            unterhaltszahlungen: applicant.unterhaltszahlungen || [],
-            addition_change_inincome: applicant.additionalIncomeChanges ? JSON.stringify(applicant.additionalIncomeChanges) : null,
-            finanzamt: applicant.finanzamt || null,
-            steuerid: applicant.steuerid || null,
-          }))
-        });
+        .upsert(updateData);
 
       if (mainError) {
         console.error('Error saving main applicant data:', mainError);
@@ -2231,6 +2260,19 @@ const EinkommenserklaerungContainer: React.FC<EinkommenserklaerungContainerProps
               Speichern und zum persönlichen Bereich
             </Button>
           </div>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Save Modal */}
+      <Modal show={showModal} onHide={() => setShowModal(false)} centered>
+        <Modal.Header>
+          <Modal.Title>Gespeichert</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <div className="alert alert-success mb-0">Ihre Angaben wurden gespeichert.</div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button onClick={() => setShowModal(false)} style={{ backgroundColor: '#064497', border: 'none' }}>Schließen</Button>
         </Modal.Footer>
       </Modal>
     </div>

@@ -22,6 +22,7 @@ import GovernmentLanding from './components/government/GovernmentLanding';
 import GovernmentLogin from './components/government/GovernmentLogin';
 import GovernmentDashboard from './components/government/GovernmentDashboard';
 import ApplicationReviewContainer from './components/government/review/ApplicationReviewContainer';
+import SelbstauskunftContainer from './components/Selbstauskunft/SelbstauskunftContainer';
 
 function App() {
   return (
@@ -68,6 +69,11 @@ function App() {
               <Route path="/einkommenserklaerung" element={
                 <RoutingProtection requireAuth>
                   <EinkommenserklaerungContainer />
+                </RoutingProtection>
+              } />
+              <Route path="/selbstauskunft" element={
+                <RoutingProtection requireAuth>
+                  <SelbstauskunftContainer />
                 </RoutingProtection>
               } />
             </Routes>
