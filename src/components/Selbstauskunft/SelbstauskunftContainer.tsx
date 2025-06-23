@@ -175,6 +175,9 @@ const sectionSearchTerms = {
   '2': [
     "Bezüge",
     "Weitere Einkünfte",
+    "Altersrente",
+    "Unfallrente",
+    "Lebensversicherung",
     "Renten",
     "Pension",
     "Kindergeld",
@@ -184,7 +187,8 @@ const sectionSearchTerms = {
     "Steuerfrei",
     "Steuerpflichtig",
     "Elterngeld",
-    "Andere"
+    "Erziehungsgeld",
+    "Lastenzuschuss"
   ],
   '3': [
     "Monatliche Belastungen",
@@ -195,19 +199,29 @@ const sectionSearchTerms = {
     "Versicherung",
     "Steuer",
     "Darlehen",
-    "Kredit",
+    "Kredite",
+    "Anschaffungsdarlehen",
+    "Kleinkredite",
+    "Ratenkäufe",
     "Zwischenkredit",
+    "Bauspardarlehen",
+    "Unterhaltsleistungen",
+    "Unterhaltsverpflichtungen",
     "Zahlungsverpflichtung",
     "Bausparvertrag",
-    "Kapitalrentenversicherung"
+    "Kapitalrentenversicherung",
+    "Sparraten",
+    "Prämien",
+    "Rentenversicherungen",
+    "Kapitallebensversicherungen"
   ],
   '4': [
     "Weitere Angaben",
-    "Verbindlichkeiten",
+    "Kontoüberziehung",
+    "Unbezahlte Rechnungen",
     "Kontoüberziehung",
     "Schulden",
-    "Bürgschaft",
-    "Sonstige Angaben"
+    "Bürgschaft"
   ]
 };
 

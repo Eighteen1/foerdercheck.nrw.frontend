@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../../../lib/supabase';
 import EinkommenserklaerungReviewContainer from '../../Einkommenserklaerung/EinkommenserklaerungReviewContainer';
 import HauptantragReviewContainer from '../../Hauptantrag/HauptantragReviewContainer';
+import SelbstauskunftReviewContainer from '../../Selbstauskunft/SelbstauskunftReviewContainer';
 
 type DocumentStatus = {
   fileName: string;
@@ -47,6 +48,7 @@ export const availableForms = [
 const FORM_COMPONENTS: Record<string, React.FC<{ residentId: string }>> = {
   'einkommenserklaerung': EinkommenserklaerungReviewContainer,
   'hauptantrag': HauptantragReviewContainer,
+  'selbstauskunft': SelbstauskunftReviewContainer,
 };
 
 // Inject Material Icons font if not already present
