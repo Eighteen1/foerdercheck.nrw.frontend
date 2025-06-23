@@ -1205,10 +1205,8 @@ const SelbstauskunftContainer: React.FC<SelbstauskunftContainerProps> = ({ resid
     }
     // weitere Einkünfte (Section 1.2)
     if (main.weitereEinkuenfte?.selectedTypes?.includes('gewerbe')) {
-      totalPotentialFields += 2;
+      totalPotentialFields += 1;
       if (!main.yearlybusinessnetincome && !main.yearlyselfemployednetincome) actualErrors++;
-      if (!main.yearlybusinessnetincome) actualErrors++;
-      if (!main.yearlyselfemployednetincome) actualErrors++;
     }
     if (main.weitereEinkuenfte?.selectedTypes?.includes('landforst')) {
       totalPotentialFields++;
@@ -1349,10 +1347,8 @@ const SelbstauskunftContainer: React.FC<SelbstauskunftContainerProps> = ({ resid
         }
       }
       if (applicant.weitereEinkuenfte?.selectedTypes?.includes('gewerbe')) {
-        totalPotentialFields += 2;
+        totalPotentialFields += 1;
         if (!applicant.yearlybusinessnetincome && !applicant.yearlyselfemployednetincome) actualErrors++;
-        if (!applicant.yearlybusinessnetincome) actualErrors++;
-        if (!applicant.yearlyselfemployednetincome) actualErrors++;
       }
       if (applicant.weitereEinkuenfte?.selectedTypes?.includes('landforst')) {
         totalPotentialFields++;
