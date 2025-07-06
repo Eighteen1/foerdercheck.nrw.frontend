@@ -1359,7 +1359,16 @@ const ReviewActionsPanel: React.FC<ReviewActionsPanelProps> = ({
                 <select
                   className="form-select"
                   value={selectedDocumentType}
-                  onChange={(e) => setSelectedDocumentType(e.target.value)}
+                  onChange={(e) => {
+                    const docType = e.target.value;
+                    setSelectedDocumentType(docType);
+                    // Set default applicant type based on document category
+                    if (docType && DOCUMENT_TYPES[docType]?.category === 'Applicant') {
+                      setSelectedApplicantType('hauptantragsteller');
+                    } else {
+                      setSelectedApplicantType('general');
+                    }
+                  }}
                   disabled={documentRequestLoading}
                 >
                   <option value="">Bitte wählen Sie ein Dokument aus...</option>
@@ -1378,7 +1387,7 @@ const ReviewActionsPanel: React.FC<ReviewActionsPanelProps> = ({
                 </div>
               )}
 
-              {availableApplicants.length > 2 && DOCUMENT_TYPES[selectedDocumentType]?.category === 'Applicant' && (
+              {DOCUMENT_TYPES[selectedDocumentType]?.category === 'Applicant' && (
                 <div className="mb-3">
                   <label className="form-label">Für welchen Antragsteller?</label>
                   <select
@@ -1389,9 +1398,9 @@ const ReviewActionsPanel: React.FC<ReviewActionsPanelProps> = ({
                       if (value.startsWith('applicant_')) {
                         setSelectedApplicantType('applicant');
                         setSelectedApplicantNumber(parseInt(value.split('_')[1]));
-                                             } else {
-                         setSelectedApplicantType(value as 'general' | 'hauptantragsteller');
-                       }
+                      } else {
+                        setSelectedApplicantType(value as 'general' | 'hauptantragsteller');
+                      }
                     }}
                     disabled={documentRequestLoading}
                   >
