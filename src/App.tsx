@@ -11,6 +11,7 @@ import LoginPage from './components/LoginPage';
 import VerifyEmail from './components/VerifyEmail';
 import DocumentCheck from './components/DocumentCheck';
 import DocumentUpload from './components/DocumentUpload';
+import UploadDocumentPage from './pages/UploadDocumentPage';
 import Layout from './components/Layout';
 import AuthCallback from './components/AuthCallback';
 import PasswordProtection from './components/PasswordProtection';
@@ -76,6 +77,7 @@ function App() {
                   <SelbstauskunftContainer />
                 </RoutingProtection>
               } />
+              <Route path="/upload-document/:token" element={<UploadDocumentPage />} />
             </Routes>
           </Layout>
         </PasswordProtectionMiddleware>

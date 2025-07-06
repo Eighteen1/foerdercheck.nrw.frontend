@@ -3,10 +3,133 @@ import { ChecklistItemProps, ChecklistStatus } from '../../../types/checklist';
 import { availableForms } from './FormsDocsPanel';
 import { DOCUMENT_LABELS } from './FormsDocsPanel';
 
-// Extend props to include onDelete and onEdit (for title/comment/errors)
+// Extend props to include onDelete and onEdit (for title/comment/errors) and userData
 type CustomChecklistItemProps = ChecklistItemProps & {
   onDelete: (id: string) => void;
   onEdit?: (id: string, updates: Partial<{ title: string; systemComment: string; systemErrors: string[]; linkedForms: string[]; linkedDocs: string[] }>) => void;
+  userData?: any; // Add userData prop to access document_status
+};
+
+// Helper function to get applicant label
+const getApplicantLabel = (applicantKey: string): string => {
+  if (applicantKey === 'general') return 'Allgemein';
+  if (applicantKey === 'hauptantragsteller') return 'Hauptantragsteller';
+  if (applicantKey.startsWith('applicant_')) {
+    const number = applicantKey.split('_')[1];
+    return `Antragsteller ${number}`;
+  }
+  return applicantKey;
+};
+
+// Helper function to generate available uploaded documents
+const getUploadedDocuments = (documentStatus: any): { id: string; label: string }[] => {
+  const uploadedDocs: { id: string; label: string }[] = [];
+  
+  if (!documentStatus || typeof documentStatus !== 'object') {
+    return uploadedDocs;
+  }
+
+  // Iterate through all applicant categories
+  Object.entries(documentStatus).forEach(([applicantKey, applicantDocs]: [string, any]) => {
+    if (!applicantDocs || typeof applicantDocs !== 'object') return;
+    
+    // Iterate through document types for this applicant
+    Object.entries(applicantDocs).forEach(([docTypeId, files]: [string, any]) => {
+      if (!Array.isArray(files)) return;
+      
+      // Filter only uploaded files
+      const uploadedFiles = files.filter((file: any) => file.uploaded);
+      
+      uploadedFiles.forEach((file: any, index: number) => {
+        const fullDocumentId = `${applicantKey}_${docTypeId}_${index}`;
+        const baseLabel = DOCUMENT_LABELS[docTypeId] || docTypeId;
+        const applicantLabel = getApplicantLabel(applicantKey);
+        
+        // Create label with applicant context and file numbering if multiple files
+        let label;
+        if (applicantKey === 'general') {
+          // For general documents, don't add "- Allgemein" suffix
+          if (uploadedFiles.length > 1) {
+            label = `${baseLabel} (${index + 1})`;
+          } else {
+            label = baseLabel;
+          }
+        } else {
+          // For applicant-specific documents, include applicant label
+          if (uploadedFiles.length > 1) {
+            label = `${baseLabel} (${index + 1}) - ${applicantLabel}`;
+          } else {
+            label = `${baseLabel} - ${applicantLabel}`;
+          }
+        }
+        
+        uploadedDocs.push({
+          id: fullDocumentId,
+          label: label
+        });
+      });
+    });
+  });
+  
+  // Sort by label for better UX
+  uploadedDocs.sort((a, b) => a.label.localeCompare(b.label));
+  
+  return uploadedDocs;
+};
+
+// Helper function to get document label from full document ID
+const getDocumentLabelFromFullId = (fullDocId: string, userData?: any): string => {
+  // Parse full document ID like "general_meldebescheinigung_0" or "applicant_2_arbeitslosengeldbescheid_0"
+  const parts = fullDocId.split('_');
+  if (parts.length < 3) {
+    return DOCUMENT_LABELS[fullDocId] || fullDocId;
+  }
+  
+  let docTypeId: string;
+  let applicantKey: string;
+  let index: number;
+  
+  if (parts[0] === 'applicant') {
+    // Format: applicant_X_documentType_index
+    applicantKey = `${parts[0]}_${parts[1]}`;
+    docTypeId = parts.slice(2, -1).join('_');
+    index = parseInt(parts[parts.length - 1]);
+  } else {
+    // Format: general_documentType_index or hauptantragsteller_documentType_index
+    applicantKey = parts[0];
+    docTypeId = parts.slice(1, -1).join('_');
+    index = parseInt(parts[parts.length - 1]);
+  }
+  
+  const baseLabel = DOCUMENT_LABELS[docTypeId] || docTypeId;
+  const applicantLabel = getApplicantLabel(applicantKey);
+  
+  // Check if there are multiple files of this type for this applicant
+  let hasMultipleFiles = false;
+  if (userData?.document_status) {
+    const documentFiles = userData.document_status[applicantKey]?.[docTypeId];
+    if (documentFiles && Array.isArray(documentFiles)) {
+      const uploadedFiles = documentFiles.filter((file: any) => file.uploaded);
+      hasMultipleFiles = uploadedFiles.length > 1;
+    }
+  }
+  
+  // Generate label based on applicant type and file count
+  if (applicantKey === 'general') {
+    // For general documents, don't add "- Allgemein" suffix
+    if (hasMultipleFiles) {
+      return `${baseLabel} (${index + 1})`;
+    } else {
+      return baseLabel;
+    }
+  } else {
+    // For applicant-specific documents, include applicant label
+    if (hasMultipleFiles) {
+      return `${baseLabel} (${index + 1}) - ${applicantLabel}`;
+    } else {
+      return `${baseLabel} - ${applicantLabel}`;
+    }
+  }
 };
 
 const CustomChecklistItem: React.FC<CustomChecklistItemProps> = ({
@@ -17,6 +140,7 @@ const CustomChecklistItem: React.FC<CustomChecklistItemProps> = ({
   onOpenDocument,
   onDelete,
   onEdit,
+  userData,
 }) => {
   const [tempNotes, setTempNotes] = useState(item.agentNotes || '');
   const [notesChanged, setNotesChanged] = useState(false);
@@ -32,6 +156,9 @@ const CustomChecklistItem: React.FC<CustomChecklistItemProps> = ({
   const [isSmall, setIsSmall] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Get available uploaded documents for editing
+  const availableUploadedDocs = getUploadedDocuments(userData?.document_status);
 
   // Reset states when item changes
   useEffect(() => {
@@ -469,12 +596,19 @@ const CustomChecklistItem: React.FC<CustomChecklistItemProps> = ({
               </button>
             </div>
           </div>
-          {/* Linked Documents */}
+          {/* Linked Documents - Now shows only uploaded documents */}
           <div>
-            <div style={{ color: '#666', fontWeight: 500, marginBottom: 6 }}>Verknüpfte Dokumente:</div>
+            <div style={{ color: '#666', fontWeight: 500, marginBottom: 6 }}>
+              Verknüpfte Dokumente:
+              {availableUploadedDocs.length === 0 && (
+                <span style={{ fontSize: 14, color: '#999', fontWeight: 400, marginLeft: 8 }}>
+                  (Keine Dokumente hochgeladen)
+                </span>
+              )}
+            </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
               {editedDocs.map(docId => {
-                const docLabel = DOCUMENT_LABELS[docId] || docId;
+                const docLabel = getDocumentLabelFromFullId(docId, userData);
                 return (
                   <span key={docId} style={{ background: '#eaf2fb', color: '#064497', borderRadius: 5, padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 4, fontSize: 15, fontWeight: 500 }}>
                     <span className="material-icons" style={{ fontSize: 18 }}>picture_as_pdf</span>
@@ -486,34 +620,48 @@ const CustomChecklistItem: React.FC<CustomChecklistItemProps> = ({
                 );
               })}
             </div>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <div style={{ position: 'relative', display: 'inline-block', width: 300 }}>
-                <select value={docToAdd} onChange={e => setDocToAdd(e.target.value)} style={{ padding: '6px 12px', borderRadius: 5, border: '1px solid #bdbdbd', fontSize: 15, width: '100%', minWidth: 0, paddingRight: 40, appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none', background: 'none' }}>
-                  <option value="">Dokument auswählen...</option>
-                  {Object.entries(DOCUMENT_LABELS).filter(([docId]) => !editedDocs.includes(docId)).map(([docId, label]) => (
-                    <option key={docId} value={docId}>{label}</option>
-                  ))}
-                </select>
-                <span
-                  className="material-icons"
-                  style={{
-                    position: 'absolute',
-                    right: 14,
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    pointerEvents: 'none',
-                    color: '#757575',
-                    fontSize: 22,
-                  }}
-                >
-                  expand_more
-                </span>
+            {availableUploadedDocs.length > 0 ? (
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <div style={{ position: 'relative', display: 'inline-block', width: 300 }}>
+                  <select value={docToAdd} onChange={e => setDocToAdd(e.target.value)} style={{ padding: '6px 12px', borderRadius: 5, border: '1px solid #bdbdbd', fontSize: 15, width: '100%', minWidth: 0, paddingRight: 40, appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none', background: 'none' }}>
+                    <option value="">Dokument auswählen...</option>
+                    {availableUploadedDocs.filter(doc => !editedDocs.includes(doc.id)).map(doc => (
+                      <option key={doc.id} value={doc.id}>{doc.label}</option>
+                    ))}
+                  </select>
+                  <span
+                    className="material-icons"
+                    style={{
+                      position: 'absolute',
+                      right: 14,
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      pointerEvents: 'none',
+                      color: '#757575',
+                      fontSize: 22,
+                    }}
+                  >
+                    expand_more
+                  </span>
+                </div>
+                <button onClick={handleAddDoc} disabled={!docToAdd} style={{ background: '#064497', color: '#fff', border: 'none', borderRadius: 5, padding: '6px 14px', fontWeight: 500, fontSize: 15, cursor: docToAdd ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span className="material-icons" style={{ fontSize: 18 }}>add</span>
+                  Hinzufügen
+                </button>
               </div>
-              <button onClick={handleAddDoc} disabled={!docToAdd} style={{ background: '#064497', color: '#fff', border: 'none', borderRadius: 5, padding: '6px 14px', fontWeight: 500, fontSize: 15, cursor: docToAdd ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span className="material-icons" style={{ fontSize: 18 }}>add</span>
-                Hinzufügen
-              </button>
-            </div>
+            ) : (
+              <div style={{ 
+                padding: '20px', 
+                background: '#f8f9fa', 
+                borderRadius: 6, 
+                border: '1px dashed #dee2e6',
+                textAlign: 'center',
+                color: '#6c757d',
+                fontSize: 15
+              }}>
+                Keine Dokumente verfügbar. Bitte laden Sie zuerst Dokumente hoch, um sie mit diesem To-Do verknüpfen zu können.
+              </div>
+            )}
           </div>
         </div>
       ) : (
@@ -544,7 +692,7 @@ const CustomChecklistItem: React.FC<CustomChecklistItemProps> = ({
             );
           })}
           {item.linkedDocs.map((docId) => {
-            const docLabel = DOCUMENT_LABELS[docId] || docId;
+            const docLabel = getDocumentLabelFromFullId(docId, userData);
             return (
               <button
                 key={docId}

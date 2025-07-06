@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Container, Button, Modal, Spinner, Form } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { supabase } from '../../lib/supabase';
+import { supabase, ensureUserFinancialsExists } from '../../lib/supabase';
 import { formatCurrencyForDisplay, formatCurrencyForDatabase } from '../../utils/currencyUtils';
 import SelbstauskunftForm, { sectionKeys as selbstauskunftSectionKeys } from './Steps/SelbstauskunftForm';
 import '../Einkommenserklaerung/EinkommenserklaerungContainer.css';
@@ -541,6 +541,14 @@ const SelbstauskunftContainer: React.FC<SelbstauskunftContainerProps> = ({ resid
         console.error('No user id found');
         setIsLoading(false);
         return;
+      }
+
+      // Ensure user_financials table exists for the user
+      try {
+        await ensureUserFinancialsExists(userId);
+      } catch (financialsError) {
+        console.warn('Failed to ensure user_financials exists, continuing with save:', financialsError);
+        // Continue with save even if user_financials creation fails
       }
 
       // Calculate progress

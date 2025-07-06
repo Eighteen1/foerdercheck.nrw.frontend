@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Container, Row, Col, Button, Modal, Form, Spinner } from "react-bootstrap";
 import { useAuth } from "../contexts/AuthContext";
-import { supabase, storeEligibilityData, checkDocumentCheckStatus } from "../lib/supabase";
+import { supabase, storeEligibilityData, checkDocumentCheckStatus, ensureUserFinancialsExists } from "../lib/supabase";
 import postcodeMap from '../utils/postcode_map.json';
 import { AssignmentRule } from '../types/city';
 import { sendMessage, sendNewApplicationNotification } from '../utils/messages';
@@ -179,6 +179,7 @@ const PersonalSpace: React.FC = () => {
           },
           body: JSON.stringify({
             userId: user.id,
+            email: emailInput,
             eligibilityData: eligibilityData
           }),
         });
@@ -304,14 +305,22 @@ const PersonalSpace: React.FC = () => {
       // Fetch latest object_data if not already loaded
       let obj = objectData;
       if (!obj && user?.id) {
-        const { data: objData } = await supabase
-          .from('object_data')
-          .select('obj_postal_code, foerderVariante')
-          .eq('user_id', user.id)
-          .single();
-        obj = objData;
-        setObjectData(objData);
-        setFoerderVariante(objData?.foerderVariante || '');
+        try {
+          const { data: objData, error: objError } = await supabase
+            .from('object_data')
+            .select('obj_postal_code, foerderVariante')
+            .eq('user_id', user.id)
+            .single();
+          
+          if (!objError && objData) {
+            obj = objData;
+            setObjectData(objData);
+            setFoerderVariante(objData?.foerderVariante || '');
+          }
+        } catch (fetchError) {
+          console.warn('Failed to fetch object data:', fetchError);
+          // Continue without object data - user can still select city manually
+        }
       }
       const postcode = obj?.obj_postal_code;
       if (!postcode) {
@@ -361,48 +370,77 @@ const PersonalSpace: React.FC = () => {
       if (cityData?.settings?.assignmentRules) {
         const { filterType, rules } = cityData.settings.assignmentRules;
 
-        // Get user data for household size and employment type
-        const { data: userData, error: userError } = await supabase
-          .from('user_data')
-          .select('adult_count, child_count, employment')
-          .eq('id', user?.id)
-          .single();
+        try {
+          // Get user data for household size and employment type
+          const { data: userData, error: userError } = await supabase
+            .from('user_data')
+            .select('adult_count, child_count, employment')
+            .eq('id', user?.id)
+            .single();
 
-        if (userError) throw userError;
+          // Get object data for postcode
+          const { data: objectData, error: objectError } = await supabase
+            .from('object_data')
+            .select('obj_postal_code')
+            .eq('user_id', user?.id)
+            .single();
 
-        // Get object data for postcode
-        const { data: objectData, error: objectError } = await supabase
-          .from('object_data')
-          .select('obj_postal_code')
-          .eq('user_id', user?.id)
-          .single();
+          // Only proceed with assignment if we have the required data
+          if (!userError && !objectError && userData && objectData) {
+            // Determine assigned agent based on filter type
+            switch (filterType) {
+              case 'type':
+                if (foerderVariante && rules[foerderVariante]) {
+                  assignedAgent = rules[foerderVariante];
+                }
+                break;
+              case 'postcode':
+                if (objectData.obj_postal_code && rules[objectData.obj_postal_code]) {
+                  assignedAgent = rules[objectData.obj_postal_code];
+                }
+                break;
+              case 'household':
+                const adultCount = userData.adult_count || 0;
+                const childCount = userData.child_count || 0;
+                
+                // Format adult count
+                const adultKey = adultCount >= 3 ? '3+' : adultCount.toString();
+                // Format child count
+                const childKey = childCount >= 3 ? '3+' : childCount.toString();
+                
+                // Create the rule key in format "adultCount_childCount"
+                const ruleKey = `${adultKey}_${childKey}`;
+                if (rules[ruleKey]) {
+                  assignedAgent = rules[ruleKey];
+                }
+                break;
+              case 'employment':
+                if (userData.employment && rules[userData.employment]) {
+                  assignedAgent = rules[userData.employment];
+                }
+                break;
+            }
+          }
+          // If any error occurred or data is missing, assignedAgent remains null
+          // This allows the application to be submitted without assignment
+        } catch (assignmentError) {
+          console.warn('Assignment logic failed, proceeding without assignment:', assignmentError);
+          // Continue without assignment - assignedAgent remains null
+        }
+      }
 
-        if (objectError) throw objectError;
+      // Log assignment result for debugging
+      if (!assignedAgent) {
+        console.log('Application submitted without assignment due to missing data or assignment rules');
+      }
 
-        // Determine assigned agent based on filter type
-        switch (filterType) {
-          case 'type':
-            assignedAgent = rules[foerderVariante] || null;
-            break;
-          case 'postcode':
-            assignedAgent = rules[objectData.obj_postal_code] || null;
-            break;
-          case 'household':
-            const adultCount = userData.adult_count || 0;
-            const childCount = userData.child_count || 0;
-            
-            // Format adult count
-            const adultKey = adultCount >= 3 ? '3+' : adultCount.toString();
-            // Format child count
-            const childKey = childCount >= 3 ? '3+' : childCount.toString();
-            
-            // Create the rule key in format "adultCount_childCount"
-            const ruleKey = `${adultKey}_${childKey}`;
-            assignedAgent = rules[ruleKey] || null;
-            break;
-          case 'employment':
-            assignedAgent = rules[userData.employment] || null;
-            break;
+      // Ensure user_financials table exists for the user
+      if (user?.id) {
+        try {
+          await ensureUserFinancialsExists(user.id);
+        } catch (financialsError) {
+          console.warn('Failed to ensure user_financials exists, continuing with application submission:', financialsError);
+          // Continue with application submission even if user_financials creation fails
         }
       }
 

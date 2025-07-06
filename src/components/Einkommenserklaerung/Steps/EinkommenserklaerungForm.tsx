@@ -236,6 +236,33 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
     return allErrors;
   };
 
+  // Helper: Validate Sonderzuwendungen fields
+  const getSonderzuwendungenValidationErrors = () => {
+    if (!showValidation || !data.hasEmploymentIncome) return [];
+    
+    // Don't run internal validation if external errors exist to avoid duplicates
+    const externalErrors = getSonderzuwendungenFieldErrors(sonderzuwendungenFieldErrors);
+    if (externalErrors.length > 0) return [];
+    
+    const errors: string[] = [];
+    const fields = ['weihnachtsgeld', 'urlaubsgeld', 'sonstige'];
+    const periods = ['vergangen', 'kommend'];
+    
+    periods.forEach(period => {
+      fields.forEach(field => {
+        const value = data[`sonderzuwendungen${period.charAt(0).toUpperCase() + period.slice(1)}`]?.[field];
+        if (!value || value === '') {
+          const periodLabel = period === 'vergangen' ? 'vergangenen' : 'kommenden';
+          const fieldLabel = field === 'weihnachtsgeld' ? 'Weihnachtsgeld' : 
+                           field === 'urlaubsgeld' ? 'Urlaubsgeld' : 'sonstige Leistungen';
+          errors.push(`${fieldLabel} für die ${periodLabel} 12 Monate ist erforderlich`);
+        }
+      });
+    });
+    
+    return errors;
+  };
+
   // Helper: Address errors
   const addressErrors = {
     street: getFieldErrorMessage('street') || '',
@@ -362,6 +389,11 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
     </div>
   );
 
+  // Calculate Sonderzuwendungen errors
+  const externalErrors = getSonderzuwendungenFieldErrors(sonderzuwendungenFieldErrors);
+  const validationErrors = getSonderzuwendungenValidationErrors();
+  const allSonderzuwendungenErrors = [...externalErrors, ...validationErrors];
+
   return (
     <Form>
       <style>
@@ -398,6 +430,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                 name="title"
                 checked={data.title === 'Herr'}
                 onChange={() => onChange({ ...data, title: 'Herr' })}
+                disabled={isReadOnly}
               />
               <Form.Check
                 inline
@@ -406,6 +439,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                 name="title"
                 checked={data.title === 'Frau'}
                 onChange={() => onChange({ ...data, title: 'Frau' })}
+                disabled={isReadOnly}
               />
               <Form.Check
                 inline
@@ -414,6 +448,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                 name="title"
                 checked={data.title === 'ohne Anrede'}
                 onChange={() => onChange({ ...data, title: 'ohne Anrede' })}
+                disabled={isReadOnly}
               />
               <div style={{ minHeight: 0 }}>
                 {validateField('title') && (
@@ -430,6 +465,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                     value={data.firstName || ''}
                     onChange={(e) => onChange({ ...data, firstName: e.target.value })}
                     isInvalid={validateField('firstName')}
+                    disabled={isReadOnly}
                   />
                   <label>Vorname</label>
                   <Form.Control.Feedback type="invalid">
@@ -445,6 +481,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                     value={data.lastName || ''}
                     onChange={(e) => onChange({ ...data, lastName: e.target.value })}
                     isInvalid={validateField('lastName')}
+                    disabled={isReadOnly}
                   />
                   <label>Name</label>
                   <Form.Control.Feedback type="invalid">
@@ -501,6 +538,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                 city: getFieldErrorMessage('city')
               }}
               state="NRW"
+              disabled={isReadOnly}
             />
           </div>
         </div>
@@ -527,6 +565,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                   checked={data.hasEmploymentIncome === true}
                   onChange={() => onChange({ ...data, hasEmploymentIncome: true })}
                   className="custom-radio"
+                  disabled={isReadOnly}
                 />
                 <Form.Check
                   inline
@@ -536,10 +575,11 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                   checked={data.hasEmploymentIncome === false}
                   onChange={() => onChange({ ...data, hasEmploymentIncome: false })}
                   className="custom-radio"
+                  disabled={isReadOnly}
                 />
               </div>
             </div>
-            {showValidation && data.hasEmploymentIncome === null && (
+            {showValidation && (data.hasEmploymentIncome === null || data.hasEmploymentIncome === undefined) && (
               <div className="text-danger mt-1">Bitte geben Sie an, ob Sie Einkünfte aus nichtselbstständiger Arbeit/Versorgungsbezüge erzielen</div>
             )}
 
@@ -575,6 +615,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                           value={data.incomeYear || ''}
                           onChange={(e) => onChange({ ...data, incomeYear: e.target.value })}
                           isInvalid={validateField('incomeYear')}
+                          disabled={isReadOnly}
                         >
                           <option value="">Jahr wählen</option>
                           {[2025, 2024, 2023, 2022, 2021, 2020].map(y => (
@@ -593,7 +634,8 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                         onChange={(value) => onChange({ ...data, incomeYearAmount: value })}
                         isInvalid={validateField('incomeYearAmount')}
                         placeholder="Jahresbetrag"
-                        label="Jahresbetrag"       
+                        label="Jahresbetrag"
+                        disabled={isReadOnly}
                       />
                       {validateField('incomeYearAmount') && (
                         <div className="text-danger mt-1">{getFieldErrorMessage('incomeYearAmount')}</div>
@@ -632,6 +674,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                           value={data.incomeEndMonth || ''}
                           onChange={(e) => onChange({ ...data, incomeEndMonth: e.target.value })}
                           isInvalid={validateField('incomeEndMonth')}
+                          disabled={isReadOnly}
                         >
                           <option value="">Monat wählen</option>
                           {[
@@ -653,6 +696,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                           value={data.incomeEndYear || ''}
                           onChange={(e) => onChange({ ...data, incomeEndYear: e.target.value })}
                           isInvalid={validateField('incomeEndYear')}
+                          disabled={isReadOnly}
                         >
                           <option value="">Jahr wählen</option>
                           {[2025, 2024, 2023, 2022, 2021, 2020].map(y => (
@@ -715,6 +759,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                                     }}
                                     placeholder="Einkommen"
                                     label="Einkommen"
+                                    disabled={isReadOnly}
                                   />
                                 </div>
                               </div>
@@ -793,6 +838,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                         })}
                         placeholder="Betrag"
                         label="Betrag"
+                        disabled={isReadOnly}
                       />
                     </div>
                     <div className="col-md-4">
@@ -807,6 +853,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                         })}
                         placeholder="Betrag"
                         label="Betrag"
+                        disabled={isReadOnly}
                       />
                     </div>
                   </div>
@@ -841,6 +888,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                         })}
                         placeholder="Betrag"
                         label="Betrag"
+                        disabled={isReadOnly}
                       />
                     </div>
                     <div className="col-md-4">
@@ -855,6 +903,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                         })}
                         placeholder="Betrag"
                         label="Betrag"
+                        disabled={isReadOnly}
                       />
                     </div>
                   </div>
@@ -889,6 +938,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                         })}
                         placeholder="Betrag"
                         label="Betrag"
+                        disabled={isReadOnly}
                       />
                     </div>
                     <div className="col-md-4">
@@ -903,13 +953,14 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                         })}
                         placeholder="Betrag"
                         label="Betrag"
+                        disabled={isReadOnly}
                       />
                     </div>
                   </div>
                   {/* Bundled error for Sonderzuwendungen (if needed) */}
-                  {showValidation && getSonderzuwendungenFieldErrors(sonderzuwendungenFieldErrors).length > 0 && (
+                  {allSonderzuwendungenErrors.length > 0 && (
                     <div className="alert alert-danger mt-3" role="alert">
-                      {getSonderzuwendungenFieldErrors(sonderzuwendungenFieldErrors).map((err, idx) => (
+                      {allSonderzuwendungenErrors.map((err, idx) => (
                         <div key={idx}>{err}</div>
                       ))}
                     </div>
@@ -950,6 +1001,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                         checked={data.willChangeIncome === true}
                         onChange={() => onChange({ ...data, willChangeIncome: true })}
                         className="custom-radio"
+                        disabled={isReadOnly}
                       />
                       <Form.Check
                         inline
@@ -959,10 +1011,11 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                         checked={data.willChangeIncome === false}
                         onChange={() => onChange({ ...data, willChangeIncome: false })}
                         className="custom-radio"
+                        disabled={isReadOnly}
                       />
                     </div>
                   </div>
-                  {showValidation && data.willChangeIncome === null && (
+                  {showValidation && (data.willChangeIncome === null || data.willChangeIncome === undefined) && (
                     <div className="text-danger mt-1">Bitte geben Sie an, ob sich Ihr Einkommen ändern wird.</div>
                   )}
                   {data.willChangeIncome === true && (
@@ -976,6 +1029,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                               value={data.incomeChangeDate || ''}
                               onChange={e => onChange({ ...data, incomeChangeDate: e.target.value })}
                               isInvalid={showValidation && !data.incomeChangeDate}
+                              disabled={isReadOnly}
                             />
                             <label>Datum der Änderung</label>
                             <Form.Control.Feedback type="invalid">
@@ -996,6 +1050,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                             name="willChangeIncrease"
                             checked={data.willChangeIncrease === true}
                             onChange={() => onChange({ ...data, willChangeIncrease: true })}
+                            disabled={isReadOnly}
                           />
                           <Form.Check
                             inline
@@ -1004,11 +1059,12 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                             name="willChangeIncrease"
                             checked={data.willChangeIncrease === false}
                             onChange={() => onChange({ ...data, willChangeIncrease: false })}
+                            disabled={isReadOnly}
                           />
                         </div>
                       </div>
-                      {showValidation && data.willChangeIncrease === null && (
-                        <div className="text-danger mt-1">Bitte geben Sie an, ob sich ihr Einkommen erhöht oder verringert.</div>
+                      {showValidation && (data.willChangeIncrease === null || data.willChangeIncrease === undefined) && (
+                        <div className="text-danger mt-1 mb-3">Bitte geben Sie an, ob sich ihr Einkommen erhöht oder verringert.</div>
                       )}
                       <div className="row g-3 mb-3 align-items-end">
                         <div className="col-md-6">
@@ -1018,6 +1074,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                             placeholder="Neuer Betrag pro Monat/Jahr"
                             label="Neuer Betrag pro Monat/Jahr"
                             isInvalid={showValidation && !data.newIncome}
+                            disabled={isReadOnly}
                           />
                           {showValidation && !data.newIncome && (
                             <div className="text-danger mt-1">Bitte geben Sie den neuen Betrag an.</div>
@@ -1036,6 +1093,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                             name="isNewIncomeMonthly"
                             checked={data.isNewIncomeMonthly === true}
                             onChange={() => onChange({ ...data, isNewIncomeMonthly: true })}
+                            disabled={isReadOnly}
                           />
                           <Form.Check
                             inline
@@ -1044,11 +1102,12 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                             name="isNewIncomeMonthly"
                             checked={data.isNewIncomeMonthly === false}
                             onChange={() => onChange({ ...data, isNewIncomeMonthly: false })}
+                            disabled={isReadOnly}
                           />
                         </div>
                       </div>
-                      {showValidation && data.isNewIncomeMonthly === null && (
-                        <div className="text-danger mt-1">Bitte geben Sie an, ob der neue Betrag monatlich oder jährlich ist.</div>
+                      {showValidation && (data.isNewIncomeMonthly === null || data.isNewIncomeMonthly === undefined) && (
+                        <div className="text-danger mt-1 mb-3">Bitte geben Sie an, ob der neue Betrag monatlich oder jährlich ist.</div>
                       )}
                       <div className="mb-3">
                         <Form.Floating>
@@ -1059,6 +1118,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                             value={data.newIncomeReason || ''}
                             onChange={e => onChange({ ...data, newIncomeReason: e.target.value })}
                             isInvalid={showValidation && !data.newIncomeReason}
+                            disabled={isReadOnly}
                           />
                           <label>Begründung</label>
                           <Form.Control.Feedback type="invalid">
@@ -1096,6 +1156,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                           value={data.startEmployment || ''}
                           onChange={e => onChange({ ...data, startEmployment: e.target.value })}
                           isInvalid={showValidation && !data.startEmployment}
+                          disabled={isReadOnly}
                         />
                         <label>Beschäftigt seit</label>
                         <Form.Control.Feedback type="invalid">
@@ -1116,6 +1177,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                         name="isContractLimited"
                         checked={data.isContractLimited === false}
                         onChange={() => onChange({ ...data, isContractLimited: false, endOfContract: '' })}
+                        disabled={isReadOnly}
                       />
                       <Form.Check
                         inline
@@ -1124,11 +1186,12 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                         name="isContractLimited"
                         checked={data.isContractLimited === true}
                         onChange={() => onChange({ ...data, isContractLimited: true })}
+                        disabled={isReadOnly}
                       />
                     </div>
                   </div>
-                  {showValidation && data.isContractLimited === null && (
-                    <div className="text-danger mt-1">Bitte geben Sie an, ob Ihr Vertrag befristet oder unbefristet ist.</div>
+                  {showValidation && (data.isContractLimited === null || data.isContractLimited === undefined) && (
+                    <div className="text-danger mt-3">Bitte geben Sie an, ob Ihr Vertrag befristet oder unbefristet ist.</div>
                   )}
                   {data.isContractLimited === true && (
                     <div className="row g-3 mt-2">
@@ -1140,6 +1203,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                             value={data.endOfContract || ''}
                             onChange={e => onChange({ ...data, endOfContract: e.target.value })}
                             isInvalid={showValidation && !data.endOfContract}
+                            disabled={isReadOnly}
                           />
                           <label>Vertragsende</label>
                           <Form.Control.Feedback type="invalid">
@@ -1190,6 +1254,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                       }
                     })}
                     placeholder="+ Weitere Einkünfte hinzufügen"
+                    disabled={isReadOnly}
                   />
                 </div>
               )}
@@ -1231,6 +1296,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                           placeholder="Betrag monatlich"
                           label="Renten (monatlich)"
                           isInvalid={showValidation && data.weitereEinkuenfte?.selectedTypes?.includes('renten') && !data.weitereEinkuenfte?.renten?.betrag}
+                          disabled={isReadOnly}
                         />
                         {showValidation && data.weitereEinkuenfte?.selectedTypes?.includes('renten') && !data.weitereEinkuenfte?.renten?.betrag && (
                           <div className="text-danger mt-1">Betrag für Renten ist erforderlich</div>
@@ -1252,6 +1318,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                               }
                             })}
                             isInvalid={showValidation && data.weitereEinkuenfte?.selectedTypes?.includes('vermietung') && !data.weitereEinkuenfte?.vermietung?.jahr}
+                            disabled={isReadOnly}
                           >
                             <option value="">Jahr wählen</option>
                             {[2025, 2024, 2023, 2022, 2021, 2020].map(y => (
@@ -1278,6 +1345,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                           placeholder="Betrag jährlich"
                           label="Vermietung/Verpachtung (jährlich)"
                           isInvalid={showValidation && data.weitereEinkuenfte?.selectedTypes?.includes('vermietung') && !data.weitereEinkuenfte?.vermietung?.betrag}
+                          disabled={isReadOnly}
                         />
                         {showValidation && data.weitereEinkuenfte?.selectedTypes?.includes('vermietung') && (!data.weitereEinkuenfte?.vermietung?.jahr || !data.weitereEinkuenfte?.vermietung?.betrag) && (
                           <div className="text-danger mt-1">Jahr und Betrag für Vermietung/Verpachtung sind erforderlich</div>
@@ -1299,6 +1367,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                               }
                             })}
                             isInvalid={showValidation && data.weitereEinkuenfte?.selectedTypes?.includes('gewerbe') && !data.weitereEinkuenfte?.gewerbe?.jahr}
+                            disabled={isReadOnly}
                           >
                             <option value="">Jahr wählen</option>
                             {[2025, 2024, 2023, 2022, 2021, 2020].map(y => (
@@ -1325,6 +1394,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                           placeholder="Betrag jährlich"
                           label="Gewerbebetrieb/selbstständige Arbeit (jährlich)"
                           isInvalid={showValidation && data.weitereEinkuenfte?.selectedTypes?.includes('gewerbe') && !data.weitereEinkuenfte?.gewerbe?.betrag}
+                          disabled={isReadOnly}
                         />
                         {showValidation && data.weitereEinkuenfte?.selectedTypes?.includes('gewerbe') && (!data.weitereEinkuenfte?.gewerbe?.jahr || !data.weitereEinkuenfte?.gewerbe?.betrag) && (
                           <div className="text-danger mt-1">Jahr und Betrag für Gewerbebetrieb/selbstständige Arbeit sind erforderlich</div>
@@ -1346,6 +1416,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                               }
                             })}
                             isInvalid={showValidation && data.weitereEinkuenfte?.selectedTypes?.includes('landforst') && !data.weitereEinkuenfte?.landforst?.jahr}
+                            disabled={isReadOnly}
                           >
                             <option value="">Jahr wählen</option>
                             {[2025, 2024, 2023, 2022, 2021, 2020].map(y => (
@@ -1372,6 +1443,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                           placeholder="Betrag jährlich"
                           label="Land- und Forstwirtschaft (jährlich)"
                           isInvalid={showValidation && data.weitereEinkuenfte?.selectedTypes?.includes('landforst') && !data.weitereEinkuenfte?.landforst?.betrag}
+                          disabled={isReadOnly}
                         />
                         {showValidation && data.weitereEinkuenfte?.selectedTypes?.includes('landforst') && (!data.weitereEinkuenfte?.landforst?.jahr || !data.weitereEinkuenfte?.landforst?.betrag) && (
                           <div className="text-danger mt-1">Jahr und Betrag für Land- und Forstwirtschaft sind erforderlich</div>
@@ -1393,6 +1465,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                               }
                             })}
                             isInvalid={showValidation && data.weitereEinkuenfte?.selectedTypes?.includes('sonstige') && !data.weitereEinkuenfte?.sonstige?.jahr}
+                            disabled={isReadOnly}
                           >
                             <option value="">Jahr wählen</option>
                             {[2025, 2024, 2023, 2022, 2021, 2020].map(y => (
@@ -1419,6 +1492,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                           placeholder="Betrag jährlich"
                           label="Sonstige Einkünfte (jährlich)"
                           isInvalid={showValidation && data.weitereEinkuenfte?.selectedTypes?.includes('sonstige') && !data.weitereEinkuenfte?.sonstige?.betrag}
+                          disabled={isReadOnly}
                         />
                         {showValidation && data.weitereEinkuenfte?.selectedTypes?.includes('sonstige') && (!data.weitereEinkuenfte?.sonstige?.jahr || !data.weitereEinkuenfte?.sonstige?.betrag) && (
                           <div className="text-danger mt-1">Jahr und Betrag für Sonstige Einkünfte sind erforderlich</div>
@@ -1438,6 +1512,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                           placeholder="Betrag monatlich"
                           label="Unterhaltsleistungen steuerfrei (monatlich)"
                           isInvalid={showValidation && data.weitereEinkuenfte?.selectedTypes?.includes('unterhaltsteuerfrei') && !data.weitereEinkuenfte?.unterhaltsteuerfrei?.betrag}
+                          disabled={isReadOnly}
                         />
                         {showValidation && data.weitereEinkuenfte?.selectedTypes?.includes('unterhaltsteuerfrei') && !data.weitereEinkuenfte?.unterhaltsteuerfrei?.betrag && (
                           <div className="text-danger mt-1">Betrag für Unterhaltsleistungen steuerfrei ist erforderlich</div>
@@ -1457,6 +1532,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                           placeholder="Betrag monatlich"
                           label="Unterhaltsleistungen steuerpflichtig (monatlich)"
                           isInvalid={showValidation && data.weitereEinkuenfte?.selectedTypes?.includes('unterhaltsteuerpflichtig') && !data.weitereEinkuenfte?.unterhaltsteuerpflichtig?.betrag}
+                          disabled={isReadOnly}
                         />
                         {showValidation && data.weitereEinkuenfte?.selectedTypes?.includes('unterhaltsteuerpflichtig') && !data.weitereEinkuenfte?.unterhaltsteuerpflichtig?.betrag && (
                           <div className="text-danger mt-1">Betrag für Unterhaltsleistungen steuerpflichtig ist erforderlich</div>
@@ -1480,6 +1556,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                             placeholder="Betrag"
                             label="Ausländische Einkünfte"
                             isInvalid={showValidation && data.weitereEinkuenfte?.selectedTypes?.includes('ausland') && !data.weitereEinkuenfte?.ausland?.betrag}
+                            disabled={isReadOnly}
                           />
                           <div className="d-flex gap-2 mt-2">
                             <Form.Check
@@ -1498,6 +1575,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                                   }
                                 }
                               })}
+                              disabled={isReadOnly}
                             />
                             <Form.Check
                               type="radio"
@@ -1514,6 +1592,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                                   }
                                 }
                               })}
+                              disabled={isReadOnly}
                             />
                           </div>
                           {data.weitereEinkuenfte?.ausland?.turnus === 'jährlich' && (
@@ -1531,6 +1610,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                                   }
                                 })}
                                 isInvalid={showValidation && data.weitereEinkuenfte?.selectedTypes?.includes('ausland') && !data.weitereEinkuenfte?.ausland?.jahr}
+                                disabled={isReadOnly}
                               >
                                 <option value="">Jahr wählen</option>
                                 {[2025, 2024, 2023, 2022, 2021, 2020].map(y => (
@@ -1545,13 +1625,13 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                           )}
                           {showValidation && data.weitereEinkuenfte?.selectedTypes?.includes('ausland') && (
                             (data.weitereEinkuenfte?.ausland?.turnus === 'jährlich'
-                              ? (!data.weitereEinkuenfte?.ausland?.jahr || !data.weitereEinkuenfte?.ausland?.betrag)
-                              : !data.weitereEinkuenfte?.ausland?.betrag
+                              ? (!data.weitereEinkuenfte?.ausland?.jahr || !data.weitereEinkuenfte?.ausland?.betrag || !data.weitereEinkuenfte?.ausland?.turnus)
+                              : (!data.weitereEinkuenfte?.ausland?.betrag || !data.weitereEinkuenfte?.ausland?.turnus)
                             ) && (
                             <div className="text-danger mt-1">
                               {data.weitereEinkuenfte?.ausland?.turnus === 'jährlich'
-                                ? 'Jahr und Betrag für Ausländische Einkünfte sind erforderlich'
-                                : 'Betrag für Ausländische Einkünfte ist erforderlich'}
+                                ? 'Jahr, Betrag und Zeitraum für Ausländische Einkünfte sind erforderlich'
+                                : 'Betrag und Zeitraum für Ausländische Einkünfte sind erforderlich'}
                             </div>
                           ))}
                         </>
@@ -1570,6 +1650,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                           placeholder="Betrag monatlich"
                           label="Pauschal besteuerter Arbeitslohn (monatlich)"
                           isInvalid={showValidation && data.weitereEinkuenfte?.selectedTypes?.includes('pauschal') && !data.weitereEinkuenfte?.pauschal?.betrag}
+                          disabled={isReadOnly}
                         />
                         {showValidation && data.weitereEinkuenfte?.selectedTypes?.includes('pauschal') && !data.weitereEinkuenfte?.pauschal?.betrag && (
                           <div className="text-danger mt-1">Betrag für pauschal besteuerten Arbeitslohn ist erforderlich</div>
@@ -1592,6 +1673,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                           placeholder="Betrag"
                           label="Arbeitslosengeld"
                           isInvalid={showValidation && data.weitereEinkuenfte?.selectedTypes?.includes('arbeitslosengeld') && !data.weitereEinkuenfte?.arbeitslosengeld?.betrag}
+                          disabled={isReadOnly}
                         />
                         <div className="d-flex gap-2 mt-2">
                           <Form.Check
@@ -1609,6 +1691,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                                 }
                               }
                             })}
+                            disabled={isReadOnly}
                           />
                           <Form.Check
                             type="radio"
@@ -1625,6 +1708,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                                 }
                               }
                             })}
+                            disabled={isReadOnly}
                           />
                           <Form.Check
                             type="radio"
@@ -1641,6 +1725,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                                 }
                               }
                             })}
+                            disabled={isReadOnly}
                           />
                         </div>
                         {showValidation && data.weitereEinkuenfte?.selectedTypes?.includes('arbeitslosengeld') && (!data.weitereEinkuenfte?.arbeitslosengeld?.betrag || !data.weitereEinkuenfte?.arbeitslosengeld?.turnus) && (
@@ -1687,6 +1772,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                   placeholder="Betrag jährlich"
                   label="Werbungskosten (jährlich)"
                   isInvalid={showValidation && data.hasEmploymentIncome && !data.werbungskosten}
+                  disabled={isReadOnly}
                 />
                 {showValidation && data.hasEmploymentIncome && !data.werbungskosten && (
                   <div className="text-danger mt-1">Bitte geben Sie Ihre Werbungskosten an.</div>
@@ -1716,7 +1802,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                 onChange={val => onChange({ ...data, kinderbetreuungskosten: val })}
                 placeholder="Betrag jährlich"
                 label="Kinderbetreuungskosten (jährlich)"
-              
+                disabled={isReadOnly}
               />
             </div>
 
@@ -1750,6 +1836,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                       name="ispayingincometax"
                       checked={data.ispayingincometax === true}
                       onChange={() => onChange({ ...data, ispayingincometax: true })}
+                      disabled={isReadOnly}
                     />
                     <Form.Check
                       inline
@@ -1758,9 +1845,13 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                       name="ispayingincometax"
                       checked={data.ispayingincometax === false}
                       onChange={() => onChange({ ...data, ispayingincometax: false })}
+                      disabled={isReadOnly}
                     />
                   </div>
                 </div>
+                {(showValidation && data.ispayingincometax === null || data.ispayingincometax === undefined) && (
+                    <div className="text-danger mt-1">Bitte geben Sie an, ob Sie Einkommensteuer zahlen</div>
+                  )}
                 <div className="d-flex align-items-center">
                   <div className="flex-grow-1">
                     <Form.Label className="mb-0">Zahlen Sie Beiträge zu einer Krankenversicherung?</Form.Label>
@@ -1773,6 +1864,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                       name="ispayinghealthinsurance"
                       checked={data.ispayinghealthinsurance === true}
                       onChange={() => onChange({ ...data, ispayinghealthinsurance: true })}
+                      disabled={isReadOnly}
                     />
                     <Form.Check
                       inline
@@ -1781,9 +1873,13 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                       name="ispayinghealthinsurance"
                       checked={data.ispayinghealthinsurance === false}
                       onChange={() => onChange({ ...data, ispayinghealthinsurance: false })}
+                      disabled={isReadOnly}
                     />
                   </div>
                 </div>
+                {(showValidation && data.ispayinghealthinsurance === null || data.ispayinghealthinsurance === undefined) && (
+                    <div className="text-danger mt-1">Bitte geben Sie an, ob Sie Krankenversicherung zahlen</div>
+                  )}
                 <div className="d-flex align-items-center">
                   <div className="flex-grow-1">
                     <Form.Label className="mb-0">Zahlen Sie Beiträge zur gesetzlichen Rentenversicherung oder zu ähnlichen Einrichtungen mit
@@ -1797,6 +1893,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                       name="ispayingpension"
                       checked={data.ispayingpension === true}
                       onChange={() => onChange({ ...data, ispayingpension: true })}
+                      disabled={isReadOnly}
                     />
                     <Form.Check
                       inline
@@ -1805,23 +1902,14 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                       name="ispayingpension"
                       checked={data.ispayingpension === false}
                       onChange={() => onChange({ ...data, ispayingpension: false })}
+                      disabled={isReadOnly}
                     />
                   </div>
                 </div>
+                {(showValidation && data.ispayingpension === null || data.ispayingpension === undefined) && (
+                    <div className="text-danger mt-1">Bitte geben Sie an, ob Sie Rentenversicherung o. Ä. zahlen</div>
+                  )}
               </div>
-              {showValidation && (
-                <>
-                  {data.ispayingincometax === null && (
-                    <div className="text-danger mt-1">Bitte geben Sie an, ob Sie Einkommensteuer zahlen.</div>
-                  )}
-                  {data.ispayinghealthinsurance === null && (
-                    <div className="text-danger mt-1">Bitte geben Sie an, ob Sie Krankenversicherung zahlen.</div>
-                  )}
-                  {data.ispayingpension === null && (
-                    <div className="text-danger mt-1">Bitte geben Sie an, ob Sie Rentenversicherung zahlen.</div>
-                  )}
-                </>
-              )}
             </div>
 
             {/* Unterhaltszahlungen */}
@@ -1857,6 +1945,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                       ispayingunterhalt: true,
                       unterhaltszahlungen: data.unterhaltszahlungen?.length ? data.unterhaltszahlungen : [{ name: '', amount: '' }]
                     })}
+                    disabled={isReadOnly}
                   />
                   <Form.Check
                     inline
@@ -1865,10 +1954,11 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                     name="ispayingunterhalt"
                     checked={data.ispayingunterhalt === false}
                     onChange={() => onChange({ ...data, ispayingunterhalt: false, unterhaltszahlungen: [] })}
+                    disabled={isReadOnly}
                   />
                 </div>
               </div>
-              {showValidation && data.ispayingunterhalt === null && (
+              {showValidation && (data.ispayingunterhalt === null || data.ispayingunterhalt === undefined) && (
                 <div className="text-danger mt-1">Bitte geben Sie an, ob Sie Unterhalt zahlen.</div>
               )}
               {data.ispayingunterhalt === true && (
@@ -1904,6 +1994,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                                 onChange({ ...data, unterhaltszahlungen: newZahlungen });
                               }}
                               isInvalid={showValidation && !zahlung.name}
+                              disabled={isReadOnly}
                             />
                             <label>Name des Empfängers</label>
                             <Form.Control.Feedback type="invalid">
@@ -1922,6 +2013,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                             placeholder="Betrag monatlich"
                             label="Unterhaltszahlung (monatlich)"
                             isInvalid={showValidation && !zahlung.amount}
+                            disabled={isReadOnly}
                           />
                           {showValidation && !zahlung.amount && (
                             <div className="text-danger mt-1">Betrag ist erforderlich</div>
@@ -2008,6 +2100,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                           });
                         }}
                         isInvalid={showValidation && (!change.date)}
+                        disabled={isReadOnly}
                       />
                       <label>Datum der Änderung</label>
                       <Form.Control.Feedback type="invalid">
@@ -2036,6 +2129,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                       placeholder="Neuer Betrag"
                       label="Neuer Betrag"
                       isInvalid={showValidation && (!change.newAmount)}
+                      disabled={isReadOnly}
                     />
                     {showValidation && !change.newAmount && (
                       <div className="text-danger mt-1">Bitte geben Sie den neuen Betrag an.</div>
@@ -2069,6 +2163,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                               }
                             });
                           }}
+                          disabled={isReadOnly}
                         />
                         <Form.Check
                           inline
@@ -2091,6 +2186,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                               }
                             });
                           }}
+                          disabled={isReadOnly}
                         />
                       </div>
                     </div>
@@ -2122,6 +2218,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                           });
                         }}
                         isInvalid={showValidation && (!change.reason)}
+                        disabled={isReadOnly}
                       />
                       <label>Begründung</label>
                       <Form.Control.Feedback type="invalid">
@@ -2153,6 +2250,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                     value={data.finanzamt || ''}
                     onChange={e => onChange({ ...data, finanzamt: e.target.value })}
                     isInvalid={showValidation && !data.finanzamt}
+                    disabled={isReadOnly}
                   />
                   <label>Zuständiges Finanzamt</label>
                   <Form.Control.Feedback type="invalid">
@@ -2168,6 +2266,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                     value={data.steuerid || ''}
                     onChange={e => onChange({ ...data, steuerid: e.target.value })}
                     isInvalid={showValidation && !data.steuerid}
+                    disabled={isReadOnly}
                   />
                   <label>Steuer-ID</label>
                   <Form.Control.Feedback type="invalid">

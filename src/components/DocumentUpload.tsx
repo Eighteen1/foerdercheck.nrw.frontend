@@ -4,15 +4,57 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 
-interface DocumentItem {
+interface DocumentType {
   id: string;
   title: string;
   description: string;
-  isRequired: boolean;
-  uploadedFile?: {
-    name: string;
-    url: string;
-  };
+  category: string;
+  supports_multiple?: boolean;
+}
+
+interface UploadedFileInfo {
+  fileName: string;
+  filePath: string;
+  uploaded: boolean;
+  documentId: string;
+  uploadedAt: string;
+  applicantType: 'general' | 'hauptantragsteller' | 'applicant';
+  applicantNumber?: number; // null for general/hauptantragsteller, 2,3,4... for additional applicants
+}
+
+interface ApplicantDocumentStatus {
+  [documentTypeId: string]: UploadedFileInfo[];
+}
+
+interface DocumentStatusByApplicant {
+  general: ApplicantDocumentStatus;
+  hauptantragsteller: ApplicantDocumentStatus;
+  [applicantKey: string]: ApplicantDocumentStatus; // applicant_2, applicant_3, etc.
+}
+
+interface DocumentFieldRender {
+  id: string;
+  documentTypeId: string;
+  title: string;
+  description: string;
+  category: string;
+  isMainField: boolean;
+  uploadedFile?: UploadedFileInfo;
+  supports_multiple?: boolean;
+  applicantType: 'general' | 'hauptantragsteller' | 'applicant';
+  applicantNumber?: number;
+}
+
+interface RequiredDocumentLists {
+  general: string[];
+  hauptantragsteller: string[];
+  additionalApplicants: { [applicantNumber: number]: string[] };
+}
+
+interface AdditionalDocumentsByApplicant {
+  general: string[];
+  hauptantragsteller: string[];
+  [applicantKey: string]: string[]; // applicant_2, applicant_3, etc.
 }
 
 interface FormSection {
@@ -20,27 +62,440 @@ interface FormSection {
   progress: number;
 }
 
+// Upload Progress State Interfaces
+interface UploadProgress {
+  loaded: number;
+  total: number;
+  percentage: number;
+}
+
+interface UploadError {
+  message: string;
+  fieldId: string;
+}
+
+// Circular Progress Bar Component
+const CircularProgress: React.FC<{ 
+  progress: number; 
+  size?: number; 
+  strokeWidth?: number;
+}> = ({ 
+  progress, 
+  size = 32, 
+  strokeWidth = 3
+}) => {
+  const radius = (size - strokeWidth) / 2;
+  const circumference = radius * 2 * Math.PI;
+  const strokeDasharray = circumference;
+  const strokeDashoffset = circumference - (progress / 100) * circumference;
+
+  return (
+    <div className="position-relative d-flex align-items-center justify-content-center">
+      <svg
+        width={size}
+        height={size}
+        className="position-relative"
+        style={{ transform: 'rotate(-90deg)' }}
+      >
+        {/* Background circle */}
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke="#e5e7eb"
+          strokeWidth={strokeWidth}
+          fill="transparent"
+        />
+        {/* Progress circle */}
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke="#064497"
+          strokeWidth={strokeWidth}
+          fill="transparent"
+          strokeDasharray={strokeDasharray}
+          strokeDashoffset={strokeDashoffset}
+          strokeLinecap="round"
+          style={{
+            transition: 'stroke-dashoffset 0.3s ease'
+          }}
+        />
+      </svg>
+      
+      {/* Progress percentage text */}
+      <div 
+        className="position-absolute d-flex align-items-center justify-content-center"
+        style={{
+          fontSize: '10px',
+          fontWeight: '600',
+          color: '#064497',
+          transform: 'rotate(0deg)',
+          width: '100%',
+          height: '100%'
+        }}
+      >
+        {Math.round(progress)}%
+      </div>
+    </div>
+  );
+};
+
+// Document Types Registry - Single source of truth for all document types
+const DOCUMENT_TYPES: { [id: string]: DocumentType } = {
+  // General Documents
+  'meldebescheinigung': {
+    id: 'meldebescheinigung',
+    title: 'Meldebescheinigung',
+    description: 'Meldebescheinigung von allen Personen, die das Förderobjekt nach Fertigstellung beziehen sollen',
+    category: 'General',
+    supports_multiple: true
+  },
+  'bauzeichnung': {
+    id: 'bauzeichnung',
+    title: 'Bauzeichnung',
+    description: 'Bauzeichnung (im Maßstab 1:100 mit eingezeichneter Möbelstellung)',
+    category: 'General',
+    supports_multiple: true
+  },
+  'lageplan': {
+    id: 'lageplan',
+    title: 'Lageplan',
+    description: 'Lageplan nach den Vorschriften Bau NRW (2018)',
+    category: 'General',
+    supports_multiple: true
+  },
+  'grundbuchblattkopie': {
+    id: 'grundbuchblattkopie',
+    title: 'Grundbuchblattkopie',
+    description: 'Grundbuchblattkopie nach neuestem Stand',
+    category: 'General'
+  },
+  'baugenehmigung_vorbescheid': {
+    id: 'baugenehmigung_vorbescheid',
+    title: 'Baugenehmigung oder Vorbescheid',
+    description: 'Baugenehmigung oder Vorbescheid gemäß § 7 BauO NRW (2018)',
+    category: 'General'
+  },
+  'bergsenkungsGebiet_erklaerung': {
+    id: 'bergsenkungsGebiet_erklaerung',
+    title: 'Erklärung der Bergbaugesellschaft',
+    description: 'Erklärung der Bergbaugesellschaft über die Notwendigkeit von baulichen Anpassungs- und Sicherungsmaßnahmen und gegebenenfalls die Kostenübernahme',
+    category: 'General',
+    supports_multiple: true
+  },
+  'neubau_kaufvertrag': {
+    id: 'neubau_kaufvertrag',
+    title: 'Grundstückskaufvertrag/Entwurf des Kaufvertrags',
+    description: 'Bei Neubau: Grundstückskaufvertrag/Entwurf des Kaufvertrags.',
+    category: 'General'
+  },
+  'erbbaurechtsvertrag': {
+    id: 'erbbaurechtsvertrag',
+    title: 'Erbbaurechtsvertrag',
+    description: 'Vollständige Kopie des Erbbaurechtsvertrages',
+    category: 'General'
+  },
+  'kaufvertrag': {
+    id: 'kaufvertrag',
+    title: 'Entwurf des Kaufvertrags',
+    description: 'Entwurf des Kaufvertrags',
+    category: 'General'
+  },
+  'standortbedingte_mehrkosten': {
+    id: 'standortbedingte_mehrkosten',
+    title: 'Nachweis für standortbedingte Mehrkosten',
+    description: 'Gutachten, Rechnungen oder Kostenvoranschläge',
+    category: 'General',
+    supports_multiple: true
+  },
+  'haswoodconstructionloan': {
+    id: 'haswoodconstructionloan',
+    title: 'Nachweis: Zusatzdarlehen für Bauen mit Holz',
+    description: 'Nachweis: Zusatzdarlehen für Bauen mit Holz',
+    category: 'General',
+    supports_multiple: true
+  },
+  'beg40standard_cert': {
+    id: 'beg40standard_cert',
+    title: 'Nachweis: Zusatzdarlehen für BEG Effizienzstandard 40',
+    description: 'Nachweis: Zusatzdarlehen für BEG Effizienzstandard 40',
+    category: 'General',
+    supports_multiple: true
+  },
+  'pregnancy_cert': {
+    id: 'pregnancy_cert',
+    title: 'Schwangerschafts Nachweis',
+    description: 'Nachweis über die Schwangerschaft',
+    category: 'General',
+    supports_multiple: true
+  },
+  'marriage_cert': {
+    id: 'marriage_cert',
+    title: 'Heiratsurkunde/Lebenspartnerschaftsurkunde',
+    description: 'Aktuelle Heiratsurkunde oder Lebenspartnerschaftsurkunde',
+    category: 'General',
+    supports_multiple: true
+  },
+  'disability_cert': {
+    id: 'disability_cert',
+    title: 'Nachweis über die Schwerbehinderteneigenschaft/GdB',
+    description: 'Nachweis über die Schwerbehinderteneigenschaft/Grad der Behinderung (GdB)',
+    category: 'General',
+    supports_multiple: true
+  },
+  'vollmacht_cert': {
+    id: 'vollmacht_cert',
+    title: 'Vollmachtsurkunde',
+    description: 'Vollmachtsurkunde für die bevollmächtigte Person/Firma',
+    category: 'General',
+    supports_multiple: true
+  },
+  // Applicant Documents
+  'lohn_gehaltsbescheinigungen': {
+    id: 'lohn_gehaltsbescheinigungen',
+    title: 'Lohn-/Gehaltsbescheinigungen',
+    description: 'Lohn-/Gehaltsbescheinigungen',
+    category: 'Applicant',
+    supports_multiple: true
+  },
+  'einkommenssteuerbescheid': {
+    id: 'einkommenssteuerbescheid',
+    title: 'Letzter Einkommenssteuerbescheid',
+    description: 'Letzter Einkommenssteuerbescheid',
+    category: 'Applicant'
+  },
+  'einkommenssteuererklaerung': {
+    id: 'einkommenssteuererklaerung',
+    title: 'Letzte Einkommenssteuererklärung',
+    description: 'Letzte Einkommenssteuererklärung',
+    category: 'Applicant'
+  },
+  'rentenbescheid': {
+    id: 'rentenbescheid',
+    title: 'Rentenbescheid/Versorgungsbezüge',
+    description: 'Aktueller Rentenbescheid/aktueller Bescheid über Versorgungsbezüge',
+    category: 'Applicant',
+    supports_multiple: true
+  },
+  'arbeitslosengeldbescheid': {
+    id: 'arbeitslosengeldbescheid',
+    title: 'Arbeitslosengeldbescheid',
+    description: 'Arbeitslosengeldbescheid',
+    category: 'Applicant'
+  },
+  'werbungskosten_nachweis': {
+    id: 'werbungskosten_nachweis',
+    title: 'Nachweis Werbungskosten',
+    description: 'Nachweis über erhöhte Werbungskosten (z. B. Steuerbescheid, Bestätigung Finanzamt)',
+    category: 'Applicant',
+    supports_multiple: true
+  },
+  'kinderbetreuungskosten_nachweis': {
+    id: 'kinderbetreuungskosten_nachweis',
+    title: 'Nachweis Kinderbetreuungskosten',
+    description: 'Nachweis über die geleisteten Kinderbetreuungskosten',
+    category: 'Applicant',
+    supports_multiple: true
+  },
+  'unterhaltsverpflichtung_nachweis': {
+    id: 'unterhaltsverpflichtung_nachweis',
+    title: 'Nachweis Unterhaltsverpflichtung',
+    description: 'Nachweis über die gesetzliche Unterhaltsverpflichtung und Höhe der Unterhaltszahlungen',
+    category: 'Applicant',
+    supports_multiple: true
+  },
+  'unterhaltsleistungen_nachweis': {
+    id: 'unterhaltsleistungen_nachweis',
+    title: 'Nachweis Unterhaltsleistungen',
+    description: 'Nachweis über erhaltene Unterhaltsleistungen/Unterhaltsvorschuss',
+    category: 'Applicant',
+    supports_multiple: true
+  },
+  'krankengeld_nachweis': {
+    id: 'krankengeld_nachweis',
+    title: 'Nachweis Krankengeld',
+    description: 'Nachweis über erhaltenes Krankengeld',
+    category: 'Applicant'
+  },
+  'elterngeld_nachweis': {
+    id: 'elterngeld_nachweis',
+    title: 'Nachweis Elterngeld',
+    description: 'Nachweis über erhaltenes Elterngeld',
+    category: 'Applicant'
+  },
+  'guv_euer_nachweis': {
+    id: 'guv_euer_nachweis',
+    title: 'Gewinn- und Verlustrechnung (GuV)/Einnahmenüberschussrechnung (EÜR)',
+    description: 'Gewinn- und Verlustrechnung (GuV)/Einnahmenüberschussrechnung (EÜR)',
+    category: 'Applicant',
+    supports_multiple: true
+  },
+  'ausbildungsfoerderung_nachweis': {
+    id: 'ausbildungsfoerderung_nachweis',
+    title: 'Leistungen der Ausbildungsförderung (BAföG, Berufsausbildungsbeihilfe SGB III)',
+    description: 'Leistungen der Ausbildungsförderung (BAföG, Berufsausbildungsbeihilfe SGB III) (optional)',
+    category: 'Applicant',
+    supports_multiple: true
+  },
+  'sonstige_dokumente': {
+    id: 'sonstige_dokumente',
+    title: 'Sonstige Dokumente',
+    description: 'Weitere relevante Dokumente',
+    category: 'Applicant',
+    supports_multiple: true
+  }
+};
+
 const DocumentUpload: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [documents, setDocuments] = useState<DocumentItem[]>([]);
+  const [requiredDocuments, setRequiredDocuments] = useState<RequiredDocumentLists>({
+    general: [],
+    hauptantragsteller: [],
+    additionalApplicants: {}
+  });
+  const [additionalDocuments, setAdditionalDocuments] = useState<AdditionalDocumentsByApplicant>({
+    general: [],
+    hauptantragsteller: []
+  });
+  const [documentStatus, setDocumentStatus] = useState<DocumentStatusByApplicant>({
+    general: {},
+    hauptantragsteller: {}
+  });
+  const [renderFields, setRenderFields] = useState<DocumentFieldRender[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showResetConfirmation, setShowResetConfirmation] = useState(false);
+  const [showAddDocumentModal, setShowAddDocumentModal] = useState(false);
+  const [currentModalCategory, setCurrentModalCategory] = useState<string>('');
+  const [currentModalApplicant, setCurrentModalApplicant] = useState<{ type: 'general' | 'hauptantragsteller' | 'applicant', number?: number }>({ type: 'general' });
+  const [expandedSection, setExpandedSection] = useState<string>('General');
+
+  // Upload Progress State
+  const [uploadProgress, setUploadProgress] = useState<Record<string, UploadProgress>>({});
+  const [uploadingFields, setUploadingFields] = useState<string[]>([]);
+  const [hoveredField, setHoveredField] = useState<string>('');
+  const [globalErrors, setGlobalErrors] = useState<string[]>([]);
+  
+  // File size validation state
+  const [showFileSizeModal, setShowFileSizeModal] = useState(false);
+  const [fileSizeError, setFileSizeError] = useState<{ fileName: string; fileSize: string }>({ fileName: '', fileSize: '' });
+  
+  // Loading states for delete operations
+  const [deletingFiles, setDeletingFiles] = useState<string[]>([]);
+  const [deletingDocumentTypes, setDeletingDocumentTypes] = useState<string[]>([]);
+  
+  // Confirmation modal state
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+  const [pendingDeleteAction, setPendingDeleteAction] = useState<{ 
+    type: 'document' | 'modal', 
+    documentId: string, 
+    documentTitle: string,
+    applicantType?: 'general' | 'hauptantragsteller' | 'applicant',
+    applicantNumber?: number
+  } | null>(null);
+
+  const toggleSection = (section: string) => {
+    setExpandedSection(expandedSection === section ? '' : section);
+  };
+
+  // Helper function to add global error
+  const addGlobalError = (fieldName: string) => {
+    const errorMessage = `${fieldName}: Fehler beim Hochladen des Dokuments. Bitte stellen Sie sicher, dass die Datei nicht beschädigt ist und vollständig auf Ihrem Gerät gespeichert wurde (nicht in der iCloud o. Ä.). Überprüfen Sie gegebenenfalls auch Ihre Internetverbindung.`;
+    setGlobalErrors(prev => {
+      // Remove any existing error for this field first
+      const filteredErrors = prev.filter(error => !error.startsWith(`${fieldName}:`));
+      return [...filteredErrors, errorMessage];
+    });
+    
+    // Scroll to top to make error visible
+    setTimeout(() => {
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      });
+    }, 100); // Small delay to ensure the error is rendered first
+  };
+
+  // Helper function to remove global error for a specific field
+  const removeGlobalErrorForField = (fieldName: string) => {
+    setGlobalErrors(prev => prev.filter(error => !error.startsWith(`${fieldName}:`)));
+  };
+
+  // Helper function to remove specific global error
+  const removeGlobalError = (error: string) => {
+    setGlobalErrors(prev => prev.filter(e => e !== error));
+  };
+
+  // Helper function to check if a document type has uploaded files
+  const documentTypeHasFiles = (documentTypeId: string): boolean => {
+    return Object.values(documentStatus).some(applicantDocs => 
+      applicantDocs[documentTypeId] && applicantDocs[documentTypeId].length > 0
+    );
+  };
+
+  // Helper function to get document title
+  const getDocumentTitle = (documentTypeId: string): string => {
+    return DOCUMENT_TYPES[documentTypeId]?.title || documentTypeId;
+  };
+
+  // Helper function to format file size
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  // Helper function to check file size (50MB limit)
+  const validateFileSize = (file: File): boolean => {
+    const maxSize = 50 * 1024 * 1024; // 50MB in bytes
+    return file.size <= maxSize;
+  };
+
+  // Helper function to render section header
+  const renderSectionHeader = (id: string, title: string) => (
+    <div 
+      className="section-header" 
+      onClick={() => toggleSection(id)}
+      style={{
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '1rem',
+        backgroundColor: '#f8f9fa',
+        borderRadius: '0.375rem',
+        marginBottom: '1rem',
+        transition: 'background-color 0.2s ease'
+      }}
+      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#e9ecef'}
+      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#f8f9fa'}
+    >
+      <div className="d-flex align-items-center gap-2">
+        <h4 className="text-[#064497] font-semibold mb-0" style={{ fontSize: '1.1rem' }}>{title}</h4>
+      </div>
+      <div className={`expand-icon ${expandedSection === id ? 'expanded' : ''}`} style={{
+        transition: 'transform 0.2s ease',
+        transform: expandedSection === id ? 'rotate(180deg)' : 'rotate(0deg)'
+      }}>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M7 10L12 15L17 10" stroke="#064497" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </div>
+    </div>
+  );
 
   const formSections: FormSection[] = [
     { title: "Berechnung der Wohn- und Nutzfläche nach WoFIV", progress: 0 },
     { title: "Berechnung des Brutto-Rauminhalts des Gebäudes nach DIN 277", progress: 0 }
   ];
 
-  useEffect(() => {
-    loadDocumentRequirements();
-  }, [user?.id]);
-
-  const loadDocumentRequirements = async () => {
+  // Function to determine required documents based on user data
+  const determineRequiredDocuments = async (): Promise<RequiredDocumentLists> => {
     if (!user?.id) {
-      console.error('No user ID found');
-      setIsLoading(false);
-      return;
+      return { general: [], hauptantragsteller: [], additionalApplicants: {} };
     }
 
     try {
@@ -53,8 +508,9 @@ const DocumentUpload: React.FC = () => {
           hasauthorizedperson,
           is_married,
           is_disabled,
-          document_status,
-          hasbegstandardloan
+          hasbegstandardloan,
+          employment,
+          weitere_antragstellende_personen
         `)
         .eq('id', user.id)
         .single();
@@ -67,104 +523,469 @@ const DocumentUpload: React.FC = () => {
         .select(`
           foerderVariante,
           haslocationcostloan,
-          haswoodconstructionloan
-          `)
+          haswoodconstructionloan,
+          eigentumsverhaeltnis,
+          baugenehmigung_erforderlich,
+          bergsenkungsGebiet,
+          erbbaurecht
+        `)
         .eq('user_id', user.id)
         .single();
 
-      if (objectError && objectError.code !== 'PGRST116') { // PGRST116 is "no rows returned"
+      if (objectError && objectError.code !== 'PGRST116') {
         throw objectError;
       }
 
-      // Define base documents that are always required
-      const baseDocuments: DocumentItem[] = [
-        {
-          id: 'bauzeichnung',
-          title: 'Bauzeichnung',
-          description: 'Bauzeichnung (im Maßstab 1:100 mit eingezeichneter Möbelstellung)',
-          isRequired: true
-        },
-        {
-          id: 'lageplan',
-          title: 'Lageplan',
-          description: 'Lageplan nach den Vorschriften BauO NRW (2018)',
-          isRequired: true
-        },
-        {
-          id: 'grundbuchblatt',
-          title: 'Grundbuchblattkopie',
-          description: 'Grundbuchblattkopie nach neustem Stand',
-          isRequired: true
-        }
-      ];
+      // Get financial data from user_financials table
+      const { data: financialData, error: financialError } = await supabase
+        .from('user_financials')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
 
-      // Add conditional documents based on document check answers
-      const conditionalDocuments: DocumentItem[] = [];
-
-      if (userData?.is_married) {
-        conditionalDocuments.push({
-          id: 'marriage_cert',
-          title: 'Heiratsurkunde',
-          description: 'Aktuelle Heiratsurkunde oder Lebenspartnerschaftsurkunde',
-          isRequired: true
-        });
+      if (financialError && financialError.code !== 'PGRST116') {
+        console.error('Error loading financial data:', financialError);
       }
 
-      if (userData?.is_disabled) {
-        conditionalDocuments.push({
-          id: 'disability_cert',
-          title: 'Schwerbehindertenausweis',
-          description: 'Kopie des gültigen Schwerbehindertenausweises',
-          isRequired: true
-        });
+      const result: RequiredDocumentLists = {
+        general: [],
+        hauptantragsteller: [],
+        additionalApplicants: {}
+      };
+
+      // General documents (always required)
+      result.general.push('meldebescheinigung');
+
+      // Conditional general documents based on object data
+      if (objectData?.foerderVariante === 'neubau') {
+        result.general.push('bauzeichnung', 'lageplan');
       }
 
-      if (objectData?.haswoodconstructionloan) {
-        conditionalDocuments.push({
-          id: 'bauenmitholz_cert',
-          title: 'Nachweis: Zusatzdarlehen für Bauen mit Holz',
-          description: 'Nachweis: Zusatzdarlehen für Bauen mit Holz',
-          isRequired: true
-        });
+      if (objectData?.eigentumsverhaeltnis) {
+        result.general.push('grundbuchblattkopie');
       }
 
-      if (userData?.hasbegstandardloan) {
-        conditionalDocuments.push({
-          id: 'beg40standard_cert',
-          title: 'Nachweis: Zusatzdarlehen für BEG Effizienzstandard 40',
-          description: 'Nachweis: Zusatzdarlehen für BEG Effizienzstandard 40',
-          isRequired: true
-        });
+      if (['neubau', 'ersterwerb-wohnung', 'ersterwerb-eigenheim'].includes(objectData?.foerderVariante) && objectData?.baugenehmigung_erforderlich) {
+        result.general.push('baugenehmigung_vorbescheid');
+      }
+
+      if (['neubau', 'ersterwerb-wohnung', 'ersterwerb-eigenheim', 'nutzungsaenderung'].includes(objectData?.foerderVariante) && objectData?.bergsenkungsGebiet) {
+        result.general.push('bergsenkungsGebiet_erklaerung');
       }
 
       if (objectData?.foerderVariante === 'neubau') {
-        conditionalDocuments.push({
-          id: 'neubau_kaufvertrag',
-          title: 'Grundstückskaufvertrag/Entwurf des Kaufvertrags',
-          description: 'Bei Neubau: Grundstückskaufvertrag/Entwurf des Kaufvertrags.',
-          isRequired: true
-        });
+        result.general.push('neubau_kaufvertrag');
       }
 
-      // Add uploaded file information from document_status
-      const allDocuments = [...baseDocuments, ...conditionalDocuments].map(doc => {
-        const uploadedDoc = userData?.document_status?.[doc.id];
-        if (uploadedDoc?.uploaded) {
-          return {
-            ...doc,
-            uploadedFile: {
-              name: uploadedDoc.fileName,
-              url: supabase.storage
-                .from('documents')
-                .getPublicUrl(`${user.id}/${doc.id}/${uploadedDoc.fileName}`).data.publicUrl
-            }
-          };
-        }
-        return doc;
-      });
+      if (objectData?.erbbaurecht) {
+        result.general.push('erbbaurechtsvertrag');
+      }
 
-      // Set all documents
-      setDocuments(allDocuments);
+      if (objectData?.foerderVariante?.includes('ersterwerb') || objectData?.foerderVariante?.includes('bestandserwerb')) {
+        result.general.push('kaufvertrag');
+      }
+
+      if (objectData?.haslocationcostloan) {
+        result.general.push('standortbedingte_mehrkosten');
+      }
+
+      if (objectData?.haswoodconstructionloan) {
+        result.general.push('haswoodconstructionloan');
+      }
+
+      if (userData?.hasbegstandardloan) {
+        result.general.push('beg40standard_cert');
+      }
+
+      if (userData?.ispregnant) {
+        result.general.push('pregnancy_cert');
+      }
+
+      if (userData?.is_married) {
+        result.general.push('marriage_cert');
+      }
+
+      if (userData?.is_disabled) {
+        result.general.push('disability_cert');
+      }
+
+      if (userData?.hasauthorizedperson) {
+        result.general.push('vollmacht_cert');
+      }
+
+      // Main applicant financial documents
+      if (financialData) {
+        if (financialData.hasSalaryIncome === true || financialData.isEarningRegularIncome === true) {
+          result.hauptantragsteller.push('lohn_gehaltsbescheinigungen');
+        }
+
+        if (financialData.hasrentincome === true) {
+          result.hauptantragsteller.push('einkommenssteuerbescheid', 'einkommenssteuererklaerung');
+        }
+
+        if (financialData.haspensionincome === true) {
+          result.hauptantragsteller.push('rentenbescheid');
+        }
+
+        if (financialData.hasablgincome === true) {
+          result.hauptantragsteller.push('arbeitslosengeldbescheid');
+        }
+
+        if ((financialData.hasSalaryIncome === true || financialData.isEarningRegularIncome === true) && 
+            financialData.werbungskosten && parseFloat(financialData.werbungskosten) > 0) {
+          result.hauptantragsteller.push('werbungskosten_nachweis');
+        }
+
+        if (financialData.kinderbetreuungskosten && parseFloat(financialData.kinderbetreuungskosten) > 0) {
+          result.hauptantragsteller.push('kinderbetreuungskosten_nachweis');
+        }
+
+        if (financialData.ispayingunterhalt === true) {
+          result.hauptantragsteller.push('unterhaltsverpflichtung_nachweis');
+        }
+
+        if (financialData.hastaxfreeunterhaltincome === true || financialData.hastaxableunterhaltincome === true) {
+          result.hauptantragsteller.push('unterhaltsleistungen_nachweis');
+        }
+
+        if (financialData.haskindergeldincome === true) {
+          result.hauptantragsteller.push('krankengeld_nachweis');
+        }
+
+        if (financialData.haselterngeldincome === true) {
+          result.hauptantragsteller.push('elterngeld_nachweis');
+        }
+
+        if (financialData.hasbusinessincome === true || financialData.hasagricultureincome === true) {
+          result.hauptantragsteller.push('guv_euer_nachweis');
+        }
+
+        if (userData?.employment && ['apprentice', 'student', 'pupil'].includes(userData.employment)) {
+          result.hauptantragsteller.push('ausbildungsfoerderung_nachweis');
+        }
+
+        // Additional applicants financial documents
+        if (financialData.additional_applicants_financials && Array.isArray(financialData.additional_applicants_financials)) {
+          financialData.additional_applicants_financials.forEach((applicantFinancials: any, index: number) => {
+            const applicantNumber = index + 2;
+            result.additionalApplicants[applicantNumber] = [];
+
+            if (applicantFinancials.hasSalaryIncome === true || applicantFinancials.isEarningRegularIncome === true) {
+              result.additionalApplicants[applicantNumber].push('lohn_gehaltsbescheinigungen');
+            }
+
+            if (applicantFinancials.hasrentincome === true) {
+              result.additionalApplicants[applicantNumber].push('einkommenssteuerbescheid', 'einkommenssteuererklaerung');
+            }
+
+            if (applicantFinancials.haspensionincome === true) {
+              result.additionalApplicants[applicantNumber].push('rentenbescheid');
+            }
+
+            if (applicantFinancials.hasablgincome === true) {
+              result.additionalApplicants[applicantNumber].push('arbeitslosengeldbescheid');
+            }
+
+            if ((applicantFinancials.hasSalaryIncome === true || applicantFinancials.isEarningRegularIncome === true) && 
+                applicantFinancials.werbungskosten && parseFloat(applicantFinancials.werbungskosten) > 0) {
+              result.additionalApplicants[applicantNumber].push('werbungskosten_nachweis');
+            }
+
+            if (applicantFinancials.kinderbetreuungskosten && parseFloat(applicantFinancials.kinderbetreuungskosten) > 0) {
+              result.additionalApplicants[applicantNumber].push('kinderbetreuungskosten_nachweis');
+            }
+
+            if (applicantFinancials.ispayingunterhalt === true) {
+              result.additionalApplicants[applicantNumber].push('unterhaltsverpflichtung_nachweis');
+            }
+
+            if (applicantFinancials.hastaxfreeunterhaltincome === true || applicantFinancials.hastaxableunterhaltincome === true) {
+              result.additionalApplicants[applicantNumber].push('unterhaltsleistungen_nachweis');
+            }
+
+            if (applicantFinancials.haskindergeldincome === true) {
+              result.additionalApplicants[applicantNumber].push('krankengeld_nachweis');
+            }
+
+            if (applicantFinancials.haselterngeldincome === true) {
+              result.additionalApplicants[applicantNumber].push('elterngeld_nachweis');
+            }
+
+            if (applicantFinancials.hasbusinessincome === true || applicantFinancials.hasagricultureincome === true) {
+              result.additionalApplicants[applicantNumber].push('guv_euer_nachweis');
+            }
+
+            const additionalApplicant = userData?.weitere_antragstellende_personen?.[index];
+            if (additionalApplicant?.employment?.type && ['apprentice', 'student', 'pupil'].includes(additionalApplicant.employment.type)) {
+              result.additionalApplicants[applicantNumber].push('ausbildungsfoerderung_nachweis');
+            }
+          });
+        }
+      }
+
+      return result;
+    } catch (error) {
+      console.error('Error determining required documents:', error);
+      return { general: [], hauptantragsteller: [], additionalApplicants: {} };
+    }
+  };
+
+  // Function to load additional documents from database
+  const loadAdditionalDocuments = async (): Promise<AdditionalDocumentsByApplicant> => {
+    if (!user?.id) return { general: [], hauptantragsteller: [] };
+
+    try {
+      const { data: userData, error } = await supabase
+        .from('user_data')
+        .select('additional_documents')
+        .eq('id', user.id)
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error;
+
+      const additionalDocs = userData?.additional_documents || {};
+      
+      // Check if it's already in new format (has general/hauptantragsteller keys)
+      if (typeof additionalDocs === 'object' && !Array.isArray(additionalDocs) && (additionalDocs.general || additionalDocs.hauptantragsteller)) {
+        const result: AdditionalDocumentsByApplicant = {
+          general: additionalDocs.general || [],
+          hauptantragsteller: additionalDocs.hauptantragsteller || []
+        };
+        
+        // Add any additional applicant sections that exist
+        Object.keys(additionalDocs).forEach(key => {
+          if (key.startsWith('applicant_')) {
+            result[key] = additionalDocs[key] || [];
+          }
+        });
+        
+        return result;
+      } else {
+        // Old format - migrate array to hauptantragsteller for backward compatibility
+        return {
+          general: [],
+          hauptantragsteller: Array.isArray(additionalDocs) ? additionalDocs : []
+        };
+      }
+    } catch (error) {
+      console.error('Error loading additional documents:', error);
+      return { general: [], hauptantragsteller: [] };
+    }
+  };
+
+  // Function to load document status from database
+  const loadDocumentStatus = async (): Promise<DocumentStatusByApplicant> => {
+    if (!user?.id) return { general: {}, hauptantragsteller: {} };
+
+    try {
+      const { data: userData, error } = await supabase
+        .from('user_data')
+        .select('document_status')
+        .eq('id', user.id)
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error;
+
+      const documentStatus = userData?.document_status || {};
+      
+      // Check if it's already in the new format (has general/hauptantragsteller keys)
+      if (documentStatus.general || documentStatus.hauptantragsteller) {
+        // Already in new format, ensure all applicant sections exist
+        const result: DocumentStatusByApplicant = {
+          general: documentStatus.general || {},
+          hauptantragsteller: documentStatus.hauptantragsteller || {}
+        };
+        
+        // Add any additional applicant sections that exist
+        Object.keys(documentStatus).forEach(key => {
+          if (key.startsWith('applicant_')) {
+            result[key] = documentStatus[key] || {};
+          }
+        });
+        
+        return result;
+      } else {
+        // Old format - migrate to new structure (for backward compatibility)
+        console.log('Migrating old document status format to new applicant-aware format');
+        return {
+          general: {},
+          hauptantragsteller: documentStatus // Put old format under hauptantragsteller for now
+        };
+      }
+    } catch (error) {
+      console.error('Error loading document status:', error);
+      return { general: {}, hauptantragsteller: {} };
+    }
+  };
+
+  // Function to generate render fields based on required documents, additional documents, and document status
+  const generateRenderFields = (
+    requiredDocs: RequiredDocumentLists,
+    additionalDocs: AdditionalDocumentsByApplicant,
+    docStatus: DocumentStatusByApplicant
+  ): DocumentFieldRender[] => {
+    const renderFields: DocumentFieldRender[] = [];
+
+    const generateFieldsForDocumentType = (
+      documentTypeId: string, 
+      category: string, 
+      applicantType: 'general' | 'hauptantragsteller' | 'applicant',
+      applicantNumber?: number
+    ) => {
+      const documentType = DOCUMENT_TYPES[documentTypeId];
+      if (!documentType) return;
+
+      // Determine which section of docStatus to look in
+      let applicantKey: string;
+      if (applicantType === 'general') {
+        applicantKey = 'general';
+      } else if (applicantType === 'hauptantragsteller') {
+        applicantKey = 'hauptantragsteller';
+      } else {
+        applicantKey = `applicant_${applicantNumber}`;
+      }
+
+      // Get files for this document type for this specific applicant
+      const files = docStatus[applicantKey]?.[documentTypeId] || [];
+      const sortedFiles = files.filter(f => f.uploaded).sort((a, b) => 
+        new Date(a.uploadedAt).getTime() - new Date(b.uploadedAt).getTime()
+      );
+      
+      const actualCategory = applicantNumber ? `Antragsteller ${applicantNumber}` : 
+                           category === 'hauptantragsteller' ? 'Hauptantragsteller' : 
+                           category === 'General' ? 'General' : category;
+
+      if (sortedFiles.length === 0) {
+        // No files uploaded - show empty main field only
+        renderFields.push({
+          id: `main_${applicantKey}_${documentTypeId}_${Date.now()}`,
+          documentTypeId,
+          title: documentType.title,
+          description: documentType.description,
+          category: actualCategory,
+          isMainField: true,
+          supports_multiple: documentType.supports_multiple,
+          applicantType,
+          applicantNumber
+        });
+
+        // For supports_multiple documents, DO NOT add empty additional field when main is empty
+        // Additional fields only appear after main field has content
+      } else {
+        // Files uploaded - show main field with oldest file
+        renderFields.push({
+          id: `main_${applicantKey}_${documentTypeId}_${Date.now()}`,
+          documentTypeId,
+          title: documentType.title,
+          description: documentType.description,
+          category: actualCategory,
+          isMainField: true,
+          uploadedFile: sortedFiles[0],
+          supports_multiple: documentType.supports_multiple,
+          applicantType,
+          applicantNumber
+        });
+
+        // For supports_multiple documents, show additional fields for remaining files
+        if (documentType.supports_multiple) {
+          for (let i = 1; i < sortedFiles.length; i++) {
+            renderFields.push({
+              id: `additional_${applicantKey}_${documentTypeId}_${i}_${Date.now()}`,
+              documentTypeId,
+              title: `Weitere ${documentType.title}`,
+              description: `${documentType.description} (optional)`,
+              category: actualCategory,
+              isMainField: false,
+              uploadedFile: sortedFiles[i],
+              supports_multiple: documentType.supports_multiple,
+              applicantType,
+              applicantNumber
+            });
+          }
+
+          // Always add one empty additional field when main field has content
+          renderFields.push({
+            id: `additional_${applicantKey}_${documentTypeId}_empty_${Date.now()}`,
+            documentTypeId,
+            title: `Weitere ${documentType.title}`,
+            description: `${documentType.description} (optional)`,
+            category: actualCategory,
+            isMainField: false,
+            supports_multiple: documentType.supports_multiple,
+            applicantType,
+            applicantNumber
+          });
+        }
+      }
+    };
+
+    // Generate fields for required documents
+    requiredDocs.general.forEach(docId => 
+      generateFieldsForDocumentType(docId, 'General', 'general')
+    );
+    requiredDocs.hauptantragsteller.forEach(docId => 
+      generateFieldsForDocumentType(docId, 'hauptantragsteller', 'hauptantragsteller')
+    );
+    
+    Object.entries(requiredDocs.additionalApplicants).forEach(([applicantNum, docIds]) => {
+      const applicantNumber = parseInt(applicantNum);
+      docIds.forEach(docId => 
+        generateFieldsForDocumentType(docId, 'applicant', 'applicant', applicantNumber)
+      );
+    });
+
+    // Generate fields for additional documents (user-selected) - applicant-aware
+    Object.entries(additionalDocs).forEach(([applicantKey, docIds]) => {
+      docIds.forEach(docId => {
+        const documentType = DOCUMENT_TYPES[docId];
+        if (documentType) {
+          if (applicantKey === 'general') {
+            generateFieldsForDocumentType(docId, 'General', 'general');
+          } else if (applicantKey === 'hauptantragsteller') {
+            generateFieldsForDocumentType(docId, 'hauptantragsteller', 'hauptantragsteller');
+          } else if (applicantKey.startsWith('applicant_')) {
+            const applicantNumber = parseInt(applicantKey.split('_')[1]);
+            generateFieldsForDocumentType(docId, 'applicant', 'applicant', applicantNumber);
+          }
+        }
+      });
+    });
+
+    return renderFields;
+  };
+
+  // Main function to load all document data
+  const loadDocumentRequirements = async () => {
+    if (!user?.id) {
+      console.error('No user ID found');
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      console.log('🔄 Loading document requirements...');
+      
+      // Load all data in parallel
+      const [requiredDocs, additionalDocs, docStatus] = await Promise.all([
+        determineRequiredDocuments(),
+        loadAdditionalDocuments(),
+        loadDocumentStatus()
+      ]);
+
+      console.log('📋 Required documents:', requiredDocs);
+      console.log('📋 Additional documents:', additionalDocs);
+      console.log('📋 Document status:', docStatus);
+
+      // Generate render fields
+      const fields = generateRenderFields(requiredDocs, additionalDocs, docStatus);
+      console.log('📋 Generated render fields:', fields);
+
+      // Update state
+      setRequiredDocuments(requiredDocs);
+      setAdditionalDocuments(additionalDocs);
+      setDocumentStatus(docStatus);
+      setRenderFields(fields);
+
     } catch (error) {
       console.error('Error loading document requirements:', error);
     } finally {
@@ -172,127 +993,265 @@ const DocumentUpload: React.FC = () => {
     }
   };
 
-  const handleFileUpload = async (documentId: string, file: File) => {
+  useEffect(() => {
+    loadDocumentRequirements();
+  }, [user?.id]);
+
+  const handleFileUpload = async (fieldId: string, file: File) => {
     if (!user?.id) return;
 
-    try {
-      // Create a unique file path for the user's document
-      const filePath = `${user.id}/${documentId}/${file.name}`;
+    console.log(`📤 Uploading file: ${file.name} to field: ${fieldId}`);
 
-      // Upload file to Supabase Storage
-      const { error: uploadError } = await supabase.storage
-        .from('documents')
-        .upload(filePath, file, {
-          upsert: true
+    // Validate file size before starting upload
+    if (!validateFileSize(file)) {
+      const fileSize = formatFileSize(file.size);
+      setFileSizeError({
+        fileName: file.name,
+        fileSize: fileSize
+      });
+      setShowFileSizeModal(true);
+      console.log(`❌ File too large: ${file.name} (${fileSize})`);
+      return; // Don't start upload
+    }
+
+    try {
+      // Find the render field to get the document type and applicant context
+      const renderField = renderFields.find(f => f.id === fieldId);
+      if (!renderField) {
+        console.error('Render field not found for:', fieldId);
+        return;
+      }
+
+      const documentTypeId = renderField.documentTypeId;
+      const applicantType = renderField.applicantType;
+      const applicantNumber = renderField.applicantNumber;
+      
+      // Determine applicant key for storage path and data structure
+      let applicantKey: string;
+      if (applicantType === 'general') {
+        applicantKey = 'general';
+      } else if (applicantType === 'hauptantragsteller') {
+        applicantKey = 'hauptantragsteller';
+      } else {
+        applicantKey = `applicant_${applicantNumber}`;
+      }
+      
+      // Create file path using applicant-aware structure
+      const filePath = `${user.id}/${applicantKey}/${documentTypeId}/${file.name}`;
+
+      // Set up upload tracking
+      setUploadingFields(prev => [...prev, fieldId]);
+      
+      // Clear any existing errors for this field when starting new upload
+      removeGlobalErrorForField(renderField.title);
+      
+      // Initialize progress
+      setUploadProgress(prev => ({ 
+        ...prev, 
+        [fieldId]: { loaded: 0, total: file.size, percentage: 0 } 
+      }));
+
+      // Start progress simulation immediately (runs parallel to upload)
+      let progressValue = 0;
+      const progressInterval = setInterval(() => {
+        // Realistic progress increments that slow down as we approach completion
+        const increment = progressValue < 50 ? Math.random() * 20 + 10 : 
+                         progressValue < 80 ? Math.random() * 10 + 5 : 
+                         Math.random() * 3 + 1;
+        
+        progressValue = Math.min(progressValue + increment, 95); // Never reach 100% during simulation
+        
+        setUploadProgress(prev => {
+          if (!prev[fieldId]) return prev;
+          return {
+            ...prev,
+            [fieldId]: {
+              loaded: (progressValue / 100) * file.size,
+              total: file.size,
+              percentage: progressValue
+            }
+          };
+        });
+      }, 200);
+
+      try {
+        // Upload file to Supabase Storage
+        const { error: uploadError } = await supabase.storage
+          .from('documents')
+          .upload(filePath, file, {
+            upsert: true
+          });
+
+        if (uploadError) {
+          clearInterval(progressInterval);
+          throw uploadError;
+        }
+
+        // Complete the progress to 100% when upload is done
+        clearInterval(progressInterval);
+        setUploadProgress(prev => {
+          if (!prev[fieldId]) return prev;
+          return {
+            ...prev,
+            [fieldId]: {
+              loaded: file.size,
+              total: file.size,
+              percentage: 100
+            }
+          };
         });
 
-      if (uploadError) throw uploadError;
+                // Brief delay to show 100% completion before switching to uploaded state
+        await new Promise(resolve => setTimeout(resolve, 500));
 
-      // Get the public URL for the uploaded file
-      const { data: { publicUrl } } = supabase.storage
-        .from('documents')
-        .getPublicUrl(filePath);
-
-      // Get current document_status
-      const { data: userData, error: fetchError } = await supabase
-        .from('user_data')
-        .select('document_status')
-        .eq('id', user.id)
-        .single();
-
-      if (fetchError) throw fetchError;
-
-      // Update document status in user_data
-      const documentStatus = {
-        ...(userData?.document_status || {}),
-        [documentId]: {
-          uploaded: true,
-          fileName: file.name,
-          filePath: filePath,
-          uploadedAt: new Date().toISOString()
+              } catch (error) {
+          clearInterval(progressInterval);
+          
+          // Find the field to get a better error message
+          const errorRenderField = renderFields.find(f => f.id === fieldId);
+          const fieldName = errorRenderField ? errorRenderField.title : 'Dokument';
+          
+          // Add to global errors
+          addGlobalError(fieldName);
+          
+          console.error('Error uploading document:', error);
+          return; // Don't throw, just return so cleanup happens
         }
+
+      // Final check before saving to database
+      const newFileInfo: UploadedFileInfo = {
+        uploaded: true,
+        fileName: file.name,
+        filePath: filePath,
+        uploadedAt: new Date().toISOString(),
+        documentId: fieldId,
+        applicantType,
+        applicantNumber
       };
+
+      // Update document status in database with applicant-aware structure
+      const updatedDocumentStatus = { ...documentStatus };
+      
+      // Ensure the applicant section exists
+      if (!updatedDocumentStatus[applicantKey]) {
+        updatedDocumentStatus[applicantKey] = {};
+      }
+      
+      // Ensure the document type array exists for this applicant
+      if (!updatedDocumentStatus[applicantKey][documentTypeId]) {
+        updatedDocumentStatus[applicantKey][documentTypeId] = [];
+      }
+      
+      updatedDocumentStatus[applicantKey][documentTypeId].push(newFileInfo);
 
       const { error: updateError } = await supabase
         .from('user_data')
         .update({
-          document_status: documentStatus,
+          document_status: updatedDocumentStatus,
           updated_at: new Date().toISOString()
         })
         .eq('id', user.id);
 
       if (updateError) throw updateError;
 
-      // Update documents state
-      setDocuments(prevDocs => prevDocs.map(doc => 
-        doc.id === documentId
-          ? {
-              ...doc,
-              uploadedFile: {
-                name: file.name,
-                url: publicUrl
-              }
-            }
-          : doc
-      ));
+      // Update local state and regenerate render fields
+      setDocumentStatus(updatedDocumentStatus);
+      
+      const newRenderFields = generateRenderFields(requiredDocuments, additionalDocuments, updatedDocumentStatus);
+      setRenderFields(newRenderFields);
+
+      console.log(`✅ File uploaded successfully: ${file.name}`);
+      
     } catch (error) {
       console.error('Error uploading document:', error);
-      // Handle error (show user feedback)
+    } finally {
+      // Clean up upload tracking state
+      setUploadingFields(prev => prev.filter(id => id !== fieldId));
+      setUploadProgress(prev => {
+        const newProgress = { ...prev };
+        delete newProgress[fieldId];
+        return newProgress;
+      });
     }
   };
 
-  const handleRemoveFile = async (documentId: string) => {
+  const handleRemoveFile = async (fieldId: string) => {
     if (!user?.id) return;
 
     try {
-      const doc = documents.find(d => d.id === documentId);
-      if (!doc?.uploadedFile) return;
+      // Find the render field to get the document type and file info
+      const renderField = renderFields.find(f => f.id === fieldId);
+      if (!renderField?.uploadedFile) return;
+
+      const documentTypeId = renderField.documentTypeId;
+      const fileToRemove = renderField.uploadedFile;
+      const applicantType = renderField.applicantType;
+      const applicantNumber = renderField.applicantNumber;
+
+      // Show loading state
+      setDeletingFiles(prev => [...prev, fieldId]);
+
+      // Determine applicant key
+      let applicantKey: string;
+      if (applicantType === 'general') {
+        applicantKey = 'general';
+      } else if (applicantType === 'hauptantragsteller') {
+        applicantKey = 'hauptantragsteller';
+      } else {
+        applicantKey = `applicant_${applicantNumber}`;
+      }
 
       // Delete file from storage
       const { error: deleteError } = await supabase.storage
         .from('documents')
-        .remove([`${user.id}/${documentId}/${doc.uploadedFile.name}`]);
+        .remove([fileToRemove.filePath]);
 
       if (deleteError) throw deleteError;
 
-      // Get current document_status
-      const { data: userData, error: fetchError } = await supabase
-        .from('user_data')
-        .select('document_status')
-        .eq('id', user.id)
-        .single();
+      // Update document status in database
+      const updatedDocumentStatus = { ...documentStatus };
+      const currentFiles = updatedDocumentStatus[applicantKey]?.[documentTypeId] || [];
 
-      if (fetchError) throw fetchError;
+      // Remove the specific file from the array
+      const updatedFiles = currentFiles.filter((file: UploadedFileInfo) => 
+        !(file.fileName === fileToRemove.fileName && file.uploadedAt === fileToRemove.uploadedAt)
+      );
 
-      // Update document status in user_data
-      const documentStatus = { ...userData?.document_status };
-      delete documentStatus[documentId];
+      if (updatedFiles.length === 0) {
+        delete updatedDocumentStatus[applicantKey][documentTypeId];
+      } else {
+        updatedDocumentStatus[applicantKey][documentTypeId] = updatedFiles;
+      }
 
       const { error: updateError } = await supabase
         .from('user_data')
         .update({
-          document_status: documentStatus,
+          document_status: updatedDocumentStatus,
           updated_at: new Date().toISOString()
         })
         .eq('id', user.id);
 
       if (updateError) throw updateError;
 
-      // Update state
-      setDocuments(prevDocs => prevDocs.map(doc => 
-        doc.id === documentId
-          ? { ...doc, uploadedFile: undefined }
-          : doc
-      ));
+      // Update local state and regenerate render fields
+      setDocumentStatus(updatedDocumentStatus);
+      
+      const newRenderFields = generateRenderFields(requiredDocuments, additionalDocuments, updatedDocumentStatus);
+      setRenderFields(newRenderFields);
+
+      console.log(`✅ File removed successfully: ${fileToRemove.fileName}`);
+      
     } catch (error) {
       console.error('Error removing document:', error);
-      // Handle error (show user feedback)
+    } finally {
+      // Remove loading state
+      setDeletingFiles(prev => prev.filter(id => id !== fieldId));
     }
   };
 
-  const handleDocumentClick = (documentId: string) => {
+  const handleDocumentClick = (fieldId: string) => {
     // Trigger file input click
-    const fileInput = document.getElementById(`file-input-${documentId}`);
+    const fileInput = document.getElementById(`file-input-${fieldId}`);
     if (fileInput) fileInput.click();
   };
 
@@ -301,6 +1260,224 @@ const DocumentUpload: React.FC = () => {
       {text}
     </Tooltip>
   );
+
+  const openAddDocumentModal = (category: string) => {
+    // Determine applicant context from category
+    if (category === 'General') {
+      setCurrentModalApplicant({ type: 'general' });
+    } else if (category === 'Hauptantragsteller') {
+      setCurrentModalApplicant({ type: 'hauptantragsteller' });
+    } else if (category.startsWith('Antragsteller ')) {
+      const applicantNumber = parseInt(category.split(' ')[1]);
+      setCurrentModalApplicant({ type: 'applicant', number: applicantNumber });
+    }
+    
+    setCurrentModalCategory(category);
+    setShowAddDocumentModal(true);
+  };
+
+  const closeAddDocumentModal = () => {
+    setShowAddDocumentModal(false);
+    setCurrentModalCategory('');
+    setCurrentModalApplicant({ type: 'general' });
+  };
+
+  const getModalTitle = (category: string) => {
+    if (category === 'General') {
+      return 'Weitere Dokumente auswählen';
+    } else if (category === 'Hauptantragsteller') {
+      return 'Weitere Dokumente für den Hauptantragsteller auswählen';
+    } else if (category.startsWith('Antragsteller')) {
+      return `Weitere Dokumente für ${category} auswählen`;
+    }
+    return 'Weitere Dokumente auswählen';
+  };
+
+  const isDocumentAdded = (documentId: string, category: string) => {
+    // Determine which applicant section to check based on currentModalApplicant
+    let applicantKey: string;
+    if (currentModalApplicant.type === 'general') {
+      applicantKey = 'general';
+    } else if (currentModalApplicant.type === 'hauptantragsteller') {
+      applicantKey = 'hauptantragsteller';
+    } else {
+      applicantKey = `applicant_${currentModalApplicant.number}`;
+    }
+
+    return additionalDocuments[applicantKey]?.includes(documentId) || false;
+  };
+
+  const toggleDocument = (documentId: string, category: string) => {
+    if (isDocumentAdded(documentId, category)) {
+      // Check if document has files and show confirmation
+      if (documentTypeHasFiles(documentId)) {
+        const documentTitle = getDocumentTitle(documentId);
+        setPendingDeleteAction({ 
+          type: 'modal', 
+          documentId, 
+          documentTitle,
+          applicantType: currentModalApplicant.type,
+          applicantNumber: currentModalApplicant.number
+        });
+        setShowDeleteConfirmation(true);
+      } else {
+        // Remove the document directly if no files
+        handleRemoveDocument(
+          documentId, 
+          true, 
+          currentModalApplicant.type, 
+          currentModalApplicant.number
+        );
+      }
+    } else {
+      // Add the document
+      handleAddDocument(documentId, category);
+    }
+  };
+
+  const handleAddDocument = async (documentId: string, category: string) => {
+    if (!user?.id) return;
+
+    console.log(`➕ Adding document: ${documentId} to category: ${category}`);
+    
+    const selectedDoc = DOCUMENT_TYPES[documentId];
+    if (!selectedDoc) {
+      console.error('❌ Selected document not found:', documentId);
+      return;
+    }
+
+    // Determine which applicant section to add to based on currentModalApplicant
+    let applicantKey: string;
+    if (currentModalApplicant.type === 'general') {
+      applicantKey = 'general';
+    } else if (currentModalApplicant.type === 'hauptantragsteller') {
+      applicantKey = 'hauptantragsteller';
+    } else {
+      applicantKey = `applicant_${currentModalApplicant.number}`;
+    }
+
+    // Add to appropriate applicant section
+    const updatedAdditionalDocs = { ...additionalDocuments };
+    if (!updatedAdditionalDocs[applicantKey]) {
+      updatedAdditionalDocs[applicantKey] = [];
+    }
+    
+    if (!updatedAdditionalDocs[applicantKey].includes(documentId)) {
+      updatedAdditionalDocs[applicantKey] = [...updatedAdditionalDocs[applicantKey], documentId];
+    }
+
+    setAdditionalDocuments(updatedAdditionalDocs);
+
+    // Save to database
+    try {
+      const { error } = await supabase
+        .from('user_data')
+        .update({
+          additional_documents: updatedAdditionalDocs,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      // Regenerate render fields
+      const newRenderFields = generateRenderFields(requiredDocuments, updatedAdditionalDocs, documentStatus);
+      setRenderFields(newRenderFields);
+
+    } catch (error) {
+      console.error('Error adding document:', error);
+      // Revert on error
+      setAdditionalDocuments(additionalDocuments);
+    }
+  };
+
+  const handleRemoveDocument = async (
+    documentId: string, 
+    skipConfirmation: boolean = false,
+    applicantType?: 'general' | 'hauptantragsteller' | 'applicant',
+    applicantNumber?: number
+  ) => {
+    if (!user?.id) return;
+
+    // Check if document has uploaded files and show confirmation if needed
+    if (!skipConfirmation && documentTypeHasFiles(documentId)) {
+      const documentTitle = getDocumentTitle(documentId);
+      setPendingDeleteAction({ type: 'document', documentId, documentTitle, applicantType, applicantNumber });
+      setShowDeleteConfirmation(true);
+      return;
+    }
+
+    try {
+      console.log(`➖ Removing document: ${documentId} for applicant: ${applicantType} ${applicantNumber || ''}`);
+      
+      // Show loading state
+      setDeletingDocumentTypes(prev => [...prev, documentId]);
+      
+      // Determine which applicant section to remove from
+      let targetApplicantKey: string;
+      if (applicantType === 'general') {
+        targetApplicantKey = 'general';
+      } else if (applicantType === 'hauptantragsteller') {
+        targetApplicantKey = 'hauptantragsteller';
+      } else if (applicantType === 'applicant' && applicantNumber) {
+        targetApplicantKey = `applicant_${applicantNumber}`;
+      } else {
+        console.error('Invalid applicant context for document removal');
+        return;
+      }
+      
+      // Remove from ONLY the specific applicant section in additional documents list
+      const updatedAdditionalDocs = { ...additionalDocuments };
+      if (updatedAdditionalDocs[targetApplicantKey]) {
+        updatedAdditionalDocs[targetApplicantKey] = updatedAdditionalDocs[targetApplicantKey].filter(id => id !== documentId);
+      }
+      setAdditionalDocuments(updatedAdditionalDocs);
+
+      // Remove files for this document type from ONLY the specific applicant
+      const updatedDocumentStatus = { ...documentStatus };
+      let filesToDelete: string[] = [];
+
+      // Collect files to delete from only the target applicant section
+      if (updatedDocumentStatus[targetApplicantKey]?.[documentId]) {
+        const files = updatedDocumentStatus[targetApplicantKey][documentId];
+        filesToDelete.push(...files.map((file: UploadedFileInfo) => file.filePath));
+        delete updatedDocumentStatus[targetApplicantKey][documentId];
+      }
+
+      // Delete files from storage
+      if (filesToDelete.length > 0) {
+        try {
+          await supabase.storage.from('documents').remove(filesToDelete);
+        } catch (error) {
+          console.error('Error deleting files from storage:', error);
+        }
+      }
+
+      setDocumentStatus(updatedDocumentStatus);
+
+      // Save to database
+      const { error } = await supabase
+        .from('user_data')
+        .update({
+          additional_documents: updatedAdditionalDocs,
+          document_status: updatedDocumentStatus,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      // Regenerate render fields
+      const newRenderFields = generateRenderFields(requiredDocuments, updatedAdditionalDocs, updatedDocumentStatus);
+      setRenderFields(newRenderFields);
+
+    } catch (error) {
+      console.error('Error removing document:', error);
+    } finally {
+      // Remove loading state
+      setDeletingDocumentTypes(prev => prev.filter(id => id !== documentId));
+    }
+  };
 
   const handleResetDocumentCheck = async () => {
     if (!user?.id) return;
@@ -322,18 +1499,184 @@ const DocumentUpload: React.FC = () => {
     }
   };
 
+  const renderDocumentField = (field: DocumentFieldRender, isIndented: boolean = false, isUserAdded: boolean = false, index: number = 0) => {
+    const isUploading = uploadingFields.includes(field.id);
+    const progress = uploadProgress[field.id];
+    const isHovered = hoveredField === field.id;
+    const isFileDeleting = deletingFiles.includes(field.id);
+    const isDocumentTypeDeleting = deletingDocumentTypes.includes(field.documentTypeId);
+
+    return (
+      <div key={field.id} className="position-relative">
+        {isIndented && (
+          <div 
+            style={{
+              position: 'absolute',
+              left: '12px',
+              top: index === 0 ? '-12px' : `${-12 - (index * 78)}px`,
+              width: '20px',
+              height: index === 0 ? '36px' : `${32 + (index * 78)}px`,
+              borderLeft: '2px solid #d1d5db',
+              borderBottom: '2px solid #d1d5db',
+              borderBottomLeftRadius: '8px'
+            }}
+          />
+        )}
+        
+        <OverlayTrigger placement="bottom" overlay={renderTooltip(field.description)}>
+          <div 
+            className={`mb-3 p-3 border rounded cursor-pointer transition-all
+              ${field.uploadedFile ? 'bg-green-50 border-green-500' : 
+                isUploading ? 'bg-blue-50 border-blue-300' : 'hover:bg-gray-50'}`}
+            style={{ 
+              marginLeft: isIndented ? '2rem' : '0',
+              position: 'relative'
+            }}
+            onClick={() => !field.uploadedFile && !isUploading && handleDocumentClick(field.id)}
+            onMouseEnter={() => setHoveredField(field.id)}
+            onMouseLeave={() => setHoveredField('')}
+          >
+            <div className="d-flex justify-content-between align-items-start">
+              {field.uploadedFile ? (
+                <div className="flex-grow-1" style={{ position: 'relative', minHeight: '58px' }}>
+                  <div 
+                    style={{
+                      position: 'absolute',
+                      top: '6px',
+                      left: '0px',
+                      fontSize: '0.75rem',
+                      color: '#6c757d',
+                      backgroundColor: '#f0fdf4',
+                      padding: '2px 6px',
+                      borderRadius: '4px',
+                      zIndex: 1,
+                      lineHeight: '1.2'
+                    }}
+                  >
+                    {field.title}
+                  </div>
+                  <div 
+                    style={{
+                      paddingTop: '2rem',
+                      paddingLeft: '8px',
+                      paddingRight: '8px',
+                      fontSize: '1rem',
+                      color: '#000',
+                      lineHeight: '1.3',
+                      wordBreak: 'break-word'
+                    }}
+                  >
+                    {field.uploadedFile.fileName}
+                  </div>
+                </div>
+              ) : isUploading ? (
+                <div className="flex-grow-1 d-flex align-items-center">
+                  <span style={{ marginRight: '1rem' }}>
+                    {field.title}
+                  </span>
+                  {progress && (
+                    <small className="text-muted ms-2">
+                      {progress.total > 1024 * 1024 
+                        ? `${(progress.loaded / 1024 / 1024).toFixed(1)}MB / ${(progress.total / 1024 / 1024).toFixed(1)}MB`
+                        : `${Math.round(progress.loaded / 1024)}KB / ${Math.round(progress.total / 1024)}KB`
+                      }
+                    </small>
+                  )}
+                </div>
+              ) : (
+                <span style={{ alignSelf: 'center' }}>{field.title}</span>
+              )}
+              <div className="d-flex align-items-center" style={{ alignSelf: 'center' }}>
+                {field.uploadedFile ? (
+                  <Button
+                    variant="link"
+                    className="text-danger me-2"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRemoveFile(field.id);
+                    }}
+                    disabled={isFileDeleting}
+                  >
+                    {isFileDeleting ? (
+                      <div className="spinner-border spinner-border-sm text-danger" role="status" style={{ width: '24px', height: '24px' }}>
+                        <span className="visually-hidden">Loading...</span>
+                      </div>
+                    ) : (
+                      <i className="bi bi-x-lg" style={{ fontSize: '24px' }}></i>
+                    )}
+                  </Button>
+                ) : isUploading && progress ? (
+                  <div className="me-2">
+                    <CircularProgress 
+                      progress={progress.percentage} 
+                      size={32}
+                    />
+                  </div>
+                ) : (
+                  <i className="bi bi-upload me-2" style={{ fontSize: '24px', color: '#064497' }}></i>
+                )}
+                {/* Trash can for user-added documents - only on main field */}
+                {isUserAdded && field.isMainField && !isUploading && (
+                  <Button
+                    variant="link"
+                    className="text-danger"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRemoveDocument(
+                        field.documentTypeId, 
+                        false, 
+                        field.applicantType, 
+                        field.applicantNumber
+                      );
+                    }}
+                    disabled={isDocumentTypeDeleting}
+                  >
+                    {isDocumentTypeDeleting ? (
+                      <div className="spinner-border spinner-border-sm text-danger" role="status" style={{ width: '20px', height: '20px' }}>
+                        <span className="visually-hidden">Loading...</span>
+                      </div>
+                    ) : (
+                      <i className="bi bi-trash" style={{ fontSize: '20px' }}></i>
+                    )}
+                  </Button>
+                )}
+              </div>
+            </div>
+            <input
+              id={`file-input-${field.id}`}
+              type="file"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleFileUpload(field.id, file);
+              }}
+              style={{ display: 'none' }}
+              disabled={isUploading}
+            />
+          </div>
+        </OverlayTrigger>
+      </div>
+    );
+  };
+
   if (isLoading) {
     return <div>Loading...</div>;
   }
 
   return (
     <div className="relative min-h-screen bg-white">
+      <style>
+        {`
+          .delete-confirmation-backdrop {
+            z-index: 1069 !important;
+          }
+        `}
+      </style>
       <Modal show={showResetConfirmation} onHide={() => setShowResetConfirmation(false)}>
         <Modal.Header closeButton>
           <Modal.Title>Dokumente neu ermitteln</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          Möchten Sie die erforderlichenDokumente neu ermitteln? Ihre bisherig hochgeladenen Dokumente werden vorest beibehalten.
+          Möchten Sie die erforderlichen Dokumente neu ermitteln? Ihre bisher hochgeladenen Dokumente werden vorerst beibehalten.
         </Modal.Body>
         <Modal.Footer>
           <div className="d-flex justify-content-between gap-3 px-3">
@@ -355,94 +1698,396 @@ const DocumentUpload: React.FC = () => {
         </Modal.Footer>
       </Modal>
 
+      {/* Delete Confirmation Modal */}
+      <Modal 
+        show={showDeleteConfirmation} 
+        onHide={() => setShowDeleteConfirmation(false)} 
+        centered
+        style={{ zIndex: 1070 }}
+        backdropClassName="delete-confirmation-backdrop"
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>Dokument entfernen</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <p>
+            Wenn Sie <strong>{pendingDeleteAction?.documentTitle}</strong> entfernen, 
+            werden auch alle Dokumente gelöscht, die Sie für dieses Element hochgeladen haben.
+          </p>
+          <p className="mb-0">
+            Möchten Sie fortfahren?
+          </p>
+        </Modal.Body>
+        <Modal.Footer>
+          <div className="d-flex justify-content-between gap-3 w-100">
+            <Button
+              onClick={() => setShowDeleteConfirmation(false)}
+              className="flex-grow-1 py-2"
+              style={{ backgroundColor: '#D7DAEA', border: 'none', color: 'black' }}
+            >
+              Abbrechen
+            </Button>
+            <Button
+              onClick={() => {
+                if (pendingDeleteAction) {
+                  handleRemoveDocument(
+                    pendingDeleteAction.documentId, 
+                    true,
+                    pendingDeleteAction.applicantType,
+                    pendingDeleteAction.applicantNumber
+                  );
+                  setShowDeleteConfirmation(false);
+                  setPendingDeleteAction(null);
+                }
+              }}
+              className="flex-grow-1 py-2"
+              style={{ backgroundColor: '#064497', border: 'none' }}
+            >
+              Löschen
+            </Button>
+          </div>
+        </Modal.Footer>
+      </Modal>
+
+      <Modal show={showAddDocumentModal} onHide={closeAddDocumentModal} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>{getModalTitle(currentModalCategory)}</Modal.Title>
+        </Modal.Header>
+        <Modal.Body style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+          {(() => {
+            // Determine target category based on current modal category
+            let targetCategory = 'General';
+            if (currentModalCategory === 'General') {
+              targetCategory = 'General';
+            } else if (currentModalCategory === 'Hauptantragsteller' || currentModalCategory.startsWith('Antragsteller')) {
+              targetCategory = 'Applicant';
+            }
+
+            // Get documents that are currently required by the system for THIS SPECIFIC applicant only
+            let systemRequiredDocumentsForCurrentApplicant: string[] = [];
+            
+            if (currentModalApplicant.type === 'general') {
+              systemRequiredDocumentsForCurrentApplicant = requiredDocuments.general;
+            } else if (currentModalApplicant.type === 'hauptantragsteller') {
+              systemRequiredDocumentsForCurrentApplicant = requiredDocuments.hauptantragsteller;
+            } else if (currentModalApplicant.type === 'applicant' && currentModalApplicant.number) {
+              systemRequiredDocumentsForCurrentApplicant = requiredDocuments.additionalApplicants[currentModalApplicant.number] || [];
+            }
+
+            // Filter documents for this category that aren't already required by system FOR THIS APPLICANT
+            const availableDocuments = Object.values(DOCUMENT_TYPES).filter(doc => {
+              const isInTargetCategory = doc.category === targetCategory;
+              const isNotSystemRequired = !systemRequiredDocumentsForCurrentApplicant.includes(doc.id);
+              
+              return isInTargetCategory && isNotSystemRequired;
+            });
+
+            return (
+              <div>
+                {availableDocuments.map((doc) => {
+                  const isAdded = isDocumentAdded(doc.id, currentModalCategory);
+                  
+                  return (
+                    <div key={doc.id} className="mb-3 p-3 border rounded">
+                      <div className="d-flex justify-content-between align-items-center">
+                        <div className="d-flex align-items-center gap-2 flex-grow-1">
+                          <span className="fw-medium">{doc.title}</span>
+                          <OverlayTrigger placement="right" overlay={renderTooltip(doc.description)}>
+                            <Button
+                              variant="outline-secondary"
+                              className="rounded-circle p-0 d-flex align-items-center justify-content-center"
+                              style={{
+                                width: '20px',
+                                height: '20px',
+                                color: '#064497',
+                                borderColor: '#D7DAEA',
+                                backgroundColor: '#D7DAEA'
+                              }}
+                            >
+                              ?
+                            </Button>
+                          </OverlayTrigger>
+                        </div>
+                        <Button
+                          onClick={() => toggleDocument(doc.id, currentModalCategory)}
+                          className="rounded-circle p-0 d-flex align-items-center justify-content-center"
+                          style={{
+                            width: '32px',
+                            height: '32px',
+                            fontSize: '18px',
+                            fontWeight: 'bold',
+                            backgroundColor: isAdded ? '#FEF1F1' : '#D7DAEA',
+                            borderColor: isAdded ? '#970606' : '#064497',
+                            color: isAdded ? '#970606' : '#064497'
+                          }}
+                          disabled={deletingDocumentTypes.includes(doc.id)}
+                        >
+                          {deletingDocumentTypes.includes(doc.id) ? (
+                            <div className="spinner-border spinner-border-sm" role="status" style={{ width: '16px', height: '16px' }}>
+                              <span className="visually-hidden">Loading...</span>
+                            </div>
+                          ) : (
+                            isAdded ? '×' : '+'
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button onClick={closeAddDocumentModal} style={{ backgroundColor: '#064497', border: 'none' }}>
+            Schließen
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* File Size Error Modal */}
+      <Modal show={showFileSizeModal} onHide={() => setShowFileSizeModal(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title className="d-flex align-items-center">
+            <i className="bi bi-exclamation-triangle-fill text-danger me-2"></i>
+            Datei zu groß
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <p className="mb-3">
+            Die gewählte Datei ist zu groß für den Upload.
+          </p>
+          <div className="mb-3">
+            <div><strong>Dateiname:</strong> {fileSizeError.fileName}</div>
+            <div><strong>Dateigröße:</strong> {fileSizeError.fileSize}</div>
+            <div><strong>Maximale Größe:</strong> 50 MB</div>
+          </div>
+          <p className="mb-0">
+            Bitte wählen Sie eine kleinere Datei aus oder komprimieren Sie die Datei vor dem Upload.
+          </p>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button 
+            onClick={() => setShowFileSizeModal(false)} 
+            style={{ backgroundColor: '#064497', border: 'none' }}
+          >
+            Verstanden
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
       <Container className="pt-16">
         <div className="text-center mb-5">
           <h2 className="text-[#064497] text-3xl mb-4">Dokument Übersicht</h2>
           <p className="text-lg">
-            Klicken Sie auf die Pfeile, um die jeweiligen Dokumente hochzuladen,
-            oder ziehen Sie sie in die entsprechenden Bereiche.
+            Klicken Sie auf die Felder, um die jeweiligen Dokumente hochzuladen.
           </p>
         </div>
 
-        <div>
-          {/* Form sections at the top */}
-          <Row className="mb-5">
-            <Col>
-              <h3 className="mb-4 text-[#000000] font-semibold italic">
-                Verpflichtende Dokumente zum ausfüllen
-              </h3>
-              <p className="mb-4">
-                Bitte füllen Sie die folgenden zwei Formulare aus, damit wir diese digital prüfen können.
-              </p>
-              {formSections.map((section, index) => (
-                <div key={index} className="d-flex align-items-center mb-4">
-                  <Button
-                    className="py-3 me-3"
-                    style={{ 
-                      backgroundColor: '#064497', 
-                      border: 'none',
-                      width: 'calc(100% - 45px - 1rem)' // 100% - progress width - margin
-                    }}
-                  >
-                    {section.title}
-                  </Button>
-                  <div className="border rounded-circle p-2 d-flex align-items-center justify-content-center" 
-                       style={{ width: '45px', height: '45px' }}>
-                    {section.progress}%
-                  </div>
+        <Row className="mb-5">
+          <Col>
+            <h3 className="mb-4 text-[#000000] font-semibold italic">
+              Verpflichtende Dokumente zum ausfüllen
+            </h3>
+            <p className="mb-4">
+              Bitte füllen Sie die folgenden zwei Formulare aus, damit wir diese digital prüfen können.
+            </p>
+            {formSections.map((section, index) => (
+              <div key={index} className="d-flex align-items-center mb-4">
+                <Button
+                  className="py-3 me-3"
+                  style={{ 
+                    backgroundColor: '#064497', 
+                    border: 'none',
+                    width: 'calc(100% - 45px - 1rem)'
+                  }}
+                >
+                  {section.title}
+                </Button>
+                <div className="border rounded-circle p-2 d-flex align-items-center justify-content-center" 
+                     style={{ width: '45px', height: '45px' }}>
+                  {section.progress}%
                 </div>
-              ))}
-            </Col>
-          </Row>
-        </div>
+              </div>
+            ))}
+          </Col>
+        </Row>
 
-        {/* Document upload section */}
         <div className="mb-5">
           <h3 className="mb-4 text-[#000000] font-semibold italic">
-            Verpflichtende Dokumente zum Hochladen
+            Bitte Laden Sie folgende Dokumente hoch
           </h3>
           
-          {documents.map((doc) => (
-            <OverlayTrigger
-              key={doc.id}
-              placement="bottom"
-              overlay={renderTooltip(doc.description)}
-            >
-              <div 
-                className={`mb-4 p-3 border rounded cursor-pointer transition-all
-                  ${doc.uploadedFile ? 'bg-green-50 border-green-500' : 'hover:bg-gray-50'}`}
-                onClick={() => !doc.uploadedFile && handleDocumentClick(doc.id)}
-              >
-                <div className="d-flex justify-content-between align-items-center">
-                  <span>{doc.uploadedFile?.name || doc.title}</span>
-                  {doc.uploadedFile ? (
-                    <Button
-                      variant="link"
-                      className="text-danger"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleRemoveFile(doc.id);
+          {/* Global Error Display */}
+          {globalErrors.length > 0 && (
+            <div className="mb-4">
+              {globalErrors.map((error, index) => (
+                <div 
+                  key={index} 
+                  className="d-flex align-items-start justify-content-between"
+                  style={{
+                    backgroundColor: '#fef2f2',
+                    border: '2px solid #f87171',
+                    borderRadius: '0.75rem',
+                    padding: '1rem 1.25rem',
+                    marginBottom: '0.75rem',
+                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+                  }}
+                >
+                  <div className="d-flex align-items-start" style={{ flex: 1 }}>
+                    <i 
+                      className="bi bi-exclamation-triangle-fill text-danger me-3" 
+                      style={{ 
+                        fontSize: '1.25rem',
+                        marginTop: '0.125rem',
+                        flexShrink: 0
                       }}
-                    >
-                      <i className="bi bi-x-lg" style={{ fontSize: '24px' }}></i>
-                    </Button>
-                  ) : (
-                    <i className="bi bi-upload" style={{ fontSize: '24px', color: '#064497' }}></i>
+                    ></i>
+                    <div style={{ flex: 1 }}>
+                      <span 
+                        style={{ 
+                          color: '#dc2626', 
+                          fontSize: '1rem',
+                          lineHeight: '1.5',
+                          fontWeight: '500',
+                          display: 'block'
+                        }}
+                      >
+                        {error}
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeGlobalError(error)}
+                    style={{
+                      backgroundColor: 'transparent',
+                      border: 'none',
+                      fontSize: '1.5rem',
+                      color: '#dc2626',
+                      cursor: 'pointer',
+                      padding: '0',
+                      marginLeft: '1rem',
+                      lineHeight: '1',
+                      fontWeight: 'bold',
+                      flexShrink: 0
+                    }}
+                    title="Fehlermeldung schließen"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          
+          {(() => {
+            const groupedFields = renderFields.reduce((groups, field) => {
+              const category = field.category || 'General';
+              if (!groups[category]) {
+                groups[category] = [];
+              }
+              groups[category].push(field);
+              return groups;
+            }, {} as Record<string, DocumentFieldRender[]>);
+
+            return Object.entries(groupedFields).map(([category, categoryFields]) => {
+              const mainFields = categoryFields.filter(f => f.isMainField);
+              const additionalFields = categoryFields.filter(f => !f.isMainField);
+
+              const groupedAdditionalFields = additionalFields.reduce((groups, field) => {
+                if (!groups[field.documentTypeId]) {
+                  groups[field.documentTypeId] = [];
+                }
+                groups[field.documentTypeId].push(field);
+                return groups;
+              }, {} as Record<string, DocumentFieldRender[]>);
+
+              // Separate system-required from user-added documents
+              const systemRequiredFields = mainFields.filter(field => 
+                requiredDocuments.general.includes(field.documentTypeId) ||
+                requiredDocuments.hauptantragsteller.includes(field.documentTypeId) ||
+                Object.values(requiredDocuments.additionalApplicants).some(docs => docs.includes(field.documentTypeId))
+              );
+              
+              const userAddedFields = mainFields.filter(field => {
+                // Check if this document is in any of the additional documents lists
+                return Object.values(additionalDocuments).some(docList => 
+                  Array.isArray(docList) && docList.includes(field.documentTypeId)
+                );
+              });
+
+              return (
+                <div key={category} className="mb-4">
+                  {renderSectionHeader(category, category)}
+                  
+                  {expandedSection === category && (
+                    <div className="section-content" style={{ padding: '0 1rem 1rem 1rem' }}>
+                      
+                      {/* System Required Documents Section */}
+                      {systemRequiredFields.length > 0 && (
+                        <>
+                          {userAddedFields.length > 0 && (
+                            <div className="mb-4">
+                              <h5 className="text-[#064497] font-regular mb-3" style={{ fontSize: '1rem' }}>
+                                Verpflichtende Dokumente
+                              </h5>
+                              <hr className="mb-3" style={{ borderColor: '#D7DAEA', borderWidth: '1px' }} />
+                            </div>
+                          )}
+                          
+                          {systemRequiredFields.map((mainField) => (
+                            <div key={mainField.id}>
+                              {renderDocumentField(mainField, false)}
+                              {groupedAdditionalFields[mainField.documentTypeId]?.map((additionalField, index) => 
+                                renderDocumentField(additionalField, true, false, index)
+                              )}
+                            </div>
+                          ))}
+                        </>
+                      )}
+                      
+                      {/* User Added Optional Documents Section */}
+                      {userAddedFields.length > 0 && (
+                        <>
+                          <div className="mb-4 mt-5">
+                            <h5 className="text-[#064497] font-regular mb-3" style={{ fontSize: '1rem' }}>
+                              Optionale Dokumente
+                            </h5>
+                            <hr className="mb-3" style={{ borderColor: '#D7DAEA', borderWidth: '1px' }} />
+                          </div>
+                          
+                          {userAddedFields.map((mainField) => (
+                            <div key={mainField.id}>
+                              {renderDocumentField(mainField, false, true)}
+                              {groupedAdditionalFields[mainField.documentTypeId]?.map((additionalField, index) => 
+                                renderDocumentField(additionalField, true, true, index)
+                              )}
+                            </div>
+                          ))}
+                        </>
+                      )}
+                      
+                      <div className="mb-3">
+                        <Button
+                          onClick={() => openAddDocumentModal(category)}
+                          className="w-100"
+                          style={{ 
+                            backgroundColor: '#D7DAEA', 
+                            border: '1px solid #064497', 
+                            color: '#064497' 
+                          }}
+                        >
+                          <i className="bi bi-plus-circle me-2"></i>
+                          Weitere Dokumente hinzufügen
+                        </Button>
+                      </div>
+                    </div>
                   )}
                 </div>
-                <input
-                  id={`file-input-${doc.id}`}
-                  type="file"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handleFileUpload(doc.id, file);
-                  }}
-                  style={{ display: 'none' }}
-                />
-              </div>
-            </OverlayTrigger>
-          ))}
+              );
+            });
+          })()}
         </div>
 
         <div className="text-center mb-5 d-flex justify-content-center gap-3">

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Container, Modal, Form, Button } from 'react-bootstrap';
 import { useAuth } from '../../contexts/AuthContext';
-import { supabase } from '../../lib/supabase';
+import { supabase, ensureUserFinancialsExists } from '../../lib/supabase';
 import { formatCurrencyForDisplay } from '../../utils/currencyUtils';
 import EinkommenserklaerungForm from './Steps/EinkommenserklaerungForm';
 import './EinkommenserklaerungContainer.css';
@@ -215,6 +215,14 @@ const EinkommenserklaerungReviewContainer: React.FC<EinkommenserklaerungReviewCo
 
     setIsLoading(true);
     try {
+      // Ensure user_financials table exists for the user
+      try {
+        await ensureUserFinancialsExists(residentId);
+      } catch (financialsError) {
+        console.warn('Failed to ensure user_financials exists, continuing with load:', financialsError);
+        // Continue with load even if user_financials creation fails
+      }
+
       // Load user data
       const { data: userData, error: userError } = await supabase
         .from('user_data')
@@ -224,6 +232,56 @@ const EinkommenserklaerungReviewContainer: React.FC<EinkommenserklaerungReviewCo
 
       if (userError) {
         console.error('Error loading user data:', userError);
+        // Create empty user data structure instead of returning
+        setMainFinancials({
+          title: '',
+          firstName: '',
+          lastName: '',
+          street: '',
+          houseNumber: '',
+          postalCode: '',
+          city: '',
+          hasEmploymentIncome: null,
+          incomeYear: '',
+          incomeYearAmount: '',
+          incomeEndMonth: '',
+          incomeEndYear: '',
+          monthlyIncome: {},
+          sonderzuwendungenVergangen: {
+            weihnachtsgeld: '',
+            urlaubsgeld: '',
+            sonstige: ''
+          },
+          sonderzuwendungenKommend: {
+            weihnachtsgeld: '',
+            urlaubsgeld: '',
+            sonstige: ''
+          },
+          willChangeIncome: null,
+          incomeChangeDate: '',
+          willChangeIncrease: null,
+          newIncome: '',
+          isNewIncomeMonthly: null,
+          newIncomeReason: '',
+          startEmployment: '',
+          isContractLimited: null,
+          endOfContract: '',
+          weitereEinkuenfte: {
+            selectedTypes: []
+          },
+          werbungskosten: '',
+          kinderbetreuungskosten: '',
+          ispayingincometax: null,
+          ispayinghealthinsurance: null,
+          ispayingpension: null,
+          ispayingunterhalt: null,
+          unterhaltszahlungen: [],
+          additionalIncomeChanges: initialAdditionalIncomeChanges,
+          finanzamt: '',
+          steuerid: '',
+        });
+        setAdditionalApplicants([]);
+        setIsLoading(false);
         return;
       }
       
@@ -241,6 +299,195 @@ const EinkommenserklaerungReviewContainer: React.FC<EinkommenserklaerungReviewCo
 
       if (financialError) {
         console.error('Error loading financial data:', financialError);
+        // Create empty financial data structure instead of returning
+        const emptyFinancialData = {
+          isEarningRegularIncome: null,
+          prior_year: '',
+          prior_year_earning: null,
+          end_month_past12: '',
+          end_year_past12: '',
+          income_month1: null,
+          income_month2: null,
+          income_month3: null,
+          income_month4: null,
+          income_month5: null,
+          income_month6: null,
+          income_month7: null,
+          income_month8: null,
+          income_month9: null,
+          income_month10: null,
+          income_month11: null,
+          income_month12: null,
+          wheinachtsgeld_last12: null,
+          urlaubsgeld_last12: null,
+          otherincome_last12: null,
+          wheinachtsgeld_next12: null,
+          urlaubsgeld_next12: null,
+          otherincome_next12: null,
+          willchangeincome: null,
+          incomechangedate: '',
+          willchangeincrease: null,
+          newincome: null,
+          isnewincomemonthly: null,
+          newincomereason: '',
+          startemployment: '',
+          iscontractlimited: null,
+          endofcontract: '',
+          werbungskosten: null,
+          kinderbetreuungskosten: null,
+          ispayingincometax: null,
+          ispayinghealthinsurance: null,
+          ispayingpension: null,
+          ispayingunterhalt: null,
+          unterhaltszahlungen: [],
+          addition_change_inincome: initialAdditionalIncomeChanges,
+          haspensionincome: false,
+          hasrentincome: false,
+          hasbusinessincome: false,
+          hasagricultureincome: false,
+          hasothercome: false,
+          hastaxfreeunterhaltincome: false,
+          hastaxableunterhaltincome: false,
+          hasforeignincome: false,
+          haspauschalincome: false,
+          hasablgincome: false,
+          incomepension: null,
+          incomerent: null,
+          incomerentyear: null,
+          incomebusiness: null,
+          incomebusinessyear: null,
+          incomeagriculture: null,
+          incomeagricultureyear: null,
+          incomeothers: null,
+          incomeothersyear: null,
+          incomeunterhalttaxfree: null,
+          incomeunterhalttaxable: null,
+          incomeforeign: null,
+          incomeforeignyear: null,
+          incomeforeignmonthly: false,
+          incomepauschal: null,
+          incomeablg: null,
+          incomealbgtype: null,
+          additional_applicants_financials: [],
+          finanzamt: '',
+          steuerid: '',
+        };
+        
+        // Set main applicant data with empty financial data
+        setMainFinancials({
+          title: userData?.title || '',
+          firstName: userData?.firstname || '',
+          lastName: userData?.lastname || '',
+          street: userData?.person_street || '',
+          houseNumber: userData?.person_housenumber || '',
+          postalCode: userData?.person_postalcode || '',
+          city: userData?.person_city || '',
+          hasEmploymentIncome: emptyFinancialData.isEarningRegularIncome,
+          incomeYear: emptyFinancialData.prior_year,
+          incomeYearAmount: emptyFinancialData.prior_year_earning ? formatCurrencyForDisplay(emptyFinancialData.prior_year_earning) : '',
+          incomeEndMonth: emptyFinancialData.end_month_past12,
+          incomeEndYear: emptyFinancialData.end_year_past12,
+          monthlyIncome: {},
+          sonderzuwendungenVergangen: {
+            weihnachtsgeld: emptyFinancialData.wheinachtsgeld_last12 ? formatCurrencyForDisplay(emptyFinancialData.wheinachtsgeld_last12) : '',
+            urlaubsgeld: emptyFinancialData.urlaubsgeld_last12 ? formatCurrencyForDisplay(emptyFinancialData.urlaubsgeld_last12) : '',
+            sonstige: emptyFinancialData.otherincome_last12 ? formatCurrencyForDisplay(emptyFinancialData.otherincome_last12) : ''
+          },
+          sonderzuwendungenKommend: {
+            weihnachtsgeld: emptyFinancialData.wheinachtsgeld_next12 ? formatCurrencyForDisplay(emptyFinancialData.wheinachtsgeld_next12) : '',
+            urlaubsgeld: emptyFinancialData.urlaubsgeld_next12 ? formatCurrencyForDisplay(emptyFinancialData.urlaubsgeld_next12) : '',
+            sonstige: emptyFinancialData.otherincome_next12 ? formatCurrencyForDisplay(emptyFinancialData.otherincome_next12) : ''
+          },
+          willChangeIncome: emptyFinancialData.willchangeincome,
+          incomeChangeDate: emptyFinancialData.incomechangedate,
+          willChangeIncrease: emptyFinancialData.willchangeincrease,
+          newIncome: emptyFinancialData.newincome ? formatCurrencyForDisplay(emptyFinancialData.newincome) : '',
+          isNewIncomeMonthly: emptyFinancialData.isnewincomemonthly,
+          newIncomeReason: emptyFinancialData.newincomereason,
+          startEmployment: emptyFinancialData.startemployment,
+          isContractLimited: emptyFinancialData.iscontractlimited,
+          endOfContract: emptyFinancialData.endofcontract,
+          werbungskosten: emptyFinancialData.werbungskosten ? formatCurrencyForDisplay(emptyFinancialData.werbungskosten) : '',
+          kinderbetreuungskosten: emptyFinancialData.kinderbetreuungskosten ? formatCurrencyForDisplay(emptyFinancialData.kinderbetreuungskosten) : '',
+          ispayingincometax: emptyFinancialData.ispayingincometax,
+          ispayinghealthinsurance: emptyFinancialData.ispayinghealthinsurance,
+          ispayingpension: emptyFinancialData.ispayingpension,
+          ispayingunterhalt: emptyFinancialData.ispayingunterhalt,
+          unterhaltszahlungen: emptyFinancialData.unterhaltszahlungen || [],
+          additionalIncomeChanges: emptyFinancialData.addition_change_inincome || initialAdditionalIncomeChanges,
+          weitereEinkuenfte: {
+            selectedTypes: [],
+            renten: undefined,
+            vermietung: undefined,
+            gewerbe: undefined,
+            landforst: undefined,
+            sonstige: undefined,
+            unterhaltsteuerfrei: undefined,
+            unterhaltsteuerpflichtig: undefined,
+            ausland: undefined,
+            pauschal: undefined,
+            arbeitslosengeld: undefined,
+          },
+          finanzamt: emptyFinancialData.finanzamt,
+          steuerid: emptyFinancialData.steuerid,
+        });
+
+        // Load additional applicants data with empty financial data
+        if (userData?.weitere_antragstellende_personen) {
+          const additionalApplicantsData = userData.weitere_antragstellende_personen.map((person: any) => ({
+            title: person.title || '',
+            firstName: person.firstName || '',
+            lastName: person.lastName || '',
+            street: person.street || '',
+            houseNumber: person.houseNumber || '',
+            postalCode: person.postalCode || '',
+            city: person.city || '',
+            hasEmploymentIncome: null,
+            incomeYear: '',
+            incomeYearAmount: '',
+            incomeEndMonth: '',
+            incomeEndYear: '',
+            monthlyIncome: {},
+            sonderzuwendungenVergangen: {
+              weihnachtsgeld: '',
+              urlaubsgeld: '',
+              sonstige: ''
+            },
+            sonderzuwendungenKommend: {
+              weihnachtsgeld: '',
+              urlaubsgeld: '',
+              sonstige: ''
+            },
+            willChangeIncome: null,
+            incomeChangeDate: '',
+            willChangeIncrease: null,
+            newIncome: '',
+            isNewIncomeMonthly: null,
+            newIncomeReason: '',
+            startEmployment: '',
+            isContractLimited: null,
+            endOfContract: '',
+            werbungskosten: '',
+            kinderbetreuungskosten: '',
+            ispayingincometax: null,
+            ispayinghealthinsurance: null,
+            ispayingpension: null,
+            ispayingunterhalt: null,
+            unterhaltszahlungen: [],
+            additionalIncomeChanges: initialAdditionalIncomeChanges,
+            weitereEinkuenfte: {
+              selectedTypes: []
+            },
+            finanzamt: '',
+            steuerid: '',
+          }));
+
+          setAdditionalApplicants(additionalApplicantsData);
+        } else {
+          setAdditionalApplicants([]);
+        }
+        
+        setIsLoading(false);
         return;
       }
 

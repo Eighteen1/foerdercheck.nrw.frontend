@@ -34,6 +34,8 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
   const [generatingChecklist, setGeneratingChecklist] = useState(false);
   const [showAddItem, setShowAddItem] = useState(false);
   const [toast, setToast] = useState<{ message: string; visible: boolean }>({ message: '', visible: false });
+  const [userData, setUserData] = useState<any>(null);
+  const [residentId, setResidentId] = useState<string | null>(null);
 
   // Function to show toast
   const showToast = (message: string) => {
@@ -41,6 +43,13 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
     setTimeout(() => {
       setToast({ message: '', visible: false });
     }, 3000);
+  };
+
+  // Function to handle system error updates from ChecklistItem
+  const handleSystemErrorsUpdate = (itemId: string, errors: string[]) => {
+    setChecklistItems(prev => prev.map(item => 
+      item.id === itemId ? { ...item, systemErrors: errors } : item
+    ));
   };
 
   // Load or initialize review data
@@ -59,6 +68,24 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
           .single();
 
         if (error) throw error;
+
+        // Store resident ID for later use
+        setResidentId(data.resident_id);
+
+        // Fetch user data for dynamic document checking
+        if (data.resident_id) {
+          const { data: userDataResult, error: userError } = await supabase
+            .from('user_data')
+            .select('*')
+            .eq('id', data.resident_id)
+            .single();
+
+          if (!userError) {
+            setUserData(userDataResult);
+          } else {
+            console.warn('Failed to fetch user data:', userError);
+          }
+        }
 
         if (data?.review_data && data.review_data.checklistItems && Array.isArray(data.review_data.checklistItems)) {
           // If review data exists, use it
@@ -369,6 +396,7 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
             <AddChecklistItem
               onAdd={handleAddItem}
               onCancel={() => setShowAddItem(false)}
+              userData={userData}
             />
           </div>
         )}
@@ -531,6 +559,7 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
               onOpenDocument={onOpenDocument}
               onDelete={handleDeleteItem}
               onEdit={handleEditCustomItem}
+              userData={userData}
             />
           ) : (
             <ChecklistItemComponent
@@ -545,6 +574,9 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
               }}
               onOpenForm={onOpenForm}
               onOpenDocument={onOpenDocument}
+              residentId={residentId || undefined}
+              userData={userData}
+              onSystemErrorsUpdate={handleSystemErrorsUpdate}
             />
           )}
         </div>

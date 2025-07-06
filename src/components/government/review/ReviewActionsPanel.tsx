@@ -59,6 +59,182 @@ const TYPE_LABELS: Record<string, string> = {
   "nutzungsaenderung": "Nutzungsänderung"
 };
 
+// Document types for request modal
+const DOCUMENT_TYPES: { [id: string]: {title: string, description: string, category: string, supports_multiple?: boolean} } = {
+  // General Documents
+  'meldebescheinigung': {
+    title: 'Meldebescheinigung',
+    description: 'Meldebescheinigung von allen Personen, die das Förderobjekt nach Fertigstellung beziehen sollen',
+    category: 'General',
+    supports_multiple: true
+  },
+  'bauzeichnung': {
+    title: 'Bauzeichnung',
+    description: 'Bauzeichnung (im Maßstab 1:100 mit eingezeichneter Möbelstellung)',
+    category: 'General',
+    supports_multiple: true
+  },
+  'lageplan': {
+    title: 'Lageplan',
+    description: 'Lageplan nach den Vorschriften Bau NRW (2018)',
+    category: 'General',
+    supports_multiple: true
+  },
+  'grundbuchblattkopie': {
+    title: 'Grundbuchblattkopie',
+    description: 'Grundbuchblattkopie nach neuestem Stand',
+    category: 'General'
+  },
+  'baugenehmigung_vorbescheid': {
+    title: 'Baugenehmigung oder Vorbescheid',
+    description: 'Baugenehmigung oder Vorbescheid gemäß § 7 BauO NRW (2018)',
+    category: 'General'
+  },
+  'bergsenkungsGebiet_erklaerung': {
+    title: 'Erklärung der Bergbaugesellschaft',
+    description: 'Erklärung der Bergbaugesellschaft über die Notwendigkeit von baulichen Anpassungs- und Sicherungsmaßnahmen',
+    category: 'General',
+    supports_multiple: true
+  },
+  'neubau_kaufvertrag': {
+    title: 'Grundstückskaufvertrag/Entwurf des Kaufvertrags',
+    description: 'Bei Neubau: Grundstückskaufvertrag/Entwurf des Kaufvertrags.',
+    category: 'General'
+  },
+  'erbbaurechtsvertrag': {
+    title: 'Erbbaurechtsvertrag',
+    description: 'Vollständige Kopie des Erbbaurechtsvertrages',
+    category: 'General'
+  },
+  'kaufvertrag': {
+    title: 'Entwurf des Kaufvertrags',
+    description: 'Entwurf des Kaufvertrags',
+    category: 'General'
+  },
+  'standortbedingte_mehrkosten': {
+    title: 'Nachweis für standortbedingte Mehrkosten',
+    description: 'Gutachten, Rechnungen oder Kostenvoranschläge',
+    category: 'General',
+    supports_multiple: true
+  },
+  'haswoodconstructionloan': {
+    title: 'Nachweis: Zusatzdarlehen für Bauen mit Holz',
+    description: 'Nachweis: Zusatzdarlehen für Bauen mit Holz',
+    category: 'General',
+    supports_multiple: true
+  },
+  'beg40standard_cert': {
+    title: 'Nachweis: Zusatzdarlehen für BEG Effizienzstandard 40',
+    description: 'Nachweis: Zusatzdarlehen für BEG Effizienzstandard 40',
+    category: 'General',
+    supports_multiple: true
+  },
+  'pregnancy_cert': {
+    title: 'Schwangerschafts Nachweis',
+    description: 'Nachweis über die Schwangerschaft',
+    category: 'General',
+    supports_multiple: true
+  },
+  'marriage_cert': {
+    title: 'Heiratsurkunde/Lebenspartnerschaftsurkunde',
+    description: 'Aktuelle Heiratsurkunde oder Lebenspartnerschaftsurkunde',
+    category: 'General',
+    supports_multiple: true
+  },
+  'disability_cert': {
+    title: 'Nachweis über die Schwerbehinderteneigenschaft/GdB',
+    description: 'Nachweis über die Schwerbehinderteneigenschaft/Grad der Behinderung (GdB)',
+    category: 'General',
+    supports_multiple: true
+  },
+  'vollmacht_cert': {
+    title: 'Vollmachtsurkunde',
+    description: 'Vollmachtsurkunde für die bevollmächtigte Person/Firma',
+    category: 'General',
+    supports_multiple: true
+  },
+  // Applicant Documents
+  'lohn_gehaltsbescheinigungen': {
+    title: 'Lohn-/Gehaltsbescheinigungen',
+    description: 'Lohn-/Gehaltsbescheinigungen',
+    category: 'Applicant',
+    supports_multiple: true
+  },
+  'einkommenssteuerbescheid': {
+    title: 'Letzter Einkommenssteuerbescheid',
+    description: 'Letzter Einkommenssteuerbescheid',
+    category: 'Applicant'
+  },
+  'einkommenssteuererklaerung': {
+    title: 'Letzte Einkommenssteuererklärung',
+    description: 'Letzte Einkommenssteuererklärung',
+    category: 'Applicant'
+  },
+  'rentenbescheid': {
+    title: 'Rentenbescheid/Versorgungsbezüge',
+    description: 'Aktueller Rentenbescheid/aktueller Bescheid über Versorgungsbezüge',
+    category: 'Applicant',
+    supports_multiple: true
+  },
+  'arbeitslosengeldbescheid': {
+    title: 'Arbeitslosengeldbescheid',
+    description: 'Arbeitslosengeldbescheid',
+    category: 'Applicant'
+  },
+  'werbungskosten_nachweis': {
+    title: 'Nachweis Werbungskosten',
+    description: 'Nachweis über erhöhte Werbungskosten (z. B. Steuerbescheid, Bestätigung Finanzamt)',
+    category: 'Applicant',
+    supports_multiple: true
+  },
+  'kinderbetreuungskosten_nachweis': {
+    title: 'Nachweis Kinderbetreuungskosten',
+    description: 'Nachweis über die geleisteten Kinderbetreuungskosten',
+    category: 'Applicant',
+    supports_multiple: true
+  },
+  'unterhaltsverpflichtung_nachweis': {
+    title: 'Nachweis Unterhaltsverpflichtung',
+    description: 'Nachweis über die gesetzliche Unterhaltsverpflichtung und Höhe der Unterhaltszahlungen',
+    category: 'Applicant',
+    supports_multiple: true
+  },
+  'unterhaltsleistungen_nachweis': {
+    title: 'Nachweis Unterhaltsleistungen',
+    description: 'Nachweis über erhaltene Unterhaltsleistungen/Unterhaltsvorschuss',
+    category: 'Applicant',
+    supports_multiple: true
+  },
+  'krankengeld_nachweis': {
+    title: 'Nachweis Krankengeld',
+    description: 'Nachweis über erhaltenes Krankengeld',
+    category: 'Applicant'
+  },
+  'elterngeld_nachweis': {
+    title: 'Nachweis Elterngeld',
+    description: 'Nachweis über erhaltenes Elterngeld',
+    category: 'Applicant'
+  },
+  'guv_euer_nachweis': {
+    title: 'Gewinn- und Verlustrechnung (GuV)/Einnahmenüberschussrechnung (EÜR)',
+    description: 'Gewinn- und Verlustrechnung (GuV)/Einnahmenüberschussrechnung (EÜR)',
+    category: 'Applicant',
+    supports_multiple: true
+  },
+  'ausbildungsfoerderung_nachweis': {
+    title: 'Leistungen der Ausbildungsförderung (BAföG, Berufsausbildungsbeihilfe SGB III)',
+    description: 'Leistungen der Ausbildungsförderung (BAföG, Berufsausbildungsbeihilfe SGB III) (optional)',
+    category: 'Applicant',
+    supports_multiple: true
+  },
+  'sonstige_dokumente': {
+    title: 'Sonstige Dokumente',
+    description: 'Weitere relevante Dokumente',
+    category: 'Applicant',
+    supports_multiple: true
+  }
+};
+
 // Add Section type
 type SectionKey = 'correct' | 'wrong' | 'undefined';
 
@@ -125,6 +301,17 @@ const ReviewActionsPanel: React.FC<ReviewActionsPanelProps> = ({
   const [contactSending, setContactSending] = useState(false);
   const [contactError, setContactError] = useState<string | null>(null);
   const [contactSuccess, setContactSuccess] = useState(false);
+
+  // Add state for document request modal
+  const [showDocumentRequestModal, setShowDocumentRequestModal] = useState(false);
+  const [documentRequestLoading, setDocumentRequestLoading] = useState(false);
+  const [documentRequestError, setDocumentRequestError] = useState<string | null>(null);
+  const [documentRequestSuccess, setDocumentRequestSuccess] = useState(false);
+  const [selectedDocumentType, setSelectedDocumentType] = useState('');
+  const [selectedApplicantType, setSelectedApplicantType] = useState<'general' | 'hauptantragsteller' | 'applicant'>('general');
+  const [selectedApplicantNumber, setSelectedApplicantNumber] = useState<number>(2);
+  const [documentRequestMessage, setDocumentRequestMessage] = useState('');
+  const [availableApplicants, setAvailableApplicants] = useState<Array<{key: string, name: string, type: 'general' | 'hauptantragsteller' | 'applicant', number?: number}>>([]);
 
   // Copy to clipboard logic
   const [copied, setCopied] = useState(false);
@@ -491,6 +678,117 @@ const ReviewActionsPanel: React.FC<ReviewActionsPanelProps> = ({
     }
   };
 
+  // Document request handlers
+  const handleOpenDocumentRequestModal = async () => {
+    setDocumentRequestError(null);
+    setDocumentRequestSuccess(false);
+    setSelectedDocumentType('');
+    setSelectedApplicantType('general');
+    setSelectedApplicantNumber(2);
+    setDocumentRequestMessage('');
+    setShowDocumentRequestModal(true);
+
+    // Load available applicants
+    try {
+      const { data: app, error: appError } = await supabase
+        .from('applications')
+        .select('id, resident_id')
+        .eq('id', applicationId)
+        .single();
+      if (appError || !app) throw new Error('Fehler beim Laden der Antragsdaten.');
+
+      const { data: userData, error: userError } = await supabase
+        .from('user_data')
+        .select('weitere_antragstellende_personen')
+        .eq('id', app.resident_id)
+        .single();
+      
+      const applicants: Array<{key: string, name: string, type: 'general' | 'hauptantragsteller' | 'applicant', number?: number}> = [
+        { key: 'general', name: 'Allgemeine Dokumente', type: 'general' as const },
+        { key: 'hauptantragsteller', name: 'Hauptantragsteller', type: 'hauptantragsteller' as const }
+      ];
+
+      // Add additional applicants if they exist
+      if (userData?.weitere_antragstellende_personen && Array.isArray(userData.weitere_antragstellende_personen)) {
+        userData.weitere_antragstellende_personen.forEach((_: any, index: number) => {
+          const applicantNumber = index + 2;
+          applicants.push({
+            key: `applicant_${applicantNumber}`,
+            name: `Antragsteller ${applicantNumber}`,
+            type: 'applicant' as const,
+            number: applicantNumber
+          });
+        });
+      }
+
+      setAvailableApplicants(applicants);
+    } catch (error) {
+      console.error('Error loading applicants:', error);
+      setAvailableApplicants([
+        { key: 'general', name: 'Allgemeine Dokumente', type: 'general' as const },
+        { key: 'hauptantragsteller', name: 'Hauptantragsteller', type: 'hauptantragsteller' as const }
+      ]);
+    }
+  };
+
+  const handleCloseDocumentRequestModal = () => {
+    setShowDocumentRequestModal(false);
+    setSelectedDocumentType('');
+    setSelectedApplicantType('general');
+    setSelectedApplicantNumber(2);
+    setDocumentRequestMessage('');
+    setDocumentRequestError(null);
+    setDocumentRequestSuccess(false);
+  };
+
+  const handleSendDocumentRequest = async () => {
+    if (!selectedDocumentType) return;
+    
+    setDocumentRequestLoading(true);
+    setDocumentRequestError(null);
+    setDocumentRequestSuccess(false);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) throw new Error('Kein Agenten-Login gefunden.');
+
+      const response = await fetch(`${BACKEND_URL}/api/request-documents`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          application_id: applicationId,
+          document_type_id: selectedDocumentType,
+          applicant_type: selectedApplicantType,
+          applicant_number: selectedApplicantType === 'applicant' ? selectedApplicantNumber : null,
+          custom_message: documentRequestMessage,
+        })
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.detail || 'Fehler beim Senden der Dokumentenanfrage.');
+      }
+
+      setDocumentRequestSuccess(true);
+      setSelectedDocumentType('');
+      setSelectedApplicantType('general');
+      setSelectedApplicantNumber(2);
+      setDocumentRequestMessage('');
+    } catch (err: any) {
+      setDocumentRequestError(err.message || 'Fehler beim Senden der Dokumentenanfrage.');
+    } finally {
+      setDocumentRequestLoading(false);
+    }
+  };
+
+  // Handle document request
+  const handleRequestDocs = () => {
+    handleOpenDocumentRequestModal();
+  };
+
   return (
     <div
       ref={panelRef}
@@ -586,7 +884,7 @@ const ReviewActionsPanel: React.FC<ReviewActionsPanelProps> = ({
             gap: 8,
             boxShadow: `0 1px 3px rgba(${isComplete ? '56, 142, 60' : '6, 68, 151'}, 0.08)`
           }}
-          onClick={showFullButton ? (isComplete ? handleOpenFinishModal : onRequestDocs) : undefined}
+          onClick={showFullButton ? (isComplete ? handleOpenFinishModal : handleRequestDocs) : undefined}
         >
           {getButtonContent()}
           {/* Only show dropdown icon if not showing full button */}
@@ -624,7 +922,7 @@ const ReviewActionsPanel: React.FC<ReviewActionsPanelProps> = ({
             {!showFullButton ? (
               <>
                 <button
-                  onClick={() => handleAction(onRequestDocs)}
+                  onClick={() => handleAction(handleRequestDocs)}
                   className="menu-item"
                 >
                   Dokumente Nachfordern
@@ -1037,6 +1335,124 @@ const ReviewActionsPanel: React.FC<ReviewActionsPanelProps> = ({
             {contactSending ? <Spinner animation="border" size="sm" style={{ marginRight: 8 }} /> : null}
             Senden
           </Button>
+        </Modal.Footer>
+      </Modal>
+      
+      {/* Document Request Modal */}
+      <Modal show={showDocumentRequestModal} onHide={handleCloseDocumentRequestModal} centered size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>Dokumente nachfordern</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {documentRequestSuccess ? (
+            <div className="text-center py-4">
+              <div style={{ color: '#388e3c', fontSize: '48px', marginBottom: '16px' }}>
+                <span className="material-icons" style={{ fontSize: '48px' }}>check_circle</span>
+              </div>
+              <h4 style={{ color: '#388e3c', marginBottom: '16px' }}>Anfrage erfolgreich gesendet!</h4>
+              <p>Der Antragsteller wurde per E-Mail über die angeforderten Dokumente informiert.</p>
+            </div>
+          ) : (
+            <div>
+              <div className="mb-3">
+                <label className="form-label">Dokumenttyp auswählen</label>
+                <select
+                  className="form-select"
+                  value={selectedDocumentType}
+                  onChange={(e) => setSelectedDocumentType(e.target.value)}
+                  disabled={documentRequestLoading}
+                >
+                  <option value="">Bitte wählen Sie ein Dokument aus...</option>
+                  {Object.entries(DOCUMENT_TYPES).map(([id, doc]) => (
+                    <option key={id} value={id}>{doc.title}</option>
+                  ))}
+                </select>
+              </div>
+
+              {selectedDocumentType && DOCUMENT_TYPES[selectedDocumentType] && (
+                <div className="mb-3 p-3" style={{ backgroundColor: '#f8f9fa', borderRadius: '8px' }}>
+                  <strong>{DOCUMENT_TYPES[selectedDocumentType].title}</strong>
+                  <p className="mb-0 text-muted" style={{ fontSize: '14px' }}>
+                    {DOCUMENT_TYPES[selectedDocumentType].description}
+                  </p>
+                </div>
+              )}
+
+              {availableApplicants.length > 2 && DOCUMENT_TYPES[selectedDocumentType]?.category === 'Applicant' && (
+                <div className="mb-3">
+                  <label className="form-label">Für welchen Antragsteller?</label>
+                  <select
+                    className="form-select"
+                    value={selectedApplicantType === 'applicant' ? `applicant_${selectedApplicantNumber}` : selectedApplicantType}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value.startsWith('applicant_')) {
+                        setSelectedApplicantType('applicant');
+                        setSelectedApplicantNumber(parseInt(value.split('_')[1]));
+                                             } else {
+                         setSelectedApplicantType(value as 'general' | 'hauptantragsteller');
+                       }
+                    }}
+                    disabled={documentRequestLoading}
+                  >
+                    {availableApplicants
+                      .filter(applicant => 
+                        DOCUMENT_TYPES[selectedDocumentType]?.category === 'General' || 
+                        applicant.type !== 'general'
+                      )
+                      .map(applicant => (
+                        <option key={applicant.key} value={applicant.key}>
+                          {applicant.name}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              )}
+
+              <div className="mb-3">
+                <label className="form-label">Nachricht an den Antragsteller (optional)</label>
+                <textarea
+                  className="form-control"
+                  rows={3}
+                  value={documentRequestMessage}
+                  onChange={(e) => setDocumentRequestMessage(e.target.value)}
+                  placeholder="Zusätzliche Informationen oder Anweisungen für den Antragsteller..."
+                  disabled={documentRequestLoading}
+                />
+              </div>
+
+              {documentRequestError && (
+                <div className="alert alert-danger mb-3">{documentRequestError}</div>
+              )}
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          {documentRequestSuccess ? (
+            <Button onClick={handleCloseDocumentRequestModal} style={{ backgroundColor: '#064497', border: 'none' }}>
+              Schließen
+            </Button>
+          ) : (
+            <>
+              <Button variant="secondary" onClick={handleCloseDocumentRequestModal} disabled={documentRequestLoading}>
+                Abbrechen
+              </Button>
+              <Button 
+                onClick={handleSendDocumentRequest}
+                disabled={!selectedDocumentType || documentRequestLoading}
+                style={{ backgroundColor: '#064497', border: 'none' }}
+              >
+                {documentRequestLoading ? (
+                  <>
+                    <span className="spinner-border spinner-border-sm me-2" role="status"></span>
+                    Wird gesendet...
+                  </>
+                ) : (
+                  'Anfrage senden'
+                )}
+              </Button>
+            </>
+          )}
         </Modal.Footer>
       </Modal>
     </div>

@@ -26,11 +26,23 @@ export const signOut = async () => {
   if (error) throw error;
 };
 
-export const storeEligibilityData = async (userId: string, data: any) => {
+export const storeEligibilityData = async (userId: string, data: any, email?: string) => {
+  // Get the current user's email if not provided
+  let userEmail = email;
+  if (!userEmail) {
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError) {
+      console.error('Error getting user:', userError);
+      throw userError;
+    }
+    userEmail = user?.email;
+  }
+
   const { error } = await supabase
     .from('user_data')
     .upsert({
       id: userId,
+      email: userEmail,  // Set the email field to the authenticated user's email
       adult_count: data.adultCount,
       child_count: data.childCount,
       is_disabled: data.isDisabled,
@@ -49,10 +61,19 @@ export const storeEligibilityData = async (userId: string, data: any) => {
 
 export const storeDocumentCheckData = async (userId: string, documentCheckData: any) => {
   try {
-    // First, update the user_data table with the answers
-    const { data: userData, error: userError } = await supabase
+    // Get the current user's email
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError) {
+      console.error('Error getting user:', userError);
+      throw userError;
+    }
+
+    // First, upsert the user_data table with the answers
+    const { data: userData, error: userDataError } = await supabase
       .from('user_data')
-      .update({
+      .upsert({
+        id: userId,
+        email: user?.email,  // Set the email field to the authenticated user's email
         hasinheritanceright: documentCheckData.answers.hasInheritanceRight,
         hasbegstandardloan: documentCheckData.answers.hasBEGStandardLoan,
         ispregnant: documentCheckData.answers.isPregnant,
@@ -62,11 +83,10 @@ export const storeDocumentCheckData = async (userId: string, documentCheckData: 
         completeddoccheck: true,
         updated_at: new Date().toISOString()
       })
-      .eq('id', userId)
       .select()
       .single();
 
-    if (userError) throw userError;
+    if (userDataError) throw userDataError;
 
     // Update or insert the foerderVariante and loan-related fields in object_data
     const { data: objectData, error: objectError } = await supabase
@@ -197,13 +217,21 @@ export const uploadDocument = async (userId: string, documentId: string, file: F
       }
     };
 
+    // Get the current user's email
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError) {
+      console.error('Error getting user:', userError);
+      throw userError;
+    }
+
     const { error: updateError } = await supabase
       .from('user_data')
-      .update({
+      .upsert({
+        id: userId,
+        email: user?.email,  // Set the email field to the authenticated user's email
         document_status: documentStatus,
         updated_at: new Date().toISOString()
-      })
-      .eq('id', userId);
+      });
 
     if (updateError) throw updateError;
 
@@ -238,13 +266,21 @@ export const removeDocument = async (userId: string, documentId: string, fileNam
     const documentStatus = userData?.document_status || {};
     delete documentStatus[documentId];
 
+    // Get the current user's email
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError) {
+      console.error('Error getting user:', userError);
+      throw userError;
+    }
+
     const { error: updateError } = await supabase
       .from('user_data')
-      .update({
+      .upsert({
+        id: userId,
+        email: user?.email,  // Set the email field to the authenticated user's email
         document_status: documentStatus,
         updated_at: new Date().toISOString()
-      })
-      .eq('id', userId);
+      });
 
     if (updateError) throw updateError;
   } catch (error) {
@@ -266,5 +302,71 @@ export const checkDocumentCheckStatus = async (userId: string) => {
   } catch (error) {
     console.error('Error checking document check status:', error);
     return false;
+  }
+};
+
+export const ensureUserFinancialsExists = async (userId: string) => {
+  try {
+    // Use upsert to ensure a record exists - this will create one if it doesn't exist
+    // or update an existing one (though with empty values, it won't change anything)
+    const { error: upsertError } = await supabase
+      .from('user_financials')
+      .upsert({
+        user_id: userId,
+        // All fields will be null/empty by default
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'user_id' // This assumes there's a unique constraint on user_id
+      });
+
+    if (upsertError) {
+      // If there's no unique constraint on user_id, we'll get an error
+      // In that case, try a different approach - check if any record exists
+      if (upsertError.code === '42703' || upsertError.message?.includes('user_id')) {
+        console.log('No unique constraint on user_id, checking if any record exists...');
+        
+        const { data: existingRecords, error: checkError } = await supabase
+          .from('user_financials')
+          .select('id')
+          .eq('user_id', userId)
+          .limit(1);
+
+        if (checkError) {
+          console.error('Error checking user_financials records:', checkError);
+          throw checkError;
+        }
+
+        if (existingRecords && existingRecords.length > 0) {
+          console.log('user_financials record already exists for user:', userId);
+          return true;
+        } else {
+          // No record exists, create one
+          const { error: insertError } = await supabase
+            .from('user_financials')
+            .insert({
+              user_id: userId,
+              // All fields will be null/empty by default
+            });
+
+          if (insertError) {
+            console.error('Error creating user_financials record:', insertError);
+            throw insertError;
+          }
+
+          console.log('Successfully created empty user_financials record');
+          return true;
+        }
+      }
+      
+      // For other errors, log and throw
+      console.error('Error upserting user_financials record:', upsertError);
+      throw upsertError;
+    }
+
+    console.log('Successfully ensured user_financials record exists');
+    return true;
+  } catch (error) {
+    console.error('Error in ensureUserFinancialsExists:', error);
+    throw error;
   }
 }; 

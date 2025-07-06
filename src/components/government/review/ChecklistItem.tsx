@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { ChecklistItemProps, ChecklistStatus } from '../../../types/checklist';
 import { availableForms } from './FormsDocsPanel';
 import { DOCUMENT_LABELS } from './FormsDocsPanel';
+import { DOCUMENT_CATEGORY_MAPPING } from '../../../utils/checklistGenerator';
 
 const STATUS_LABELS: Record<ChecklistStatus, string> = {
   correct: 'Korrekt',
@@ -10,18 +11,131 @@ const STATUS_LABELS: Record<ChecklistStatus, string> = {
   created: 'Erstellt',
 };
 
-const ChecklistItem: React.FC<ChecklistItemProps> = ({
+interface DynamicChecklistItemProps extends ChecklistItemProps {
+  residentId?: string;
+  userData?: any; // For accessing document_status
+  onSystemErrorsUpdate?: (itemId: string, errors: string[]) => void;
+}
+
+const ChecklistItem: React.FC<DynamicChecklistItemProps> = ({
   item,
   onStatusChange,
   onNotesChange,
   onOpenForm,
   onOpenDocument,
+  residentId,
+  userData,
+  onSystemErrorsUpdate,
 }) => {
   const [tempNotes, setTempNotes] = useState(item.agentNotes || '');
   const [notesChanged, setNotesChanged] = useState(false);
   const [showNoteInput, setShowNoteInput] = useState(false);
   const [isSmall, setIsSmall] = useState(false);
+  const [availableDocuments, setAvailableDocuments] = useState<{ id: string; label: string }[]>([]);
+  const [dynamicSystemErrors, setDynamicSystemErrors] = useState<string[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Function to determine applicant key from checklist item ID
+  const getApplicantKeyFromItemId = (itemId: string): string => {
+    if (itemId.includes('_hauptantragsteller')) return 'hauptantragsteller';
+    if (itemId.includes('_applicant_')) {
+      const match = itemId.match(/_applicant_(\d+)/);
+      return match ? `applicant_${match[1]}` : 'hauptantragsteller';
+    }
+    if (itemId.includes('_general')) return 'general';
+    return 'hauptantragsteller'; // Default fallback
+  };
+
+  // Function to get document label
+  const getDocumentLabel = (docId: string): string => {
+    const labels: Record<string, string> = {
+      'meldebescheinigung': 'Meldebescheinigung',
+      'gehaltsabrechnung': 'Gehaltsabrechnung',
+      'lohn_gehaltsbescheinigungen': 'Lohn-/Gehaltsbescheinigungen',
+      'einkommenssteuerbescheid': 'Einkommenssteuerbescheid',
+      'einkommenssteuererklaerung': 'Einkommenssteuererklärung',
+      'bauzeichnung': 'Bauzeichnung',
+      'lageplan': 'Lageplan',
+      'heiratsurkunde': 'Heiratsurkunde',
+      'marriage_cert': 'Heiratsurkunde/Lebenspartnerschaftsurkunde',
+      'unterhaltsleistungen_nachweis': 'Nachweis Unterhaltsleistungen',
+      'guv_euer_nachweis': 'Gewinn- und Verlustrechnung (GuV)/EÜR',
+      'unterhaltsverpflichtung_nachweis': 'Nachweis Unterhaltsverpflichtung',
+      'rentenbescheid': 'Rentenbescheid',
+      'arbeitslosengeldbescheid': 'Arbeitslosengeldbescheid',
+      'werbungskosten_nachweis': 'Nachweis Werbungskosten',
+      'kinderbetreuungskosten_nachweis': 'Nachweis Kinderbetreuungskosten',
+      'krankengeld_nachweis': 'Nachweis Krankengeld',
+      'elterngeld_nachweis': 'Nachweis Elterngeld',
+      'ausbildungsfoerderung_nachweis': 'Nachweis Ausbildungsförderung',
+      'sonstige_dokumente': 'Sonstige Dokumente'
+    };
+    
+    return labels[docId] || docId;
+  };
+
+  // Function to resolve documents and generate buttons/errors dynamically
+  const resolveDocuments = () => {
+    if (!userData?.document_status || !item.linkedDocs || item.linkedDocs.length === 0) {
+      setAvailableDocuments([]);
+      setDynamicSystemErrors([]);
+      return;
+    }
+
+    const applicantKey = getApplicantKeyFromItemId(item.id);
+    const buttons: { id: string; label: string }[] = [];
+    const missingDocErrors: string[] = [];
+
+    // Process each base document ID from linkedDocs
+    item.linkedDocs.forEach(docId => {
+      // Step 1: Check document category (general or applicant)
+      const category = DOCUMENT_CATEGORY_MAPPING[docId];
+      let searchKey = applicantKey;
+
+      // Step 2: If document belongs to general category, always search in 'general'
+      if (category === 'general') {
+        searchKey = 'general';
+      }
+
+      // Step 3: Search for documents of this type in the appropriate section
+      const documentFiles = userData.document_status?.[searchKey]?.[docId];
+
+      if (documentFiles && Array.isArray(documentFiles) && documentFiles.length > 0) {
+        // Filter only uploaded files
+        const uploadedFiles = documentFiles.filter((file: any) => file.uploaded);
+
+        if (uploadedFiles.length === 1) {
+          // Single file - create one button
+          buttons.push({
+            id: `${searchKey}_${docId}_0`,
+            label: getDocumentLabel(docId)
+          });
+        } else if (uploadedFiles.length > 1) {
+          // Multiple files - create numbered buttons
+          uploadedFiles.forEach((file: any, index: number) => {
+            buttons.push({
+              id: `${searchKey}_${docId}_${index}`,
+              label: `${getDocumentLabel(docId)} (${index + 1})`
+            });
+          });
+        }
+      } else {
+        // Step 4: Document not found - add to missing documents
+        missingDocErrors.push(`Fehlendes Dokument: ${getDocumentLabel(docId)}`);
+      }
+    });
+
+    setAvailableDocuments(buttons);
+    setDynamicSystemErrors(missingDocErrors);
+
+    // Notify parent component about updated errors
+    if (onSystemErrorsUpdate) {
+      // Combine original system errors (non-document related) with missing document errors
+      const originalErrors = item.systemErrors.filter(error => !error.startsWith('Fehlendes Dokument:'));
+      const combinedErrors = [...originalErrors, ...missingDocErrors];
+      onSystemErrorsUpdate(item.id, combinedErrors);
+    }
+  };
 
   // Reset tempNotes and note input state when item changes
   useEffect(() => {
@@ -29,6 +143,11 @@ const ChecklistItem: React.FC<ChecklistItemProps> = ({
     setShowNoteInput(false);
     setNotesChanged(false);
   }, [item.id]);
+
+  // Update available documents when userData or item changes
+  useEffect(() => {
+    resolveDocuments();
+  }, [userData?.document_status, item.linkedDocs, item.id]);
 
   // Use ResizeObserver for live width detection
   useEffect(() => {
@@ -60,6 +179,18 @@ const ChecklistItem: React.FC<ChecklistItemProps> = ({
     setShowNoteInput(false);
   };
 
+  // Function to handle document button click
+  const handleDocumentClick = (documentId: string) => {
+    // Pass the dynamic document ID to the handler
+    onOpenDocument(documentId);
+  };
+
+  // Combine original and dynamic system errors
+  const allSystemErrors = [
+    ...item.systemErrors.filter(error => !error.startsWith('Fehlendes Dokument:')), // Original non-document errors
+    ...dynamicSystemErrors // Dynamic document errors
+  ];
+
   return (
     <div
       ref={containerRef}
@@ -72,7 +203,6 @@ const ChecklistItem: React.FC<ChecklistItemProps> = ({
         boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
         width: '100%',
         minWidth: 0,
-        // maxWidth removed so it can fill parent
       }}
     >
       {/* Header */}
@@ -176,7 +306,7 @@ const ChecklistItem: React.FC<ChecklistItemProps> = ({
       )}
 
       {/* Identifizierte Probleme */}
-      {item.systemErrors.length > 0 && (
+      {allSystemErrors.length > 0 && (
         <div
           style={{
             marginBottom: 20,
@@ -196,7 +326,7 @@ const ChecklistItem: React.FC<ChecklistItemProps> = ({
             </span>
           </div>
           <ul style={{ margin: 0, paddingLeft: 24, color: '#b71c1c', fontWeight: 400 }}>
-            {item.systemErrors.map((error, index) => (
+            {allSystemErrors.map((error, index) => (
               <li key={index}>{error}</li>
             ))}
           </ul>
@@ -205,6 +335,7 @@ const ChecklistItem: React.FC<ChecklistItemProps> = ({
 
       {/* Linked Forms and Documents */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
+        {/* Render form buttons */}
         {item.linkedForms.map((formId) => {
           const formLabel = availableForms.find((f: { id: string; label: string }) => f.id === formId)?.label || formId;
           return (
@@ -230,12 +361,13 @@ const ChecklistItem: React.FC<ChecklistItemProps> = ({
             </button>
           );
         })}
-        {item.linkedDocs.map((docId) => {
-          const docLabel = DOCUMENT_LABELS[docId] || docId;
+        
+        {/* Render dynamic document buttons based on available documents */}
+        {availableDocuments.map((doc) => {
           return (
             <button
-              key={docId}
-              onClick={() => onOpenDocument(docId)}
+              key={doc.id}
+              onClick={() => handleDocumentClick(doc.id)}
               style={{
                 padding: '7px 16px',
                 background: '#064497',
@@ -251,7 +383,7 @@ const ChecklistItem: React.FC<ChecklistItemProps> = ({
               }}
             >
               <span className="material-icons" style={{ fontSize: 18 }}>picture_as_pdf</span>
-              {docLabel}
+              {doc.label}
             </button>
           );
         })}

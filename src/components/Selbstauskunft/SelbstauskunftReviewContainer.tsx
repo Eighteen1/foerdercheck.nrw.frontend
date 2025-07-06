@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Container, Modal, Form, Button } from 'react-bootstrap';
+import { Container, Modal, Form, Button, Spinner } from 'react-bootstrap';
 import { useAuth } from '../../contexts/AuthContext';
-import { supabase } from '../../lib/supabase';
+import { supabase, ensureUserFinancialsExists } from '../../lib/supabase';
 import { formatCurrencyForDisplay } from '../../utils/currencyUtils';
 import SelbstauskunftForm from './Steps/SelbstauskunftForm';
 import '../Einkommenserklaerung/EinkommenserklaerungContainer.css';
@@ -216,6 +216,14 @@ const SelbstauskunftReviewContainer: React.FC<SelbstauskunftReviewContainerProps
 
     setIsLoading(true);
     try {
+      // Ensure user_financials table exists for the user
+      try {
+        await ensureUserFinancialsExists(residentId);
+      } catch (financialsError) {
+        console.warn('Failed to ensure user_financials exists, continuing with load:', financialsError);
+        // Continue with load even if user_financials creation fails
+      }
+
       // Load user data
       const { data: userData, error: userError } = await supabase
         .from('user_data')

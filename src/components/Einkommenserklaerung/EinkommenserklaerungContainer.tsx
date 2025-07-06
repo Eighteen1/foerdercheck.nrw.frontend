@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Container, Button, Modal, Spinner, Form } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { supabase } from '../../lib/supabase';
+import { supabase, ensureUserFinancialsExists } from '../../lib/supabase';
 import { formatCurrencyForDisplay, formatCurrencyForDatabase } from '../../utils/currencyUtils';
 import EinkommenserklaerungForm from './Steps/EinkommenserklaerungForm';
 import './EinkommenserklaerungContainer.css';
@@ -62,7 +62,7 @@ interface AdditionalApplicantFinancials {
   // New fields
   werbungskosten?: string;
   kinderbetreuungskosten?: string;
-  ispayingincometax?: boolean | null;
+  ispayingincometax: boolean | null;
   ispayinghealthinsurance?: boolean | null;
   ispayingpension?: boolean | null;
   ispayingunterhalt?: boolean | null;
@@ -101,7 +101,7 @@ interface MainFinancials {
   // New fields
   werbungskosten?: string;
   kinderbetreuungskosten?: string;
-  ispayingincometax?: boolean | null;
+  ispayingincometax: boolean | null;
   ispayinghealthinsurance?: boolean | null;
   ispayingpension?: boolean | null;
   ispayingunterhalt?: boolean | null;
@@ -595,6 +595,14 @@ const EinkommenserklaerungContainer: React.FC<EinkommenserklaerungContainerProps
       if (!user) {
         console.error('No user found');
         return;
+      }
+
+      // Ensure user_financials table exists for the user
+      try {
+        await ensureUserFinancialsExists(user.id);
+      } catch (financialsError) {
+        console.warn('Failed to ensure user_financials exists, continuing with save:', financialsError);
+        // Continue with save even if user_financials creation fails
       }
 
       // Calculate progress

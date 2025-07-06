@@ -11,12 +11,14 @@ interface Props {
   value: string[];
   onChange: (selected: string[]) => void;
   placeholder?: string;
+  disabled?: boolean;
 }
 
-const WeitereEinkuenfteMultiSelect: React.FC<Props> = ({ options, value, onChange, placeholder }) => {
+const WeitereEinkuenfteMultiSelect: React.FC<Props> = ({ options, value, onChange, placeholder, disabled = false }) => {
   const [show, setShow] = useState(false);
 
   const handleSelect = (optionValue: string) => {
+    if (disabled) return;
     if (value.includes(optionValue)) {
       onChange(value.filter((v) => v !== optionValue));
     } else {
@@ -31,6 +33,7 @@ const WeitereEinkuenfteMultiSelect: React.FC<Props> = ({ options, value, onChang
         className="rounded-pill px-4 py-2 mb-2"
         style={{ minWidth: 260, fontWeight: 500, backgroundColor: '#064497', color: '#fff', borderColor: '#064497', boxShadow: '0 2px 8px rgba(6,68,151,0.08)' }}
         onClick={() => setShow(true)}
+        disabled={disabled}
       >
         {value.length === 0
           ? (placeholder || '+ Weitere Einkünfte hinzufügen')
@@ -50,6 +53,7 @@ const WeitereEinkuenfteMultiSelect: React.FC<Props> = ({ options, value, onChang
                   checked={value.includes(option.value)}
                   onChange={() => handleSelect(option.value)}
                   style={{ marginRight: 8 }}
+                  disabled={disabled}
                 />
                 <label htmlFor={`weitere-einkuenfte-${option.value}`} style={{ marginBottom: 0, fontWeight: 400 }}>{option.label}</label>
               </div>

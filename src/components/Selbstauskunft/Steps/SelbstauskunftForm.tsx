@@ -255,6 +255,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                 name="title"
                 checked={data.title === 'Herr'}
                 onChange={() => onChange({ ...data, title: 'Herr' })}
+                disabled={isReadOnly}
               />
               <Form.Check
                 inline
@@ -263,6 +264,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                 name="title"
                 checked={data.title === 'Frau'}
                 onChange={() => onChange({ ...data, title: 'Frau' })}
+                disabled={isReadOnly}
               />
               <Form.Check
                 inline
@@ -271,6 +273,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                 name="title"
                 checked={data.title === 'ohne Anrede'}
                 onChange={() => onChange({ ...data, title: 'ohne Anrede' })}
+                disabled={isReadOnly}
               />
               <div style={{ minHeight: 0 }}>
                 {validateField('title') && (
@@ -287,6 +290,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                     value={data.firstName || ''}
                     onChange={(e) => onChange({ ...data, firstName: e.target.value })}
                     isInvalid={validateField('firstName')}
+                    disabled={isReadOnly}
                   />
                   <label>Vorname</label>
                   <Form.Control.Feedback type="invalid">
@@ -302,6 +306,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                     value={data.lastName || ''}
                     onChange={(e) => onChange({ ...data, lastName: e.target.value })}
                     isInvalid={validateField('lastName')}
+                    disabled={isReadOnly}
                   />
                   <label>Name</label>
                   <Form.Control.Feedback type="invalid">
@@ -334,6 +339,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                   checked={data.hasSalaryIncome === true}
                   onChange={() => onChange({ ...data, hasSalaryIncome: true })}
                   className="custom-radio"
+                  disabled={isReadOnly}
                 />
                 <Form.Check
                   inline
@@ -343,6 +349,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                   checked={data.hasSalaryIncome === false}
                   onChange={() => onChange({ ...data, hasSalaryIncome: false })}
                   className="custom-radio"
+                  disabled={isReadOnly}
                 />
               </div>
             </div>
@@ -388,6 +395,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                         onChange={val => onChange({ monthlynetsalary: val })}
                         placeholder="Monatliches Nettoeinkommen"
                         label="Monatliches Nettoeinkommen (€)"
+                        disabled={isReadOnly}
                       />
                     </div>
                   </div>
@@ -417,6 +425,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                         onChange={val => onChange({ wheinachtsgeld_next12: val })}
                         placeholder="Jahresbetrag"
                         label="Jahresbetrag"
+                        disabled={isReadOnly}
                       />
                     </div>
                     <div className="col-md-4">
@@ -465,6 +474,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                         onChange={val => onChange({ urlaubsgeld_next12: val })}
                         placeholder="Jahresbetrag"
                         label="Jahresbetrag"
+                        disabled={isReadOnly}
                       />
                     </div>
                     <div className="col-md-4">
@@ -530,19 +540,22 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                   {(data.otheremploymentmonthlynetincome || []).map((item: { type: string; amount: string }, idx: number) => (
                     <div key={idx}>
                       {/* Delete button above each row */}
-                      <div className="d-flex justify-content-end mb-1">
-                        <Button
-                          variant="outline-danger"
-                          size="sm"
-                          onClick={() => {
-                            const currentOther = [...(data.otheremploymentmonthlynetincome || [])];
-                            currentOther.splice(idx, 1);
-                            onChange({ otheremploymentmonthlynetincome: currentOther });
-                          }}
-                        >
-                          Löschen
-                        </Button>
-                      </div>
+                      {!isReadOnly && (
+                        <div className="d-flex justify-content-end mb-1">
+                          <Button
+                            variant="outline-danger"
+                            size="sm"
+                            onClick={() => {
+                              const currentOther = [...(data.otheremploymentmonthlynetincome || [])];
+                              currentOther.splice(idx, 1);
+                              onChange({ otheremploymentmonthlynetincome: currentOther });
+                            }}
+                            disabled={isReadOnly}
+                          >
+                            Löschen
+                          </Button>
+                        </div>
+                      )}
                       {/* Table row matching the main table structure */}
                       <div className="row g-3 align-items-end mb-2">
                         <div className="col-md-4">
@@ -556,6 +569,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                                 currentOther[idx] = { ...item, type: e.target.value };
                                 onChange({ otheremploymentmonthlynetincome: currentOther });
                               }}
+                              disabled={isReadOnly}
                             />
                             <label>Art des Betrags</label>
                           </Form.Floating>
@@ -570,6 +584,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                             }}
                             placeholder="Jahresbetrag"
                             label="Jahresbetrag (€)"
+                            disabled={isReadOnly}
                           />
                         </div>
                         <div className="col-md-4">
@@ -594,16 +609,19 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                       </div>
                     </div>
                   ))}
-                  <Button
-                    variant="outline-primary"
-                    className="add-person-btn mt-2"
-                    onClick={() => {
-                      const currentOther = [...(data.otheremploymentmonthlynetincome || []), { type: '', amount: '' }];
-                      onChange({ otheremploymentmonthlynetincome: currentOther });
-                    }}
-                  >
-                    + Sonstige Beträge
-                  </Button>
+                  {!isReadOnly && (
+                    <Button
+                      variant="outline-primary"
+                      className="add-person-btn mt-2"
+                      onClick={() => {
+                        const currentOther = [...(data.otheremploymentmonthlynetincome || []), { type: '', amount: '' }];
+                        onChange({ otheremploymentmonthlynetincome: currentOther });
+                      }}
+                      disabled={isReadOnly}
+                    >
+                      + Sonstige Beträge
+                    </Button>
+                  )}
                   {/* Sonstige Beträge validation errors below the button */}
                   {showValidation && data.hasSalaryIncome === true && (data.otheremploymentmonthlynetincome || []).length > 0 && (() => {
                     const sonstigeErrors: string[] = [];
@@ -697,6 +715,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                             onChange={val => onChange({ yearlybusinessnetincome: val })}
                             placeholder="Jahresbetrag"
                             label="Jahresbetrag"
+                            disabled={isReadOnly}
                           />
                         </div>
                         <div className="col-md-4">
@@ -745,6 +764,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                             onChange={val => onChange({ yearlyselfemployednetincome: val })}
                             placeholder="Jahresbetrag"
                             label="Jahresbetrag"
+                            disabled={isReadOnly}
                           />
                         </div>
                         <div className="col-md-4">
@@ -796,6 +816,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                           onChange={val => onChange({ incomeagriculture: val })}
                           placeholder="Jahresbetrag"
                           label="Jahresbetrag"
+                          disabled={isReadOnly}
                         />
                       </div>
                       <div className="col-md-4">
@@ -846,6 +867,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                           onChange={val => onChange({ yearlycapitalnetincome: val })}
                           placeholder="Jahresbetrag"
                           label="Jahresbetrag"
+                          disabled={isReadOnly}
                         />
                       </div>
                       <div className="col-md-4">
@@ -896,6 +918,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                           onChange={val => onChange({ incomerent: val })}
                           placeholder="Jahresbetrag"
                           label="Jahresbetrag"
+                          disabled={isReadOnly}
                         />
                       </div>
                       <div className="col-md-4">
@@ -976,6 +999,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                     _tempPensionmonthlynetincome: undefined // Clear temporary storage
                   })}
                   className="custom-radio"
+                  disabled={isReadOnly}
                 />
                 <Form.Check
                   inline
@@ -990,6 +1014,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                     pensionmonthlynetincome: []
                   })}
                   className="custom-radio"
+                  disabled={isReadOnly}
                 />
               </div>
             </div>
@@ -1020,6 +1045,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                             newPension[0] = { ...newPension[0], type: e.target.value };
                             onChange({ pensionmonthlynetincome: newPension });
                           }}
+                          disabled={isReadOnly}
                         />
                         <label>Rentenart</label>
                       </Form.Floating>
@@ -1035,6 +1061,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                         }}
                         placeholder="Monatliches Nettoeinkommen"
                         label="Monatliches Nettoeinkommen (€)"
+                        disabled={isReadOnly}
                       />
                     </div>
                   </div>
@@ -1043,19 +1070,22 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                   {(data.pensionmonthlynetincome || []).slice(1).map((item: { type: string; amount: string }, idx: number) => (
                     <div key={idx + 1}>
                       {/* Delete button above the monthly input field */}
-                      <div className="d-flex justify-content-end mb-1">
-                        <Button
-                          variant="outline-danger"
-                          size="sm"
-                          onClick={() => {
-                            const newPension = [...(data.pensionmonthlynetincome || [])];
-                            newPension.splice(idx + 1, 1);
-                            onChange({ pensionmonthlynetincome: newPension });
-                          }}
-                        >
-                          Löschen
-                        </Button>
-                      </div>
+                      {!isReadOnly && (
+                        <div className="d-flex justify-content-end mb-1">
+                          <Button
+                            variant="outline-danger"
+                            size="sm"
+                            onClick={() => {
+                              const newPension = [...(data.pensionmonthlynetincome || [])];
+                              newPension.splice(idx + 1, 1);
+                              onChange({ pensionmonthlynetincome: newPension });
+                            }}
+                            disabled={isReadOnly}
+                          >
+                            Löschen
+                          </Button>
+                        </div>
+                      )}
                       {/* Table row */}
                       <div className="row g-3 align-items-end mb-2">
                         <div className="col-md-8">
@@ -1069,6 +1099,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                                 newPension[idx + 1] = { ...item, type: e.target.value };
                                 onChange({ pensionmonthlynetincome: newPension });
                               }}
+                              disabled={isReadOnly}
                             />
                             <label>Rentenart</label>
                           </Form.Floating>
@@ -1083,24 +1114,27 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                             }}
                             placeholder="Monatliches Nettoeinkommen"
                             label="Monatliches Nettoeinkommen (€)"
+                            disabled={isReadOnly}
                           />
                         </div>
                       </div>
                     </div>
                   ))}
                   
-                  {/* Add button */}
-                  <Button
-                    variant="outline-primary"
-                    className="add-person-btn mt-2"
-                    onClick={() => {
-                      const currentPension = data.pensionmonthlynetincome || [{ type: '', amount: '' }];
-                      const newPension = [...currentPension, { type: '', amount: '' }];
-                      onChange({ pensionmonthlynetincome: newPension });
-                    }}
-                  >
-                    + Rentenart hinzufügen
-                  </Button>
+                  {!isReadOnly && (
+                    <Button
+                      variant="outline-primary"
+                      className="add-person-btn mt-2"
+                      onClick={() => {
+                        const currentPension = data.pensionmonthlynetincome || [{ type: '', amount: '' }];
+                        const newPension = [...currentPension, { type: '', amount: '' }];
+                        onChange({ pensionmonthlynetincome: newPension });
+                      }}
+                      disabled={isReadOnly}
+                    >
+                      + Rentenart hinzufügen
+                    </Button>
+                  )}
                   
                   {/* Validation errors for pension income */}
                   {showValidation && data.haspensionincome === true && (() => {
@@ -1198,6 +1232,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                           onChange={val => onChange({ monthlykindergeldnetincome: val })}
                           placeholder="Monatliches Nettoeinkommen"
                           label="Monatliches Nettoeinkommen (€)"
+                          disabled={isReadOnly}
                         />
                       </div>
                     </div>
@@ -1229,6 +1264,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                           onChange={val => onChange({ monthlypflegegeldnetincome: val })}
                           placeholder="Monatliches Nettoeinkommen"
                           label="Monatliches Nettoeinkommen (€)"
+                          disabled={isReadOnly}
                         />
                       </div>
                     </div>
@@ -1260,6 +1296,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                           onChange={val => onChange({ incomeunterhalttaxfree: val })}
                           placeholder="Monatliches Nettoeinkommen"
                           label="Monatliches Nettoeinkommen (€)"
+                          disabled={isReadOnly}
                         />
                       </div>
                     </div>
@@ -1291,6 +1328,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                           onChange={val => onChange({ incomeunterhalttaxable: val })}
                           placeholder="Monatliches Nettoeinkommen"
                           label="Monatliches Nettoeinkommen (€)"
+                          disabled={isReadOnly}
                         />
                       </div>
                     </div>
@@ -1322,6 +1360,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                           onChange={val => onChange({ monthlyelterngeldnetincome: val })}
                           placeholder="Monatliches Nettoeinkommen"
                           label="Monatliches Nettoeinkommen (€)"
+                          disabled={isReadOnly}
                         />
                       </div>
                     </div>
@@ -1344,6 +1383,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                                 updatedOther[0] = { ...updatedOther[0], type: e.target.value };
                                 onChange({ othermonthlynetincome: updatedOther });
                               }}
+                              disabled={isReadOnly}
                             />
                             <label>Art des Einkommens</label>
                           </Form.Floating>
@@ -1359,6 +1399,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                             }}
                             placeholder="Monatliches Nettoeinkommen"
                             label="Monatliches Nettoeinkommen (€)"
+                            disabled={isReadOnly}
                           />
                         </div>
                       </div>
@@ -1367,19 +1408,22 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                       {(data.othermonthlynetincome || []).slice(1).map((item: { type: string; amount: string }, idx: number) => (
                         <div key={idx + 1}>
                           {/* Delete button above the row */}
-                          <div className="d-flex justify-content-end mb-1">
-                            <Button
-                              variant="outline-danger"
-                              size="sm"
-                              onClick={() => {
-                                const currentOther = [...(data.othermonthlynetincome || [])];
-                                currentOther.splice(idx + 1, 1);
-                                onChange({ othermonthlynetincome: currentOther });
-                              }}
-                            >
-                              Löschen
-                            </Button>
-                          </div>
+                          {!isReadOnly && (
+                            <div className="d-flex justify-content-end mb-1">
+                              <Button
+                                variant="outline-danger"
+                                size="sm"
+                                onClick={() => {
+                                  const currentOther = [...(data.othermonthlynetincome || [])];
+                                  currentOther.splice(idx + 1, 1);
+                                  onChange({ othermonthlynetincome: currentOther });
+                                }}
+                                disabled={isReadOnly}
+                              >
+                                Löschen
+                              </Button>
+                            </div>
+                          )}
                           {/* Table row */}
                           <div className="row g-3 align-items-end mb-2">
                             <div className="col-md-8">
@@ -1393,6 +1437,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                                     currentOther[idx + 1] = { ...item, type: e.target.value };
                                     onChange({ othermonthlynetincome: currentOther });
                                   }}
+                                  disabled={isReadOnly}
                                 />
                                 <label>Art des Einkommens</label>
                               </Form.Floating>
@@ -1407,24 +1452,27 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                                 }}
                                 placeholder="Monatliches Nettoeinkommen"
                                 label="Monatliches Nettoeinkommen (€)"
+                                disabled={isReadOnly}
                               />
                             </div>
                           </div>
                         </div>
                       ))}
                       
-                      {/* Add button for sonstige */}
-                      <Button
-                        variant="outline-primary"
-                        className="add-person-btn mt-2"
-                        onClick={() => {
-                          const currentOther = data.othermonthlynetincome || [];
-                          const updatedOther = [...currentOther, { type: '', amount: '' }];
-                          onChange({ othermonthlynetincome: updatedOther });
-                        }}
-                      >
-                        + Sonstiges Einkommen hinzufügen
-                      </Button>
+                      {!isReadOnly && (
+                        <Button
+                          variant="outline-primary"
+                          className="add-person-btn mt-2"
+                          onClick={() => {
+                            const currentOther = data.othermonthlynetincome || [];
+                            const updatedOther = [...currentOther, { type: '', amount: '' }];
+                            onChange({ othermonthlynetincome: updatedOther });
+                          }}
+                          disabled={isReadOnly}
+                        >
+                          + Sonstiges Einkommen hinzufügen
+                        </Button>
+                      )}
                     </div>
                   )}
                   
@@ -1512,6 +1560,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                         const updatedTaxes = [...currentTaxes, { type: '', amount: '' }];
                         onChange({ betragotherinsurancetaxexpenses: updatedTaxes });
                       }}
+                      disabled={isReadOnly}
                     >
                       + Steuern und Beiträge hinzufügen
                     </Button>
@@ -1531,19 +1580,22 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                   {(data.betragotherinsurancetaxexpenses || []).map((item: { type: string; amount: string }, idx: number) => (
                     <div key={idx}>
                       {/* Delete button above the monthly input field */}
-                      <div className="d-flex justify-content-end mb-1">
-                        <Button
-                          variant="outline-danger"
-                          size="sm"
-                          onClick={() => {
-                            const currentTaxes = [...(data.betragotherinsurancetaxexpenses || [])];
-                            currentTaxes.splice(idx, 1);
-                            onChange({ betragotherinsurancetaxexpenses: currentTaxes });
-                          }}
-                        >
-                          Löschen
-                        </Button>
-                      </div>
+                      {!isReadOnly && (
+                        <div className="d-flex justify-content-end mb-1">
+                          <Button
+                            variant="outline-danger"
+                            size="sm"
+                            onClick={() => {
+                              const currentTaxes = [...(data.betragotherinsurancetaxexpenses || [])];
+                              currentTaxes.splice(idx, 1);
+                              onChange({ betragotherinsurancetaxexpenses: currentTaxes });
+                            }}
+                            disabled={isReadOnly}
+                          >
+                            Löschen
+                          </Button>
+                        </div>
+                      )}
                       {/* Table row */}
                       <div className="row g-3 align-items-end mb-2">
                         <div className="col-md-8">
@@ -1557,6 +1609,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                                 currentTaxes[idx] = { ...item, type: e.target.value };
                                 onChange({ betragotherinsurancetaxexpenses: currentTaxes });
                               }}
+                              disabled={isReadOnly}
                             />
                             <label>Art der Steuer bzw. Beitrag</label>
                           </Form.Floating>
@@ -1571,6 +1624,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                             }}
                             placeholder="Monatlicher Betrag"
                             label="Monatlicher Betrag (€)"
+                            disabled={isReadOnly}
                           />
                         </div>
                       </div>
@@ -1644,6 +1698,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                     _tempLoans: undefined // Clear temporary storage
                   })}
                   className="custom-radio"
+                  disabled={isReadOnly}
                 />
                 <Form.Check
                   inline
@@ -1658,6 +1713,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                     loans: null
                   })}
                   className="custom-radio"
+                  disabled={isReadOnly}
                 />
               </div>
             </div>
@@ -1682,6 +1738,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                             newLoans[0] = { ...newLoans[0], description: e.target.value };
                             onChange({ loans: newLoans });
                           }}
+                          disabled={isReadOnly}
                         />
                         <label>Kredit Beschreibung</label>
                       </Form.Floating>
@@ -1698,6 +1755,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                             newLoans[0] = { ...newLoans[0], duration: e.target.value };
                             onChange({ loans: newLoans });
                           }}
+                          disabled={isReadOnly}
                         />
                         <label>Laufzeit bis</label>
                       </Form.Floating>
@@ -1713,6 +1771,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                         }}
                         placeholder="Monatlicher Betrag"
                         label="Monatlicher Betrag (€)"
+                        disabled={isReadOnly}
                       />
                     </div>
                   </div>
@@ -1721,19 +1780,22 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                   {(data.loans || []).slice(1).map((item: { description: string; duration: string; amount: string }, idx: number) => (
                     <div key={idx + 1}>
                       {/* Delete button above the monthly input field */}
-                      <div className="d-flex justify-content-end mb-1">
-                        <Button
-                          variant="outline-danger"
-                          size="sm"
-                          onClick={() => {
-                            const newLoans = [...(data.loans || [])];
-                            newLoans.splice(idx + 1, 1);
-                            onChange({ loans: newLoans });
-                          }}
-                        >
-                          Löschen
-                        </Button>
-                      </div>
+                      {!isReadOnly && (
+                        <div className="d-flex justify-content-end mb-1">
+                          <Button
+                            variant="outline-danger"
+                            size="sm"
+                            onClick={() => {
+                              const newLoans = [...(data.loans || [])];
+                              newLoans.splice(idx + 1, 1);
+                              onChange({ loans: newLoans });
+                            }}
+                            disabled={isReadOnly}
+                          >
+                            Löschen
+                          </Button>
+                        </div>
+                      )}
                       {/* Table row */}
                       <div className="row g-3 align-items-end mb-2">
                         <div className="col-md-4">
@@ -1747,6 +1809,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                                 newLoans[idx + 1] = { ...item, description: e.target.value };
                                 onChange({ loans: newLoans });
                               }}
+                              disabled={isReadOnly}
                             />
                             <label>Kredit Beschreibung</label>
                           </Form.Floating>
@@ -1762,6 +1825,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                                 newLoans[idx + 1] = { ...item, duration: e.target.value };
                                 onChange({ loans: newLoans });
                               }}
+                              disabled={isReadOnly}
                             />
                             <label>Laufzeit bis</label>
                           </Form.Floating>
@@ -1776,24 +1840,27 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                             }}
                             placeholder="Monatlicher Betrag"
                             label="Monatlicher Betrag (€)"
+                            disabled={isReadOnly}
                           />
                         </div>
                       </div>
                     </div>
                   ))}
                   
-                  {/* Add button */}
-                  <Button
-                    variant="outline-primary"
-                    className="add-person-btn mt-2"
-                    onClick={() => {
-                      const currentLoans = data.loans || [{ description: '', duration: '', amount: '' }];
-                      const newLoans = [...currentLoans, { description: '', duration: '', amount: '' }];
-                      onChange({ loans: newLoans });
-                    }}
-                  >
-                    + Weitere Kredite angeben
-                  </Button>
+                  {!isReadOnly && (
+                    <Button
+                      variant="outline-primary"
+                      className="add-person-btn mt-2"
+                      onClick={() => {
+                        const currentLoans = data.loans || [{ description: '', duration: '', amount: '' }];
+                        const newLoans = [...currentLoans, { description: '', duration: '', amount: '' }];
+                        onChange({ loans: newLoans });
+                      }}
+                      disabled={isReadOnly}
+                    >
+                      + Weitere Kredite angeben
+                    </Button>
+                  )}
                   
                   {/* Validation errors for loans */}
                   {showValidation && data.ispayingloans === true && (() => {
@@ -1865,6 +1932,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                     _tempZwischenkredit: undefined // Clear temporary storage
                   })}
                   className="custom-radio"
+                  disabled={isReadOnly}
                 />
                 <Form.Check
                   inline
@@ -1879,6 +1947,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                     zwischenkredit: null
                   })}
                   className="custom-radio"
+                  disabled={isReadOnly}
                 />
               </div>
             </div>
@@ -1927,6 +1996,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                             newZwischenkredit[0] = { ...newZwischenkredit[0], duration: e.target.value };
                             onChange({ zwischenkredit: newZwischenkredit });
                           }}
+                          disabled={isReadOnly}
                         />
                         <label>Laufzeit bis</label>
                       </Form.Floating>
@@ -1942,6 +2012,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                         }}
                         placeholder="Monatlicher Betrag"
                         label="Monatlicher Betrag (€)"
+                        disabled={isReadOnly}
                       />
                     </div>
                   </div>
@@ -2013,6 +2084,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                     _tempUnterhaltszahlungen: undefined // Clear temporary storage
                   })}
                   className="custom-radio"
+                  disabled={isReadOnly}
                 />
                 <Form.Check
                   inline
@@ -2027,6 +2099,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                     unterhaltszahlungenTotal: null
                   })}
                   className="custom-radio"
+                  disabled={isReadOnly}
                 />
               </div>
             </div>
@@ -2075,6 +2148,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                             newUnterhalt[0] = { ...newUnterhalt[0], duration: e.target.value };
                             onChange({ unterhaltszahlungenTotal: newUnterhalt });
                           }}
+                          disabled={isReadOnly}
                         />
                         <label>Laufzeit bis</label>
                       </Form.Floating>
@@ -2090,13 +2164,18 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                         }}
                         placeholder="Monatlicher Betrag"
                         label="Monatlicher Betrag (€)"
+                        disabled={isReadOnly}
                       />
                     </div>
                   </div>
                   
                   {/* Validation errors for unterhalt */}
-                  {showValidation && data.unterhaltszahlungenTotal && (() => {
-                    const errors = data.unterhaltszahlungenTotal.map((item: { duration: string; amountTotal: string }, idx: number) => {
+                  {showValidation && data.ispayingunterhalt === true && (() => {
+                    // Always validate at least one row
+                    const unterhaltRows = (data.unterhaltszahlungenTotal && data.unterhaltszahlungenTotal.length > 0)
+                      ? data.unterhaltszahlungenTotal
+                      : [{ description: '', duration: '', amountTotal: '' }];
+                    const errors = unterhaltRows.map((item: { duration: string; amountTotal: string }, idx: number) => {
                       const rowErrors: string[] = [];
                       if (!item.duration) {
                         rowErrors.push(`Unterhalt: Laufzeit bis fehlt`);
@@ -2108,7 +2187,6 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                       }
                       return rowErrors;
                     }).flat();
-                    
                     return errors.length > 0 ? (
                       <div className="alert alert-danger mt-3" role="alert">
                         {errors.map((error: string, idx: number) => (
@@ -2158,6 +2236,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                     _tempOtherzahlungsverpflichtung: undefined // Clear temporary storage
                   })}
                   className="custom-radio"
+                  disabled={isReadOnly}
                 />
                 <Form.Check
                   inline
@@ -2172,6 +2251,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                     otherzahlungsverpflichtung: []
                   })}
                   className="custom-radio"
+                  disabled={isReadOnly}
                 />
               </div>
             </div>
@@ -2203,6 +2283,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                             newOther[0] = { ...newOther[0], type: e.target.value };
                             onChange({ otherzahlungsverpflichtung: newOther });
                           }}
+                          disabled={isReadOnly}
                         />
                         <label>Art der Zahlungsverpflichtung</label>
                       </Form.Floating>
@@ -2219,6 +2300,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                             newOther[0] = { ...newOther[0], duration: e.target.value };
                             onChange({ otherzahlungsverpflichtung: newOther });
                           }}
+                          disabled={isReadOnly}
                         />
                         <label>Laufzeit bis</label>
                       </Form.Floating>
@@ -2234,6 +2316,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                         }}
                         placeholder="Monatlicher Betrag"
                         label="Monatlicher Betrag (€)"
+                        disabled={isReadOnly}
                       />
                     </div>
                   </div>
@@ -2242,19 +2325,22 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                   {(data.otherzahlungsverpflichtung || []).slice(1).map((item: { type: string; duration: string; amount: string }, idx: number) => (
                     <div key={idx + 1}>
                       {/* Delete button above the monthly input field */}
-                      <div className="d-flex justify-content-end mb-1">
-                        <Button
-                          variant="outline-danger"
-                          size="sm"
-                          onClick={() => {
-                            const newOther = [...(data.otherzahlungsverpflichtung || [])];
-                            newOther.splice(idx + 1, 1);
-                            onChange({ otherzahlungsverpflichtung: newOther });
-                          }}
-                        >
-                          Löschen
-                        </Button>
-                      </div>
+                      {!isReadOnly && (
+                        <div className="d-flex justify-content-end mb-1">
+                          <Button
+                            variant="outline-danger"
+                            size="sm"
+                            onClick={() => {
+                              const newOther = [...(data.otherzahlungsverpflichtung || [])];
+                              newOther.splice(idx + 1, 1);
+                              onChange({ otherzahlungsverpflichtung: newOther });
+                            }}
+                            disabled={isReadOnly}
+                          >
+                            Löschen
+                          </Button>
+                        </div>
+                      )}
                       {/* Table row */}
                       <div className="row g-3 align-items-end mb-2">
                         <div className="col-md-4">
@@ -2268,6 +2354,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                                 newOther[idx + 1] = { ...item, type: e.target.value };
                                 onChange({ otherzahlungsverpflichtung: newOther });
                               }}
+                              disabled={isReadOnly}
                             />
                             <label>Art der Zahlungsverpflichtung</label>
                           </Form.Floating>
@@ -2283,6 +2370,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                                 newOther[idx + 1] = { ...item, duration: e.target.value };
                                 onChange({ otherzahlungsverpflichtung: newOther });
                               }}
+                              disabled={isReadOnly}
                             />
                             <label>Laufzeit bis</label>
                           </Form.Floating>
@@ -2297,24 +2385,27 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                             }}
                             placeholder="Monatlicher Betrag"
                             label="Monatlicher Betrag (€)"
+                            disabled={isReadOnly}
                           />
                         </div>
                       </div>
                     </div>
                   ))}
                   
-                  {/* Add button */}
-                  <Button
-                    variant="outline-primary"
-                    className="add-person-btn mt-2"
-                    onClick={() => {
-                      const currentOther = data.otherzahlungsverpflichtung || [{ type: '', duration: '', amount: '' }];
-                      const newOther = [...currentOther, { type: '', duration: '', amount: '' }];
-                      onChange({ otherzahlungsverpflichtung: newOther });
-                    }}
-                  >
-                    + Weitere Zahlungsverpflichtung angeben
-                  </Button>
+                  {!isReadOnly && (
+                    <Button
+                      variant="outline-primary"
+                      className="add-person-btn mt-2"
+                      onClick={() => {
+                        const currentOther = data.otherzahlungsverpflichtung || [{ type: '', duration: '', amount: '' }];
+                        const newOther = [...currentOther, { type: '', duration: '', amount: '' }];
+                        onChange({ otherzahlungsverpflichtung: newOther });
+                      }}
+                      disabled={isReadOnly}
+                    >
+                      + Weitere Zahlungsverpflichtung angeben
+                    </Button>
+                  )}
                   
                   {/* Validation errors for sonstige zahlungsverpflichtung */}
                   {showValidation && data.otherzahlungsverpflichtung && (() => {
@@ -2389,6 +2480,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                     _tempBausparvertraege: undefined // Clear temporary storage
                   })}
                   className="custom-radio"
+                  disabled={isReadOnly}
                 />
                 <Form.Check
                   inline
@@ -2405,6 +2497,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                     } // Save current data to temporary storage
                   })}
                   className="custom-radio"
+                  disabled={isReadOnly}
                 />
               </div>
             </div>
@@ -2430,6 +2523,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                           placeholder="Institut"
                           value={data.institutbausparvertraege || ''}
                           onChange={e => onChange({ institutbausparvertraege: e.target.value })}
+                          disabled={isReadOnly}
                         />
                         <label>Institut</label>
                       </Form.Floating>
@@ -2440,6 +2534,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                         onChange={val => onChange({ sparratebausparvertraege: val })}
                         placeholder="Monatlicher Betrag"
                         label="Monatlicher Betrag (€)"
+                        disabled={isReadOnly}
                       />
                     </div>
                   </div>
@@ -2504,6 +2599,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                     _tempRentenversicherung: undefined // Clear temporary storage
                   })}
                   className="custom-radio"
+                  disabled={isReadOnly}
                 />
                 <Form.Check
                   inline
@@ -2520,6 +2616,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                     } // Save current data to temporary storage
                   })}
                   className="custom-radio"
+                  disabled={isReadOnly}
                 />
               </div>
             </div>
@@ -2545,6 +2642,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                           placeholder="Institut"
                           value={data.institutkapitalrentenversicherung || ''}
                           onChange={e => onChange({ institutkapitalrentenversicherung: e.target.value })}
+                          disabled={isReadOnly}
                         />
                         <label>Institut</label>
                       </Form.Floating>
@@ -2555,6 +2653,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                         onChange={val => onChange({ praemiekapitalrentenversicherung: val })}
                         placeholder="Monatlicher Betrag"
                         label="Monatlicher Betrag (€)"
+                        disabled={isReadOnly}
                       />
                     </div>
                   </div>
@@ -2612,6 +2711,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                   onChange={val => onChange({ expensespayable: val })}
                   placeholder="Betrag"
                   label="Betrag (€)"
+                  disabled={isReadOnly}
                 />
               </div>
             </div>
@@ -2641,6 +2741,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                   onChange={val => onChange({ bankoverdraft: val })}
                   placeholder="Betrag"
                   label="Betrag (€)"
+                  disabled={isReadOnly}
                 />
               </div>
             </div>
@@ -2670,6 +2771,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                   onChange={val => onChange({ debtpayable: val })}
                   placeholder="Betrag"
                   label="Betrag (€)"
+                  disabled={isReadOnly}
                 />
               </div>
             </div>
@@ -2702,6 +2804,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                   checked={data.hasbuergschaft === true}
                   onChange={() => onChange({ hasbuergschaft: true })}
                   className="custom-radio"
+                  disabled={isReadOnly}
                 />
                 <Form.Check
                   inline
@@ -2711,6 +2814,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                   checked={data.hasbuergschaft === false}
                   onChange={() => onChange({ hasbuergschaft: false })}
                   className="custom-radio"
+                  disabled={isReadOnly}
                 />
               </div>
             </div>

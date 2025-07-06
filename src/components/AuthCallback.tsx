@@ -50,7 +50,7 @@ const AuthCallback: React.FC = () => {
               // Only store if no existing data
               if (!existingData?.adult_count) {
                 console.log('AuthCallback: Storing eligibility data');
-                await storeEligibilityData(session.user.id, JSON.parse(pendingData));
+                await storeEligibilityData(session.user.id, JSON.parse(pendingData), session.user.email);
               }
               
               // Clear the temporary storage regardless

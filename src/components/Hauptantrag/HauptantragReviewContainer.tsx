@@ -103,6 +103,27 @@ const stepTitles = [
 
 const getStepTitle = (step: number) => stepTitles[step - 1] || '';
 
+// Helper function to normalize person data structure
+const normalizePersonData = (person: any): any => {
+  return {
+    title: person.title || '',
+    firstName: person.firstname || person.firstName || '',
+    lastName: person.lastname || person.lastName || '',
+    nationality: person.nationality || '',
+    birthDate: person.birthDate || '',
+    street: person.person_street || person.street || '',
+    houseNumber: person.person_housenumber || person.houseNumber || '',
+    postalCode: person.person_postalcode || person.postalCode || '',
+    city: person.person_city || person.city || '',
+    phone: person.phone || '',
+    email: person.email || '',
+    employment: {
+      type: person.employment?.type || person.employment || '',
+      details: person.employment?.details || person.branche || ''
+    }
+  };
+};
+
 const HauptantragReviewContainer: React.FC<HauptantragReviewContainerProps> = ({ residentId }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [formData, setFormData] = useState<any>(null);
@@ -181,24 +202,8 @@ const HauptantragReviewContainer: React.FC<HauptantragReviewContainerProps> = ({
               ...userData?.bevollmaechtigte
             },
             persons: [
-              {
-                title: userData?.title || '',
-                firstName: userData?.firstname || '',
-                lastName: userData?.lastname || '',
-                nationality: userData?.nationality || '',
-                birthDate: userData?.birthDate || '',
-                street: userData?.person_street || '',
-                houseNumber: userData?.person_housenumber || '',
-                postalCode: userData?.person_postalcode || '',
-                city: userData?.person_city || '',
-                phone: userData?.phone || '',
-                email: userData?.email || '',
-                employment: {
-                  type: userData?.employment || '',
-                  details: userData?.branche || ''
-                }
-              },
-              ...(userData?.weitere_antragstellende_personen || [])
+              normalizePersonData(userData),
+              ...(userData?.weitere_antragstellende_personen || []).map(normalizePersonData)
             ]
           },
           step2: {

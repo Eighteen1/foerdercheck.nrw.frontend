@@ -656,15 +656,27 @@ export const sendNewApplicationNotification = async (applicationId: string, city
     if (appError) throw appError;
 
     // Get resident details
-    const { data: resident, error: residentError } = await supabase
-      .from('user_data')
-      .select('firstname, lastname')
-      .eq('id', application.resident_id)
-      .single();
+    let residentName = 'Unbekannter Antragsteller';
+    try {
+      const { data: resident, error: residentError } = await supabase
+        .from('user_data')
+        .select('firstname, lastname')
+        .eq('id', application.resident_id)
+        .single();
 
-    if (residentError) throw residentError;
+      if (!residentError && resident) {
+        const firstName = resident.firstname || '';
+        const lastName = resident.lastname || '';
+        const fullName = `${firstName} ${lastName}`.trim();
+        if (fullName) {
+          residentName = fullName;
+        }
+      }
+    } catch (residentError) {
+      console.warn('Failed to fetch resident details, using fallback name:', residentError);
+      // Continue with fallback name
+    }
 
-    const residentName = `${resident.firstname} ${resident.lastname}`.trim();
     const formattedType = TYPE_LABELS[application.type] || application.type;
 
     // Get assigned agent details if there is one
