@@ -119,59 +119,33 @@ const UploadDocumentPage: React.FC = () => {
     setError(null);
 
     try {
-      // Determine applicant key for file path
-      let applicantKey: string;
-      if (documentRequest.applicant_type === 'general') {
-        applicantKey = 'general';
-      } else if (documentRequest.applicant_type === 'hauptantragsteller') {
-        applicantKey = 'hauptantragsteller';
-      } else {
-        applicantKey = `applicant_${documentRequest.applicant_number}`;
-      }
-
-      // Create file path
-      const filePath = `${documentRequest.resident_id}/${applicantKey}/${documentRequest.document_type_id}/${selectedFile.name}`;
-
       // Progress simulation
       const progressInterval = setInterval(() => {
         setUploadProgress(prev => Math.min(prev + Math.random() * 20, 90));
       }, 200);
 
-      // Upload file to Supabase Storage
-      const { error: uploadError } = await supabase.storage
-        .from('documents')
-        .upload(filePath, selectedFile, {
-          upsert: true
-        });
+      // Create FormData for file upload
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      formData.append('token', token);
+
+      // Upload file through backend
+      const response = await fetch(`${BACKEND_URL}/api/upload-requested-document-file`, {
+        method: 'POST',
+        body: formData,
+      });
 
       clearInterval(progressInterval);
 
-      if (uploadError) {
-        throw uploadError;
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.detail || 'Fehler beim Hochladen des Dokuments.');
       }
 
       setUploadProgress(100);
 
       // Brief delay to show 100% completion
       await new Promise(resolve => setTimeout(resolve, 500));
-
-      // Call backend to update document status
-      const response = await fetch(`${BACKEND_URL}/api/upload-requested-document`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          token: token,
-          file_name: selectedFile.name,
-          file_path: filePath,
-        }),
-      });
-
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data.detail || 'Fehler beim Speichern des Dokuments.');
-      }
 
       setSuccess(true);
     } catch (err: any) {
