@@ -471,16 +471,7 @@ const PersonalSpace: React.FC = () => {
   
       console.log('Successfully inserted application:', data);
   
-      // Update user_data
-      const { error: userError } = await supabase
-        .from('user_data')
-        .update({ application_status: 'submitted' })
-        .eq('id', user?.id);
-  
-      if (userError) {
-        console.error('User data update error:', userError);
-        throw userError;
-      }
+      // Note: application_status in user_data is now automatically updated by database trigger
 
       // Send notifications
       if (assignedAgent) {

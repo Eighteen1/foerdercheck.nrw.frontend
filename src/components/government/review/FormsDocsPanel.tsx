@@ -3,6 +3,8 @@ import { supabase } from '../../../lib/supabase';
 import EinkommenserklaerungReviewContainer from '../../Einkommenserklaerung/EinkommenserklaerungReviewContainer';
 import HauptantragReviewContainer from '../../Hauptantrag/HauptantragReviewContainer';
 import SelbstauskunftReviewContainer from '../../Selbstauskunft/SelbstauskunftReviewContainer';
+import WoFIVReviewContainer from '../../WoFIV/WoFIVReviewContainer';
+import Din277ReviewContainer from '../../DIN277/Din277ReviewContainer';
 
 type DocumentStatus = {
   fileName: string;
@@ -101,6 +103,8 @@ const FORM_COMPONENTS: Record<string, React.FC<{ residentId: string }>> = {
   'einkommenserklaerung': EinkommenserklaerungReviewContainer,
   'hauptantrag': HauptantragReviewContainer,
   'selbstauskunft': SelbstauskunftReviewContainer,
+  'berechnungwofiv': WoFIVReviewContainer,
+  'berechnungrauminhalt': Din277ReviewContainer,
 };
 
 // Inject Material Icons font if not already present

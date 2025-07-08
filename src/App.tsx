@@ -24,6 +24,8 @@ import GovernmentLogin from './components/government/GovernmentLogin';
 import GovernmentDashboard from './components/government/GovernmentDashboard';
 import ApplicationReviewContainer from './components/government/review/ApplicationReviewContainer';
 import SelbstauskunftContainer from './components/Selbstauskunft/SelbstauskunftContainer';
+import WoFIVContainer from './components/WoFIV/WoFIVContainer';
+import Din277Container from './components/DIN277/Din277Container';
 
 function App() {
   return (
@@ -75,6 +77,16 @@ function App() {
               <Route path="/selbstauskunft" element={
                 <RoutingProtection requireAuth>
                   <SelbstauskunftContainer />
+                </RoutingProtection>
+              } />
+              <Route path="/wofiv" element={
+                <RoutingProtection requireAuth>
+                  <WoFIVContainer />
+                </RoutingProtection>
+              } />
+              <Route path="/din277" element={
+                <RoutingProtection requireAuth>
+                  <Din277Container />
                 </RoutingProtection>
               } />
               <Route path="/upload-document/:token" element={<UploadDocumentPage />} />

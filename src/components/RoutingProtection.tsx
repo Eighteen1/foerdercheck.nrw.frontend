@@ -68,12 +68,15 @@ const RoutingProtection: React.FC<RoutingProtectionProps> = ({
     case '/document-upload':
     case '/hauptantrag':
     case '/einkommenserklaerung':
+    case '/selbstauskunft':
+    case '/wofiv':
+    case '/din277':
       if (!isAuthenticated && !isDevelopment) {
         console.log('Redirecting from protected pages - not authenticated');
         return <Navigate to="/" replace state={{ from: currentPath }} />;
       }
       // Allow navigation between protected pages
-      if (isDirectAccess() && !location.state?.from?.includes('document-') && !location.state?.from?.includes('hauptantrag') && !location.state?.from?.includes('einkommenserklaerung') && !isDevelopment) {
+      if (isDirectAccess() && !location.state?.from?.includes('document-') && !location.state?.from?.includes('hauptantrag') && !location.state?.from?.includes('einkommenserklaerung') && !location.state?.from?.includes('selbstauskunft') && !location.state?.from?.includes('wofiv') && !location.state?.from?.includes('din277') && !isDevelopment) {
         console.log('Redirecting from protected pages - direct access');
         return <Navigate to="/personal-space" replace />;
       }

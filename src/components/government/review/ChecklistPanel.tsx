@@ -147,16 +147,34 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
       
       console.log('Updating progress:', progress);
       
+      // Get current application status to check if we need to change it back to in_progress
+      const { data: currentApp, error: fetchError } = await supabase
+        .from('applications')
+        .select('status')
+        .eq('id', applicationId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Prepare the update object
+      const updateData: any = {
+        review_data: { checklistItems: updatedItems },
+        review_progress: progress,
+        updated_at: new Date().toISOString(),
+      };
+
+      // If current status is document_received, change it back to in_progress
+      if (currentApp.status === 'document_received') {
+        updateData.status = 'in_progress';
+      }
+
       // Save to database with updated_at and last_edit_agent
       const user = await getCurrentUser();
+      updateData.last_edit_agent = user?.id || null;
+
       const { error: updateError, data } = await supabase
         .from('applications')
-        .update({
-          review_data: { checklistItems: updatedItems },
-          review_progress: progress,
-          updated_at: new Date().toISOString(),
-          last_edit_agent: user?.id || null
-        })
+        .update(updateData)
         .eq('id', applicationId)
         .select();
 

@@ -395,6 +395,39 @@ const DocumentUpload: React.FC = () => {
     applicantNumber?: number
   } | null>(null);
 
+  // Form progress state
+  const [formProgress, setFormProgress] = useState<{ [key: string]: number }>({
+    wofiv: 0,
+    din277: 0
+  });
+
+  // Function to fetch form progress from database
+  const fetchFormProgress = async () => {
+    if (!user?.id) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('user_data')
+        .select('berechnung_woFIV_progress, berechnung_din277_progress')
+        .eq('id', user.id)
+        .single();
+
+      if (error) {
+        console.error('Error fetching form progress:', error);
+        return;
+      }
+
+      if (data) {
+        setFormProgress({
+          wofiv: data.berechnung_woFIV_progress || 0,
+          din277: data.berechnung_din277_progress || 0
+        });
+      }
+    } catch (error) {
+      console.error('Error in fetchFormProgress:', error);
+    }
+  };
+
   const toggleSection = (section: string) => {
     setExpandedSection(expandedSection === section ? '' : section);
   };
@@ -488,8 +521,8 @@ const DocumentUpload: React.FC = () => {
   );
 
   const formSections: FormSection[] = [
-    { title: "Berechnung der Wohn- und Nutzfläche nach WoFIV", progress: 0 },
-    { title: "Berechnung des Brutto-Rauminhalts des Gebäudes nach DIN 277", progress: 0 }
+    { title: "Berechnung der Wohn- und Nutzfläche nach WoFIV", progress: formProgress.wofiv },
+    { title: "Berechnung des Brutto-Rauminhalts des Gebäudes nach DIN 277", progress: formProgress.din277 }
   ];
 
   // Function to determine required documents based on user data
@@ -995,6 +1028,7 @@ const DocumentUpload: React.FC = () => {
 
   useEffect(() => {
     loadDocumentRequirements();
+    fetchFormProgress();
   }, [user?.id]);
 
   const handleFileUpload = async (fieldId: string, file: File) => {
@@ -1899,13 +1933,22 @@ const DocumentUpload: React.FC = () => {
                   style={{ 
                     backgroundColor: '#064497', 
                     border: 'none',
-                    width: 'calc(100% - 45px - 1rem)'
+                    width: 'calc(100% - 55px - 1rem)'
+                  }}
+                  onClick={() => {
+                    if (index === 0) {
+                      // Navigate to WoFIV form for first button
+                      navigate('/wofiv', { state: { from: 'document-upload' } });
+                    } else if (index === 1) {
+                      // Navigate to DIN 277 form for second button
+                      navigate('/din277', { state: { from: 'document-upload' } });
+                    }
                   }}
                 >
                   {section.title}
                 </Button>
                 <div className="border rounded-circle p-2 d-flex align-items-center justify-content-center" 
-                     style={{ width: '45px', height: '45px' }}>
+                     style={{ width: '55px', height: '55px', color: '#064497', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}>
                   {section.progress}%
                 </div>
               </div>

@@ -78,6 +78,9 @@ const UploadDocumentPage: React.FC = () => {
             setError('Dokumentenanfrage nicht gefunden oder bereits bearbeitet.');
           } else if (response.status === 410) {
             setError('Dokumentenanfrage ist abgelaufen.');
+          } else if (response.status === 409) {
+            const data = await response.json().catch(() => ({}));
+            setError(data.detail || 'Dokument-Upload nicht möglich. Der Antrag wurde bereits entschieden.');
           } else {
             setError('Fehler beim Laden der Dokumentenanfrage.');
           }
@@ -139,6 +142,9 @@ const UploadDocumentPage: React.FC = () => {
 
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
+        if (response.status === 409) {
+          throw new Error(data.detail || 'Dokument-Upload nicht möglich. Der Antrag wurde bereits entschieden.');
+        }
         throw new Error(data.detail || 'Fehler beim Hochladen des Dokuments.');
       }
 
@@ -158,44 +164,50 @@ const UploadDocumentPage: React.FC = () => {
 
   if (loading) {
     return (
-      <Container className="py-5">
-        <div className="text-center">
-          <Spinner animation="border" style={{ color: '#064497' }} />
-          <p className="mt-3">Lade Dokumentenanfrage...</p>
-        </div>
-      </Container>
+      <div className="relative bg-gray-50 min-h-screen">
+        <Container className="py-5">
+          <div className="text-center">
+            <Spinner animation="border" style={{ color: '#064497' }} />
+            <p className="mt-3">Lade Dokumentenanfrage...</p>
+          </div>
+        </Container>
+      </div>
     );
   }
 
   if (error && !documentRequest) {
     return (
-      <Container className="py-5">
-        <Card className="mx-auto" style={{ maxWidth: '600px' }}>
-          <Card.Body className="text-center">
-            <div className="mb-3">
-              <i className="bi bi-exclamation-triangle-fill text-danger" style={{ fontSize: '3rem' }}></i>
-            </div>
-            <h4 className="text-danger mb-3">Fehler</h4>
-            <p>{error}</p>
-          </Card.Body>
-        </Card>
-      </Container>
+      <div className="relative bg-gray-50 min-h-screen">
+        <Container className="py-5">
+          <Card className="mx-auto border-0 shadow-lg" style={{ maxWidth: '600px' }}>
+            <Card.Body className="text-center">
+              <div className="mb-3">
+                <i className="bi bi-exclamation-triangle-fill text-danger" style={{ fontSize: '3rem' }}></i>
+              </div>
+              <h4 className="text-danger mb-3">Fehler</h4>
+              <p>{error}</p>
+            </Card.Body>
+          </Card>
+        </Container>
+      </div>
     );
   }
 
   if (success) {
     return (
-      <Container className="py-5">
-        <Card className="mx-auto" style={{ maxWidth: '600px' }}>
-          <Card.Body className="text-center">
-            <div className="mb-3">
-              <i className="bi bi-check-circle-fill text-success" style={{ fontSize: '3rem' }}></i>
-            </div>
-            <h4 className="text-success mb-3">Dokument erfolgreich hochgeladen!</h4>
-            <p>Das Dokument wurde erfolgreich an Ihren Sachbearbeiter übermittelt.</p>
-          </Card.Body>
-        </Card>
-      </Container>
+      <div className="relative bg-gray-50 min-h-screen">
+        <Container className="py-5">
+          <Card className="mx-auto border-0 shadow-lg" style={{ maxWidth: '600px' }}>
+            <Card.Body className="text-center">
+              <div className="mb-3">
+                <i className="bi bi-check-circle-fill text-success" style={{ fontSize: '3rem' }}></i>
+              </div>
+              <h4 className="text-success mb-3">Dokument erfolgreich hochgeladen!</h4>
+              <p>Das Dokument wurde erfolgreich an Ihren Sachbearbeiter übermittelt.</p>
+            </Card.Body>
+          </Card>
+        </Container>
+      </div>
     );
   }
 
@@ -221,114 +233,313 @@ const UploadDocumentPage: React.FC = () => {
 
   if (isExpired) {
     return (
-      <Container className="py-5">
-        <Card className="mx-auto" style={{ maxWidth: '600px' }}>
-          <Card.Body className="text-center">
-            <div className="mb-3">
-              <i className="bi bi-clock-fill text-warning" style={{ fontSize: '3rem' }}></i>
-            </div>
-            <h4 className="text-warning mb-3">Anfrage abgelaufen</h4>
-            <p>Diese Dokumentenanfrage ist am {expiresAt.toLocaleDateString()} abgelaufen.</p>
-            <p>Bitte wenden Sie sich an Ihren Sachbearbeiter für eine neue Anfrage.</p>
-          </Card.Body>
-        </Card>
-      </Container>
+      <div className="relative bg-gray-50 min-h-screen">
+        <Container className="py-5">
+          <Card className="mx-auto border-0 shadow-lg" style={{ maxWidth: '600px' }}>
+            <Card.Body className="text-center">
+              <div className="mb-3">
+                <i className="bi bi-clock-fill text-warning" style={{ fontSize: '3rem' }}></i>
+              </div>
+              <h4 className="text-warning mb-3">Anfrage abgelaufen</h4>
+              <p>Diese Dokumentenanfrage ist am {expiresAt.toLocaleDateString()} abgelaufen.</p>
+              <p>Bitte wenden Sie sich an Ihren Sachbearbeiter für eine neue Anfrage.</p>
+            </Card.Body>
+          </Card>
+        </Container>
+      </div>
     );
   }
 
   return (
-    <Container className="py-5">
-      <Card className="mx-auto" style={{ maxWidth: '800px' }}>
-        <Card.Header style={{ backgroundColor: '#064497', color: 'white' }}>
-          <h3 className="mb-0">Dokument hochladen</h3>
-        </Card.Header>
-        <Card.Body>
-          {/* Document Info */}
-          <div className="mb-4 p-3" style={{ backgroundColor: '#f8f9fa', borderRadius: '8px' }}>
-            <h5 style={{ color: '#064497', marginBottom: '0.5rem' }}>{documentInfo.title}</h5>
-            <p className="text-muted mb-2">{documentInfo.description}</p>
-            <p className="mb-1"><strong>Für:</strong> {getApplicantName()}</p>
-            <p className="mb-0"><strong>Gültig bis:</strong> {expiresAt.toLocaleDateString()}</p>
-          </div>
-
-          {/* Custom Message */}
-          {documentRequest.custom_message && (
-            <Alert variant="info">
-              <strong>Nachricht vom Sachbearbeiter:</strong><br />
-              {documentRequest.custom_message}
-            </Alert>
-          )}
-
-          {/* Error Display */}
-          {error && (
-            <Alert variant="danger">{error}</Alert>
-          )}
-
-          {/* File Selection */}
-          <div className="mb-4">
-            <label className="form-label">Datei auswählen</label>
-            <input
-              type="file"
-              className="form-control"
-              onChange={handleFileSelect}
-              disabled={uploading}
-              accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-            />
-            <div className="form-text">
-              Erlaubte Dateiformate: PDF, JPEG, PNG, DOC, DOCX. Maximale Größe: 50MB
-            </div>
-          </div>
-
-          {/* Selected File Info */}
-          {selectedFile && (
-            <div className="mb-4 p-3" style={{ backgroundColor: '#e8f5e8', borderRadius: '8px' }}>
-              <div className="d-flex align-items-center">
-                <i className="bi bi-file-earmark text-success me-2" style={{ fontSize: '1.5rem' }}></i>
-                <div>
-                  <div><strong>{selectedFile.name}</strong></div>
-                  <div className="text-muted">{(selectedFile.size / 1024 / 1024).toFixed(2)} MB</div>
+    <div className="relative bg-gray-50 min-h-screen">
+      <style>
+        {`
+          /* Blue corner design */
+          .blue-corner {
+            position: absolute;
+            top: -170px;
+            left: -10%;
+            width: 55%;
+            height: 300px;
+            background: #064497;
+            border-radius: 50%;
+            z-index: 2;
+            pointer-events: none;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            overflow: visible;
+          }
+          .blue-corner-text {
+            pointer-events: auto;
+            text-align: center;
+            color: #ffffff;
+            font-weight: 300;
+            width: 100%;
+            position: relative;
+            font-weight: 300;
+            font-family: 'Roboto';
+            font-style: normal;
+          }
+          .blue-corner-text.long {
+            margin-top: 200px;
+            font-size: 30px;
+            display: block;
+            font-weight: 300;
+            font-family: 'Roboto';
+            text-align: center;
+          }
+          .blue-corner-text.short {
+            display: none;
+            margin-top: 50px;
+            font-size: 28px;
+            font-weight: 300;
+            font-family: 'Roboto';
+            text-align: center;
+          }
+          
+          /* Custom file input styling */
+          .custom-file-input {
+            position: relative;
+            display: inline-block;
+            cursor: pointer;
+            width: 100%;
+          }
+          
+          .custom-file-input input[type="file"] {
+            position: absolute;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+          }
+          
+          .custom-file-label {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px 24px;
+            background: #fff;
+            border: 2px dashed #064497;
+            border-radius: 8px;
+            color: #064497;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            min-height: 60px;
+          }
+          
+          .custom-file-label:hover {
+            background: #f8f9fa;
+            border-color: #0a5cb8;
+          }
+          
+          .custom-file-label i {
+            margin-right: 8px;
+            font-size: 1.2rem;
+          }
+          
+          /* Progress bar styling */
+          .progress-bar {
+            background-color: #064497 !important;
+          }
+          
+          .progress {
+            background-color: #e9ecef;
+            border-radius: 0.5rem;
+            height: 10px;
+          }
+          
+          /* Hide file type icons */
+          .file-display {
+            display: flex;
+            align-items: center;
+            padding: 16px;
+            background: #e8f5e8;
+            border-radius: 12px;
+            border: 1px solid #d4edda;
+          }
+          
+          .file-display::before {
+            content: '';
+            width: 0;
+            height: 0;
+            display: none;
+          }
+          
+          .file-display * {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+          }
+          
+          /* Responsive design */
+          @media (max-width: 980px) {
+            .blue-corner {
+              width: 35%;
+              height: 140px;
+              top: -50px;
+              left: -5%;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            }
+            .blue-corner-text.long {
+              display: none !important;
+            }
+            .blue-corner-text.short {
+              display: block !important;
+              margin-bottom: 0;
+              position: relative;
+              font-weight: 300;
+            }
+          }
+          @media (max-width: 600px) {
+            .blue-corner {
+              display: none;
+            }
+          }
+        `}
+      </style>
+      
+      {/* Blue corner design */}
+      <div className="blue-corner">
+        <span className="blue-corner-text long">DOKUMENTE HOCHLADEN</span>
+        <span className="blue-corner-text short">DOKUMENTE</span>
+      </div>
+      
+      <Container className="py-5 pt-32">
+        <Card className="mx-auto border-0 shadow-lg mt-32" style={{ maxWidth: '800px', backgroundColor: '#ffffff' }}>
+          <Card.Body className="p-5">
+            {/* Document Info */}
+            <div className="mb-4 p-4" style={{ backgroundColor: '#f8f9fa', borderRadius: '12px', border: '1px solid #e9ecef' }}>
+              <h5 style={{ color: '#064497', marginBottom: '0.5rem', fontWeight: '500', fontSize: '1.5rem' }}>{documentInfo.title}</h5>
+              <p className="text-muted mb-2" style={{ lineHeight: '1.6' }}>{documentInfo.description}</p>
+              <div className="row">
+                <div className="col-md-6">
+                  <p className="mb-1"><strong>Für:</strong> {getApplicantName()}</p>
+                </div>
+                <div className="col-md-6">
+                  <p className="mb-0"><strong>Gültig bis:</strong> {expiresAt.toLocaleDateString()}</p>
                 </div>
               </div>
             </div>
-          )}
 
-          {/* Upload Progress */}
-          {uploading && (
+            {/* Custom Message */}
+            {documentRequest.custom_message && (
+              <Alert variant="info" className="border-0" style={{ backgroundColor: '#e7f3ff', borderRadius: '12px' }}>
+                <div className="d-flex align-items-start">
+                  <div>
+                    <strong>Nachricht vom Sachbearbeiter:</strong><br />
+                    {documentRequest.custom_message}
+                  </div>
+                </div>
+              </Alert>
+            )}
+
+            {/* Error Display */}
+            {error && (
+              <Alert variant="danger" className="border-0" style={{ backgroundColor: '#fef2f2', borderRadius: '12px' }}>
+                <div className="d-flex align-items-start">
+                  <i className="bi bi-exclamation-triangle-fill text-danger me-3" style={{ fontSize: '1.2rem', marginTop: '2px' }}></i>
+                  <div>{error}</div>
+                </div>
+              </Alert>
+            )}
+
+            {/* File Selection */}
             <div className="mb-4">
-              <div className="d-flex justify-content-between mb-2">
-                <span>Upload-Fortschritt</span>
-                <span>{Math.round(uploadProgress)}%</span>
+              <label className="form-label fw-semibold mb-3 mt-2" style={{ color: '#000000' }}>Datei auswählen</label>
+              <div className="custom-file-input">
+                <input
+                  type="file"
+                  onChange={handleFileSelect}
+                  disabled={uploading}
+                  accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx,.HEIC"
+                />
+                <div className="custom-file-label">
+                  <i className="bi bi-cloud-upload"></i>
+                  <span>Datei auswählen oder hierher ziehen</span>
+                </div>
               </div>
-              <ProgressBar now={uploadProgress} style={{ height: '8px' }} />
+              <div className="form-text mt-2" style={{ fontSize: '0.9rem' }}>
+                Erlaubte Dateiformate: PDF, JPEG, PNG, DOC, DOCX, XLS, XLSX, HEIC. Maximale Größe: 50MB
+              </div>
             </div>
-          )}
 
-          {/* Upload Button */}
-          <div className="text-center">
-            <Button
-              onClick={handleUpload}
-              disabled={!selectedFile || uploading}
-              style={{
-                backgroundColor: '#064497',
-                border: 'none',
-                padding: '12px 32px',
-                fontSize: '1.1rem',
-                fontWeight: 'bold'
-              }}
-            >
-              {uploading ? (
-                <>
-                  <Spinner animation="border" size="sm" className="me-2" />
-                  Wird hochgeladen...
-                </>
-              ) : (
-                'Dokument hochladen'
-              )}
-            </Button>
-          </div>
-        </Card.Body>
-      </Card>
-    </Container>
+            {/* Selected File Info */}
+            {selectedFile && (
+              <div className="mb-4 file-display">
+                <div className="d-flex align-items-center w-100">
+                  <i className="bi bi-file-earmark text-success me-3" style={{ fontSize: '1.8rem' }}></i>
+                  <div className="flex-grow-1">
+                    <div className="fw-semibold" style={{ fontSize: '1.1rem' }}>{selectedFile.name}</div>
+                    <div className="text-muted" style={{ fontSize: '0.9rem' }}>
+                      {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                    </div>
+                  </div>
+                  <div className="text-success">
+                    <i className="bi bi-check-circle-fill" style={{ fontSize: '1.5rem' }}></i>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Upload Progress */}
+            {uploading && (
+              <div className="mb-4 p-4" style={{ backgroundColor: '#f8f9fa', borderRadius: '12px' }}>
+                <div className="d-flex justify-content-between mb-3">
+                  <span className="fw-semibold">Upload-Fortschritt</span>
+                  <span className="fw-semibold" style={{ color: '#064497' }}>{Math.round(uploadProgress)}%</span>
+                </div>
+                <ProgressBar now={uploadProgress} className="progress" />
+              </div>
+            )}
+
+            {/* Upload Button */}
+            <div className="text-center">
+              <Button
+                onClick={handleUpload}
+                disabled={!selectedFile || uploading}
+                className="px-5 py-3 fw-regular"
+                style={{ 
+                  backgroundColor: '#064497', 
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '1.1rem',
+                  boxShadow: '0 4px 12px rgba(6, 68, 151, 0.2)',
+                  transition: 'all 0.3s ease'
+                }}
+                onMouseEnter={(e) => {
+                  if (!e.currentTarget.disabled) {
+                    e.currentTarget.style.backgroundColor = '#0a5cb8';
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                    e.currentTarget.style.boxShadow = '0 6px 20px rgba(6, 68, 151, 0.3)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!e.currentTarget.disabled) {
+                    e.currentTarget.style.backgroundColor = '#064497';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(6, 68, 151, 0.2)';
+                  }
+                }}
+              >
+                {uploading ? (
+                  <>
+                    <Spinner animation="border" size="sm" className="me-2" />
+                    Wird hochgeladen...
+                  </>
+                ) : (
+                  <>
+                    Dokument hochladen
+                  </>
+                )}
+              </Button>
+            </div>
+          </Card.Body>
+        </Card>
+      </Container>
+    </div>
   );
 };
 

@@ -21,13 +21,13 @@ document.head.appendChild(styleSheet);
 const STATUS_LABELS = {
   new: "Neue Anträge",
   in_progress: "In Bearbeitung",
-  documents_requested: "In Bearbeitung",
-  documents_received: "In Bearbeitung",
+  document_requested: "In Bearbeitung",
+  document_received: "In Bearbeitung",
   rejected: "Geprüfte Anträge",
   approved: "Geprüfte Anträge",
 };
 
-const IN_PROGRESS_STATUSES = ["in_progress", "documents_requested", "documents_received"];
+const IN_PROGRESS_STATUSES = ["in_progress", "document_requested", "document_received"];
 const FINISHED_STATUSES = ["rejected", "approved"];
 
 const DEFAULT_AGENT_TEXT = "Nicht zugewiesen";
@@ -246,8 +246,8 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
   ];
   const statusOptions = [
     { label: "In Bearbeitung", value: "in_progress" },
-    { label: "Dokumente angefragt", value: "documents_requested" },
-    { label: "Dokumente erhalten", value: "documents_received" },
+    { label: "Dokumente angefragt", value: "document_requested" },
+    { label: "Dokumente erhalten", value: "document_received" },
   ];
 
   const handleSearch = async () => {
@@ -908,8 +908,8 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
                     </td>
                     <td>
                       {app.status === "in_progress" && "In Bearbeitung"}
-                      {app.status === "documents_requested" && "Dokumente angefragt"}
-                      {app.status === "documents_received" && "Dokumente erhalten"}
+                      {app.status === "document_requested" && "Dokumente angefragt"}
+                      {app.status === "document_received" && "Dokumente erhalten"}
                     </td>
                   </tr>
                 ))

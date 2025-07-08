@@ -767,4 +767,164 @@ export const sendNewApplicationNotification = async (applicationId: string, city
     console.error('Error in sendNewApplicationNotification:', err);
     return false;
   }
+};
+
+export const sendDocumentSubmittedMessage = async (
+  recipientId: string, 
+  applicationId: string, 
+  documentTitle: string, 
+  filename: string, 
+  allCompleted: boolean = false
+) => {
+  try {
+    // Get recipient's settings and info
+    const { data: recipientData, error: recipientError } = await supabase
+      .from('agents')
+      .select('name, email, settings')
+      .eq('id', recipientId)
+      .single();
+
+    if (recipientError) throw recipientError;
+
+    // Create message content
+    const statusText = allCompleted 
+      ? "Alle angeforderten Dokumente wurden eingereicht." 
+      : "Ein angefordertes Dokument wurde eingereicht.";
+    const messageContent = `Für den Antrag ${applicationId} wurde das Dokument '${documentTitle}' (Datei: ${filename}) hochgeladen. ${statusText}`;
+
+    // Send internal message
+    const messageSent = await sendMessage({
+      recipient_id: recipientId,
+      type: 'system',
+      category: 'document_submitted',
+      title: 'Dokument eingereicht',
+      content: messageContent,
+      metadata: { 
+        application_id: applicationId, 
+        document_title: documentTitle, 
+        filename: filename,
+        all_completed: allCompleted 
+      }
+    });
+
+    // Check if email notifications are enabled for document submissions
+    const shouldSendEmail = recipientData.settings?.notifications?.emailNotifications?.documentsSubmitted === true;
+
+    // Send email if enabled
+    if (shouldSendEmail) {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        console.error('No access token available in session');
+        throw new Error('No access token available');
+      }
+
+      const jwtToken = session.access_token;
+
+      const response = await fetch(`${BACKEND_URL}/api/send-document-submitted-message`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${jwtToken}`
+        },
+        body: JSON.stringify({
+          to_email: recipientData.email,
+          to_name: recipientData.name,
+          from_email: 'system@foerdercheck.nrw',
+          from_name: 'Fördercheck.NRW',
+          title: 'Dokument eingereicht',
+          content: messageContent,
+          application_id: applicationId,
+          document_title: documentTitle,
+          filename: filename
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Failed to send email notification:', errorData);
+        throw new Error(errorData.detail || 'Failed to send email notification');
+      }
+    }
+
+    return messageSent;
+  } catch (err) {
+    console.error('Error in sendDocumentSubmittedMessage:', err);
+    return false;
+  }
+};
+
+export const processDocumentSubmissionEmailNotifications = async () => {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) return;
+
+    // Get current user's settings
+    const { data: agentData, error: agentError } = await supabase
+      .from('agents')
+      .select('settings')
+      .eq('id', session.user.id)
+      .single();
+
+    if (agentError || !agentData) return;
+
+    // Check if email notifications for document submissions are enabled
+    const shouldSendEmail = agentData.settings?.notifications?.emailNotifications?.documentsSubmitted === true;
+    if (!shouldSendEmail) return;
+
+    // Get unprocessed document submission messages
+    const { data: messages, error: messagesError } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('recipient_id', session.user.id)
+      .eq('category', 'document_submitted')
+      .eq('type', 'system')
+      .is('email_sent', null)
+      .order('created_at', { ascending: true });
+
+    if (messagesError || !messages || messages.length === 0) return;
+
+    // Process each message
+    for (const message of messages) {
+      try {
+        const metadata = message.metadata || {};
+        const applicationId = metadata.application_id;
+        const documentTitle = metadata.document_title || 'Unbekanntes Dokument';
+        const filename = metadata.filename || 'Unbekannte Datei';
+
+        const jwtToken = session.access_token;
+
+        const response = await fetch(`${BACKEND_URL}/api/send-document-submitted-message`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${jwtToken}`
+          },
+          body: JSON.stringify({
+            to_email: session.user.email,
+            to_name: session.user.user_metadata?.name || null,
+            from_email: 'system@foerdercheck.nrw',
+            from_name: 'Fördercheck.NRW',
+            title: 'Dokument eingereicht',
+            content: message.content,
+            application_id: applicationId,
+            document_title: documentTitle,
+            filename: filename
+          }),
+        });
+
+        if (response.ok) {
+          // Mark message as email sent
+          await supabase
+            .from('messages')
+            .update({ email_sent: new Date().toISOString() })
+            .eq('id', message.id);
+        }
+      } catch (err) {
+        console.error('Error processing document submission email for message:', message.id, err);
+      }
+    }
+  } catch (err) {
+    console.error('Error in processDocumentSubmissionEmailNotifications:', err);
+  }
 }; 

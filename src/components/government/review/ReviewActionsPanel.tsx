@@ -59,6 +59,23 @@ const TYPE_LABELS: Record<string, string> = {
   "nutzungsaenderung": "Nutzungsänderung"
 };
 
+// Interface for outstanding document requests
+interface OutstandingDocumentRequest {
+  token: string;
+  document_type_id: string;
+  document_title: string;
+  document_description: string;
+  applicant_type: string;
+  applicant_number: number | null;
+  applicant_name: string;
+  custom_message: string;
+  requested_by: string;
+  requesting_agent_name: string;
+  requested_at: string;
+  expires_at: string;
+  is_expired: boolean;
+}
+
 // Document types for request modal
 const DOCUMENT_TYPES: { [id: string]: {title: string, description: string, category: string, supports_multiple?: boolean} } = {
   // General Documents
@@ -312,6 +329,15 @@ const ReviewActionsPanel: React.FC<ReviewActionsPanelProps> = ({
   const [selectedApplicantNumber, setSelectedApplicantNumber] = useState<number>(2);
   const [documentRequestMessage, setDocumentRequestMessage] = useState('');
   const [availableApplicants, setAvailableApplicants] = useState<Array<{key: string, name: string, type: 'general' | 'hauptantragsteller' | 'applicant', number?: number}>>([]);
+
+  // Add state for outstanding document requests modal
+  const [showOutstandingRequestsModal, setShowOutstandingRequestsModal] = useState(false);
+  const [outstandingRequests, setOutstandingRequests] = useState<OutstandingDocumentRequest[]>([]);
+  const [outstandingRequestsLoading, setOutstandingRequestsLoading] = useState(false);
+  const [outstandingRequestsError, setOutstandingRequestsError] = useState<string | null>(null);
+
+  // Add loading state for document request process
+  const [documentRequestProcessLoading, setDocumentRequestProcessLoading] = useState(false);
 
   // Copy to clipboard logic
   const [copied, setCopied] = useState(false);
@@ -784,8 +810,63 @@ const ReviewActionsPanel: React.FC<ReviewActionsPanelProps> = ({
     }
   };
 
-  // Handle document request
-  const handleRequestDocs = () => {
+  // Add function to fetch outstanding document requests
+  const fetchOutstandingRequests = async () => {
+    setOutstandingRequestsError(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) throw new Error('Kein Agenten-Login gefunden.');
+
+      const response = await fetch(`${BACKEND_URL}/api/outstanding-document-requests/${applicationId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.detail || 'Fehler beim Laden der ausstehenden Dokumentenanfragen.');
+      }
+
+      const data = await response.json();
+      setOutstandingRequests(data);
+      return data;
+    } catch (err: any) {
+      setOutstandingRequestsError(err.message || 'Fehler beim Laden der ausstehenden Dokumentenanfragen.');
+      return [];
+    }
+  };
+
+  // Modified handle document request function
+  const handleRequestDocs = async () => {
+    setDocumentRequestProcessLoading(true);
+    try {
+      // First check for outstanding requests
+      const outstanding = await fetchOutstandingRequests();
+      
+      if (outstanding.length > 0) {
+        // Show outstanding requests modal first
+        setShowOutstandingRequestsModal(true);
+      } else {
+        // No outstanding requests, go directly to request modal
+        handleOpenDocumentRequestModal();
+      }
+    } finally {
+      setDocumentRequestProcessLoading(false);
+    }
+  };
+
+  // Add function to handle closing outstanding requests modal
+  const handleCloseOutstandingRequestsModal = () => {
+    setShowOutstandingRequestsModal(false);
+    setOutstandingRequests([]);
+    setOutstandingRequestsError(null);
+  };
+
+  // Add function to proceed to request new documents
+  const handleProceedToRequestNewDocuments = () => {
+    setShowOutstandingRequestsModal(false);
     handleOpenDocumentRequestModal();
   };
 
@@ -1464,6 +1545,168 @@ const ReviewActionsPanel: React.FC<ReviewActionsPanelProps> = ({
           )}
         </Modal.Footer>
       </Modal>
+
+      {/* Outstanding Document Requests Modal */}
+      <Modal show={showOutstandingRequestsModal} onHide={handleCloseOutstandingRequestsModal} centered size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>Ausstehende Dokumentenanfragen</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {outstandingRequestsError ? (
+            <div className="alert alert-danger" style={{ borderRadius: '12px' }}>
+              <div className="d-flex align-items-start">
+                <i className="bi bi-exclamation-triangle-fill text-danger me-3" style={{ fontSize: '1.2rem', marginTop: '2px' }}></i>
+                <div>{outstandingRequestsError}</div>
+              </div>
+            </div>
+          ) : outstandingRequests.length === 0 ? (
+            <div className="text-center py-4">
+              <div style={{ color: '#388e3c', fontSize: '48px', marginBottom: '16px' }}>
+                <span className="material-icons" style={{ fontSize: '48px' }}>check_circle</span>
+              </div>
+              <h5 style={{ color: '#388e3c', marginBottom: '16px' }}>Keine ausstehenden Anfragen</h5>
+              <p>Alle angeforderten Dokumente wurden eingereicht oder es sind keine Anfragen vorhanden.</p>
+            </div>
+          ) : (
+            <div>
+              <div style={{ marginBottom: 20, color: '#333', fontSize: 16, fontWeight: 500 }}>
+                Folgende Dokumente wurden bereits angefragt, aber noch nicht eingereicht:
+              </div>
+              <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                {outstandingRequests.map((request, index) => (
+                  <div 
+                    key={request.token} 
+                    style={{ 
+                      marginBottom: 16, 
+                      padding: 16, 
+                      background: request.is_expired ? '#fef2f2' : '#f8f9fa', 
+                      borderRadius: 12, 
+                      border: `1px solid ${request.is_expired ? '#fecaca' : '#e9ecef'}` 
+                    }}
+                  >
+                    <div className="d-flex justify-content-between align-items-start mb-2">
+                      <h6 style={{ 
+                        color: request.is_expired ? '#dc2626' : '#064497', 
+                        marginBottom: 4, 
+                        fontWeight: 600,
+                        fontSize: 16 
+                      }}>
+                        {request.document_title}
+                      </h6>
+                      {request.is_expired && (
+                        <span style={{ 
+                          background: '#dc2626', 
+                          color: 'white', 
+                          borderRadius: 4, 
+                          padding: '2px 8px', 
+                          fontSize: 12, 
+                          fontWeight: 600 
+                        }}>
+                          Abgelaufen
+                        </span>
+                      )}
+                    </div>
+                    <p style={{ margin: '4px 0', fontSize: 14, color: '#666' }}>
+                      {request.document_description}
+                    </p>
+                    <div className="row mb-2" style={{ fontSize: 14 }}>
+                      <div className="col-md-6">
+                        <strong>Für:</strong> {request.applicant_name}
+                      </div>
+                      <div className="col-md-6">
+                        <strong>Angefragt von:</strong> {request.requesting_agent_name}
+                      </div>
+                    </div>
+                    <div className="row mb-2" style={{ fontSize: 14 }}>
+                      <div className="col-md-6">
+                        <strong>Angefragt am:</strong> {new Date(request.requested_at).toLocaleDateString()}
+                      </div>
+                      <div className="col-md-6">
+                        <strong>Gültig bis:</strong> {new Date(request.expires_at).toLocaleDateString()}
+                      </div>
+                    </div>
+                    {request.custom_message && (
+                      <div style={{ marginTop: 8, padding: 8, background: 'white', borderRadius: 6, fontSize: 14 }}>
+                        <strong>Nachricht:</strong> {request.custom_message}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div style={{ 
+                marginTop: 20, 
+                padding: 16, 
+                background: '#e7f3ff', 
+                borderRadius: 12, 
+                border: '1px solid #bfdbfe' 
+              }}>
+                <div className="d-flex align-items-start">
+                  <span className="material-icons" style={{ color: '#1976d2', marginRight: 8, fontSize: 20 }}>info</span>
+                  <div style={{ fontSize: 14, color: '#1976d2' }}>
+                    <strong>Hinweis:</strong> Der Antragsteller wurde bereits per E-Mail über diese Anfragen informiert. 
+                    Sie können dennoch weitere Dokumente anfordern, falls erforderlich.
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button 
+            variant="secondary" 
+            onClick={handleCloseOutstandingRequestsModal}
+          >
+            Schließen
+          </Button>
+          {!outstandingRequestsError && (
+            <Button 
+              variant="primary" 
+              onClick={handleProceedToRequestNewDocuments}
+              style={{ background: '#064497', border: 'none' }}
+            >
+              Weitere Dokumente anfordern
+            </Button>
+          )}
+        </Modal.Footer>
+      </Modal>
+
+      {/* Document Request Process Loading Overlay */}
+      {documentRequestProcessLoading && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999
+        }}>
+          <div style={{
+            background: 'white',
+            borderRadius: '12px',
+            padding: '32px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '16px',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+            minWidth: '280px'
+          }}>
+            <Spinner animation="border" style={{ color: '#064497', width: 48, height: 48 }} />
+            <div style={{ 
+              color: '#064497', 
+              fontSize: '18px', 
+              fontWeight: 500,
+              textAlign: 'center'
+            }}>
+              Prüfe ausstehende Anfragen...
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
