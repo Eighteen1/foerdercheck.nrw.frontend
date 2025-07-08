@@ -142,7 +142,7 @@ const Din277Container: React.FC = () => {
       setHasUnsavedChanges(false);
       
       if (navigateAfterSave) {
-        navigate('/document-upload');
+        navigate('/document-upload', { state: { from: 'din277' } });
       }
     } catch (error) {
       console.error('Error saving data:', error);
@@ -543,7 +543,11 @@ const Din277Container: React.FC = () => {
         <Modal.Footer>
           <div className="d-flex justify-content-center align-items-center w-100">
             <Button 
-              onClick={() => { setShowSuccessModal(false); saveData(true); }}
+              onClick={async () => { 
+                setShowSuccessModal(false); 
+                await saveData();
+                navigate('/document-upload', { state: { from: 'din277' } });
+              }}
               style={{ backgroundColor: '#064497', border: 'none', minWidth: 260 }}
             >
               Speichern und verlassen
