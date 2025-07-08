@@ -75,9 +75,31 @@ const RoutingProtection: React.FC<RoutingProtectionProps> = ({
         console.log('Redirecting from protected pages - not authenticated');
         return <Navigate to="/" replace state={{ from: currentPath }} />;
       }
-      // Allow navigation between protected pages
-      if (isDirectAccess() && !location.state?.from?.includes('document-') && !location.state?.from?.includes('hauptantrag') && !location.state?.from?.includes('einkommenserklaerung') && !location.state?.from?.includes('selbstauskunft') && !location.state?.from?.includes('wofiv') && !location.state?.from?.includes('din277') && !isDevelopment) {
-        console.log('Redirecting from protected pages - direct access');
+      
+      // Define allowed navigation sources for each page
+      const allowedSources = {
+        '/document-upload': ['document-check', 'wofiv', 'din277', 'hauptantrag', 'einkommenserklaerung', 'selbstauskunft', 'personal-space'],
+        '/document-check': ['personal-space'],
+        '/hauptantrag': ['document-upload', 'personal-space'],
+        '/einkommenserklaerung': ['document-upload', 'personal-space'],
+        '/selbstauskunft': ['document-upload', 'personal-space'],
+        '/wofiv': ['document-upload', 'personal-space'],
+        '/din277': ['document-upload', 'personal-space']
+      };
+      
+      // Check if navigation is from an allowed source
+      const fromPage = location.state?.from;
+      const allowedForCurrentPage = allowedSources[currentPath as keyof typeof allowedSources] || [];
+      
+      // Allow navigation if coming from an allowed source or if in development
+      if (fromPage && allowedForCurrentPage.includes(fromPage)) {
+        console.log(`Allowing navigation to ${currentPath} from ${fromPage}`);
+        break;
+      }
+      
+      // Block direct access to protected pages (except in development)
+      if (isDirectAccess() && !isDevelopment) {
+        console.log('Redirecting from protected pages - direct access blocked');
         return <Navigate to="/personal-space" replace />;
       }
       break;
