@@ -19,7 +19,8 @@ interface UploadedFileInfo {
   documentId: string;
   uploadedAt: string;
   applicantType: 'general' | 'hauptantragsteller' | 'applicant';
-  applicantNumber?: number; // null for general/hauptantragsteller, 2,3,4... for additional applicants
+  applicantUuid?: string; // UUID for additional applicants instead of applicantNumber
+  applicantNumber?: number; // Keep for backward compatibility
 }
 
 interface ApplicantDocumentStatus {
@@ -29,7 +30,7 @@ interface ApplicantDocumentStatus {
 interface DocumentStatusByApplicant {
   general: ApplicantDocumentStatus;
   hauptantragsteller: ApplicantDocumentStatus;
-  [applicantKey: string]: ApplicantDocumentStatus; // applicant_2, applicant_3, etc.
+  [applicantKey: string]: ApplicantDocumentStatus; // applicant_UUID for additional applicants
 }
 
 interface DocumentFieldRender {
@@ -42,19 +43,20 @@ interface DocumentFieldRender {
   uploadedFile?: UploadedFileInfo;
   supports_multiple?: boolean;
   applicantType: 'general' | 'hauptantragsteller' | 'applicant';
-  applicantNumber?: number;
+  applicantUuid?: string; // UUID for additional applicants
+  applicantNumber?: number; // Keep for backward compatibility
 }
 
 interface RequiredDocumentLists {
   general: string[];
   hauptantragsteller: string[];
-  additionalApplicants: { [applicantNumber: number]: string[] };
+  additionalApplicants: { [applicantUuid: string]: string[] }; // Changed from applicantNumber to applicantUuid
 }
 
 interface AdditionalDocumentsByApplicant {
   general: string[];
   hauptantragsteller: string[];
-  [applicantKey: string]: string[]; // applicant_2, applicant_3, etc.
+  [applicantKey: string]: string[]; // applicant_UUID for additional applicants
 }
 
 interface FormSection {
@@ -368,7 +370,7 @@ const DocumentUpload: React.FC = () => {
   const [showResetConfirmation, setShowResetConfirmation] = useState(false);
   const [showAddDocumentModal, setShowAddDocumentModal] = useState(false);
   const [currentModalCategory, setCurrentModalCategory] = useState<string>('');
-  const [currentModalApplicant, setCurrentModalApplicant] = useState<{ type: 'general' | 'hauptantragsteller' | 'applicant', number?: number }>({ type: 'general' });
+  const [currentModalApplicant, setCurrentModalApplicant] = useState<{ type: 'general' | 'hauptantragsteller' | 'applicant', uuid?: string }>({ type: 'general' });
   const [expandedSection, setExpandedSection] = useState<string>('General');
 
   // Upload Progress State
@@ -392,13 +394,14 @@ const DocumentUpload: React.FC = () => {
     documentId: string, 
     documentTitle: string,
     applicantType?: 'general' | 'hauptantragsteller' | 'applicant',
-    applicantNumber?: number
+    applicantUuid?: string
   } | null>(null);
 
   // Form progress state
   const [formProgress, setFormProgress] = useState<{ [key: string]: number }>({
     wofiv: 0,
-    din277: 0
+    din277: 0,
+    selbsthilfe: 0
   });
 
   // Function to fetch form progress from database
@@ -408,7 +411,7 @@ const DocumentUpload: React.FC = () => {
     try {
       const { data, error } = await supabase
         .from('user_data')
-        .select('berechnung_woFIV_progress, berechnung_din277_progress')
+        .select('berechnung_woFIV_progress, berechnung_din277_progress, selbsthilfe_progress')
         .eq('id', user.id)
         .single();
 
@@ -420,7 +423,8 @@ const DocumentUpload: React.FC = () => {
       if (data) {
         setFormProgress({
           wofiv: data.berechnung_woFIV_progress || 0,
-          din277: data.berechnung_din277_progress || 0
+          din277: data.berechnung_din277_progress || 0,
+          selbsthilfe: data.selbsthilfe_progress || 0
         });
       }
     } catch (error) {
@@ -522,7 +526,8 @@ const DocumentUpload: React.FC = () => {
 
   const formSections: FormSection[] = [
     { title: "Berechnung der Wohn- und Nutzfläche nach WoFIV", progress: formProgress.wofiv },
-    { title: "Berechnung des Brutto-Rauminhalts des Gebäudes nach DIN 277", progress: formProgress.din277 }
+    { title: "Berechnung des Brutto-Rauminhalts des Gebäudes nach DIN 277", progress: formProgress.din277 },
+    { title: "Selbsthilfeleistungen Eigentumsmaßnahmen", progress: formProgress.selbsthilfe }
   ];
 
   // Function to determine required documents based on user data
@@ -543,7 +548,8 @@ const DocumentUpload: React.FC = () => {
           is_disabled,
           hasbegstandardloan,
           employment,
-          weitere_antragstellende_personen
+          weitere_antragstellende_personen,
+          noIncome
         `)
         .eq('id', user.id)
         .single();
@@ -648,110 +654,150 @@ const DocumentUpload: React.FC = () => {
 
       // Main applicant financial documents
       if (financialData) {
-        if (financialData.hasSalaryIncome === true || financialData.isEarningRegularIncome === true) {
-          result.hauptantragsteller.push('lohn_gehaltsbescheinigungen');
-        }
+        if(userData?.noIncome !== true){
+          if (financialData.hasSalaryIncome === true || financialData.isEarningRegularIncome === true) {
+            result.hauptantragsteller.push('lohn_gehaltsbescheinigungen');
+          }
 
-        if (financialData.hasrentincome === true) {
-          result.hauptantragsteller.push('einkommenssteuerbescheid', 'einkommenssteuererklaerung');
-        }
+          if (financialData.hasrentincome === true) {
+            result.hauptantragsteller.push('einkommenssteuerbescheid', 'einkommenssteuererklaerung');
+          }
 
-        if (financialData.haspensionincome === true) {
-          result.hauptantragsteller.push('rentenbescheid');
-        }
+          if (financialData.haspensionincome === true) {
+            result.hauptantragsteller.push('rentenbescheid');
+          }
 
-        if (financialData.hasablgincome === true) {
-          result.hauptantragsteller.push('arbeitslosengeldbescheid');
-        }
+          if (financialData.hasablgincome === true) {
+            result.hauptantragsteller.push('arbeitslosengeldbescheid');
+          }
 
-        if ((financialData.hasSalaryIncome === true || financialData.isEarningRegularIncome === true) && 
-            financialData.werbungskosten && parseFloat(financialData.werbungskosten) > 0) {
-          result.hauptantragsteller.push('werbungskosten_nachweis');
-        }
+          if ((financialData.hasSalaryIncome === true || financialData.isEarningRegularIncome === true) && 
+              financialData.werbungskosten && parseFloat(financialData.werbungskosten) > 0) {
+            result.hauptantragsteller.push('werbungskosten_nachweis');
+          }
 
-        if (financialData.kinderbetreuungskosten && parseFloat(financialData.kinderbetreuungskosten) > 0) {
-          result.hauptantragsteller.push('kinderbetreuungskosten_nachweis');
-        }
+          if (financialData.kinderbetreuungskosten && parseFloat(financialData.kinderbetreuungskosten) > 0) {
+            result.hauptantragsteller.push('kinderbetreuungskosten_nachweis');
+          }
 
-        if (financialData.ispayingunterhalt === true) {
-          result.hauptantragsteller.push('unterhaltsverpflichtung_nachweis');
-        }
+          if (financialData.ispayingunterhalt === true) {
+            result.hauptantragsteller.push('unterhaltsverpflichtung_nachweis');
+          }
 
-        if (financialData.hastaxfreeunterhaltincome === true || financialData.hastaxableunterhaltincome === true) {
-          result.hauptantragsteller.push('unterhaltsleistungen_nachweis');
-        }
+          if (financialData.hastaxfreeunterhaltincome === true || financialData.hastaxableunterhaltincome === true) {
+            result.hauptantragsteller.push('unterhaltsleistungen_nachweis');
+          }
 
-        if (financialData.haskindergeldincome === true) {
-          result.hauptantragsteller.push('krankengeld_nachweis');
-        }
+          if (financialData.haskindergeldincome === true) {
+            result.hauptantragsteller.push('krankengeld_nachweis');
+          }
 
-        if (financialData.haselterngeldincome === true) {
-          result.hauptantragsteller.push('elterngeld_nachweis');
-        }
+          if (financialData.haselterngeldincome === true) {
+            result.hauptantragsteller.push('elterngeld_nachweis');
+          }
 
-        if (financialData.hasbusinessincome === true || financialData.hasagricultureincome === true) {
-          result.hauptantragsteller.push('guv_euer_nachweis');
-        }
+          if (financialData.hasbusinessincome === true || financialData.hasagricultureincome === true) {
+            result.hauptantragsteller.push('guv_euer_nachweis');
+          }
 
-        if (userData?.employment && ['apprentice', 'student', 'pupil'].includes(userData.employment)) {
-          result.hauptantragsteller.push('ausbildungsfoerderung_nachweis');
-        }
+          if (userData?.employment && ['apprentice', 'student', 'pupil'].includes(userData.employment)) {
+            result.hauptantragsteller.push('ausbildungsfoerderung_nachweis');
+          }
+       }
 
-        // Additional applicants financial documents
-        if (financialData.additional_applicants_financials && Array.isArray(financialData.additional_applicants_financials)) {
-          financialData.additional_applicants_financials.forEach((applicantFinancials: any, index: number) => {
-            const applicantNumber = index + 2;
-            result.additionalApplicants[applicantNumber] = [];
+        // Additional applicants financial documents - UUID-based structure
+        if (financialData.additional_applicants_financials) {
+          const additionalFinancialsData = financialData.additional_applicants_financials;
+          let additionalFinancialsObj: Record<string, any> = {};
+          
+          // Handle backwards compatibility: convert array to UUID-based object if needed
+          if (Array.isArray(additionalFinancialsData)) {
+            console.log('Converting financial data from legacy array format');
+            // Legacy array format - match by index to UUID
+            const personUuids = Object.keys(userData?.weitere_antragstellende_personen || {});
+            additionalFinancialsData.forEach((fin: any, index: number) => {
+              if (personUuids[index]) {
+                additionalFinancialsObj[personUuids[index]] = fin;
+              }
+            });
+          } else {
+            console.log('Using UUID-based financial data format');
+            // Already UUID-based object format
+            additionalFinancialsObj = additionalFinancialsData;
+          }
 
+          // Process each additional applicant
+          Object.entries(additionalFinancialsObj).forEach(([uuid, applicantFinancials]: [string, any]) => {
+            result.additionalApplicants[uuid] = [];
+
+            // Check employment type from weitere_antragstellende_personen
+            const weiterePersonenData = userData?.weitere_antragstellende_personen || {};
+            let weiterePersonenObj: Record<string, any> = {};
+            
+            // Handle backwards compatibility: convert array to UUID-based object if needed
+            if (Array.isArray(weiterePersonenData)) {
+              weiterePersonenData.forEach((person: any, index: number) => {
+                const personUuid = person.id || `legacy_${index}`;
+                weiterePersonenObj[personUuid] = { ...person, id: personUuid };
+              });
+            } else {
+              weiterePersonenObj = weiterePersonenData;
+            }
+
+            const additionalApplicant = weiterePersonenObj[uuid];
+
+            
+            if(additionalApplicant?.noIncome !== true && additionalApplicant?.notHousehold !== true){
+              
             if (applicantFinancials.hasSalaryIncome === true || applicantFinancials.isEarningRegularIncome === true) {
-              result.additionalApplicants[applicantNumber].push('lohn_gehaltsbescheinigungen');
+              result.additionalApplicants[uuid].push('lohn_gehaltsbescheinigungen');
             }
 
             if (applicantFinancials.hasrentincome === true) {
-              result.additionalApplicants[applicantNumber].push('einkommenssteuerbescheid', 'einkommenssteuererklaerung');
+              result.additionalApplicants[uuid].push('einkommenssteuerbescheid', 'einkommenssteuererklaerung');
             }
 
             if (applicantFinancials.haspensionincome === true) {
-              result.additionalApplicants[applicantNumber].push('rentenbescheid');
+              result.additionalApplicants[uuid].push('rentenbescheid');
             }
 
             if (applicantFinancials.hasablgincome === true) {
-              result.additionalApplicants[applicantNumber].push('arbeitslosengeldbescheid');
+              result.additionalApplicants[uuid].push('arbeitslosengeldbescheid');
             }
 
             if ((applicantFinancials.hasSalaryIncome === true || applicantFinancials.isEarningRegularIncome === true) && 
                 applicantFinancials.werbungskosten && parseFloat(applicantFinancials.werbungskosten) > 0) {
-              result.additionalApplicants[applicantNumber].push('werbungskosten_nachweis');
+              result.additionalApplicants[uuid].push('werbungskosten_nachweis');
             }
 
             if (applicantFinancials.kinderbetreuungskosten && parseFloat(applicantFinancials.kinderbetreuungskosten) > 0) {
-              result.additionalApplicants[applicantNumber].push('kinderbetreuungskosten_nachweis');
+              result.additionalApplicants[uuid].push('kinderbetreuungskosten_nachweis');
             }
 
             if (applicantFinancials.ispayingunterhalt === true) {
-              result.additionalApplicants[applicantNumber].push('unterhaltsverpflichtung_nachweis');
+              result.additionalApplicants[uuid].push('unterhaltsverpflichtung_nachweis');
             }
 
             if (applicantFinancials.hastaxfreeunterhaltincome === true || applicantFinancials.hastaxableunterhaltincome === true) {
-              result.additionalApplicants[applicantNumber].push('unterhaltsleistungen_nachweis');
+              result.additionalApplicants[uuid].push('unterhaltsleistungen_nachweis');
             }
 
             if (applicantFinancials.haskindergeldincome === true) {
-              result.additionalApplicants[applicantNumber].push('krankengeld_nachweis');
+              result.additionalApplicants[uuid].push('krankengeld_nachweis');
             }
 
             if (applicantFinancials.haselterngeldincome === true) {
-              result.additionalApplicants[applicantNumber].push('elterngeld_nachweis');
+              result.additionalApplicants[uuid].push('elterngeld_nachweis');
             }
 
             if (applicantFinancials.hasbusinessincome === true || applicantFinancials.hasagricultureincome === true) {
-              result.additionalApplicants[applicantNumber].push('guv_euer_nachweis');
+              result.additionalApplicants[uuid].push('guv_euer_nachweis');
             }
 
-            const additionalApplicant = userData?.weitere_antragstellende_personen?.[index];
             if (additionalApplicant?.employment?.type && ['apprentice', 'student', 'pupil'].includes(additionalApplicant.employment.type)) {
-              result.additionalApplicants[applicantNumber].push('ausbildungsfoerderung_nachweis');
+              result.additionalApplicants[uuid].push('ausbildungsfoerderung_nachweis');
             }
+          }
           });
         }
       }
@@ -851,18 +897,66 @@ const DocumentUpload: React.FC = () => {
     }
   };
 
+  // Function to get all applicants from weitere_antragstellende_personen
+  const getAllApplicants = async (): Promise<{ uuid: string; name: string; number: number }[]> => {
+    if (!user?.id) return [];
+
+    try {
+      const { data: userData, error } = await supabase
+        .from('user_data')
+        .select('weitere_antragstellende_personen')
+        .eq('id', user.id)
+        .single();
+
+      if (error) return [];
+
+      const weiterePersonenData = userData?.weitere_antragstellende_personen || {};
+      let weiterePersonenObj: Record<string, any> = {};
+      
+      // Handle backwards compatibility: convert array to UUID-based object if needed
+      if (Array.isArray(weiterePersonenData)) {
+        weiterePersonenData.forEach((person: any, index: number) => {
+          const personUuid = person.id || `legacy_${index}`;
+          weiterePersonenObj[personUuid] = { ...person, id: personUuid };
+        });
+      } else {
+        weiterePersonenObj = weiterePersonenData;
+      }
+
+      // Convert to array with proper numbering
+      const personUuids = Object.keys(weiterePersonenObj);
+      return personUuids.map((uuid, index) => {
+        const person = weiterePersonenObj[uuid];
+        const firstName = person.firstName || person.firstname || '';
+        const lastName = person.lastName || person.lastname || '';
+        const name = `${firstName} ${lastName}`.trim();
+        const number = index + 2; // +2 because main applicant is 1
+
+        return {
+          uuid,
+          name: name, // Return just the name, without fallback to "Person X"
+          number
+        };
+      });
+    } catch (error) {
+      console.error('Error getting all applicants:', error);
+      return [];
+    }
+  };
+
   // Function to generate render fields based on required documents, additional documents, and document status
-  const generateRenderFields = (
+  const generateRenderFields = async (
     requiredDocs: RequiredDocumentLists,
     additionalDocs: AdditionalDocumentsByApplicant,
     docStatus: DocumentStatusByApplicant
-  ): DocumentFieldRender[] => {
+  ): Promise<DocumentFieldRender[]> => {
     const renderFields: DocumentFieldRender[] = [];
 
-    const generateFieldsForDocumentType = (
+    const generateFieldsForDocumentType = async (
       documentTypeId: string, 
       category: string, 
       applicantType: 'general' | 'hauptantragsteller' | 'applicant',
+      applicantUuid?: string,
       applicantNumber?: number
     ) => {
       const documentType = DOCUMENT_TYPES[documentTypeId];
@@ -875,7 +969,7 @@ const DocumentUpload: React.FC = () => {
       } else if (applicantType === 'hauptantragsteller') {
         applicantKey = 'hauptantragsteller';
       } else {
-        applicantKey = `applicant_${applicantNumber}`;
+        applicantKey = `applicant_${applicantUuid}`;
       }
 
       // Get files for this document type for this specific applicant
@@ -884,14 +978,34 @@ const DocumentUpload: React.FC = () => {
         new Date(a.uploadedAt).getTime() - new Date(b.uploadedAt).getTime()
       );
       
-      const actualCategory = applicantNumber ? `Antragsteller ${applicantNumber}` : 
-                           category === 'hauptantragsteller' ? 'Hauptantragsteller' : 
-                           category === 'General' ? 'General' : category;
+      // Determine the actual category display name
+      let actualCategory: string;
+      if (applicantType === 'general') {
+        actualCategory = 'General';
+      } else if (applicantType === 'hauptantragsteller') {
+        actualCategory = 'Hauptantragsteller';
+      } else if (applicantType === 'applicant' && applicantUuid) {
+        // Get applicant info for display
+        const applicantInfo = await getApplicantInfoCached(applicantUuid);
+        if (applicantInfo) {
+          // If the person has a name, display just the name
+          // If no name, display "Person X"
+          if (applicantInfo.name && applicantInfo.name.trim()) {
+            actualCategory = applicantInfo.name;
+          } else {
+            actualCategory = `Person ${applicantInfo.number}`;
+          }
+        } else {
+          actualCategory = `Person ${applicantNumber || 'X'}`;
+        }
+      } else {
+        actualCategory = category;
+      }
 
       if (sortedFiles.length === 0) {
         // No files uploaded - show empty main field only
         renderFields.push({
-          id: `main_${applicantKey}_${documentTypeId}_${Date.now()}`,
+          id: `main_${applicantKey}_${documentTypeId}`,
           documentTypeId,
           title: documentType.title,
           description: documentType.description,
@@ -899,6 +1013,7 @@ const DocumentUpload: React.FC = () => {
           isMainField: true,
           supports_multiple: documentType.supports_multiple,
           applicantType,
+          applicantUuid,
           applicantNumber
         });
 
@@ -907,7 +1022,7 @@ const DocumentUpload: React.FC = () => {
       } else {
         // Files uploaded - show main field with oldest file
         renderFields.push({
-          id: `main_${applicantKey}_${documentTypeId}_${Date.now()}`,
+          id: `main_${applicantKey}_${documentTypeId}`,
           documentTypeId,
           title: documentType.title,
           description: documentType.description,
@@ -916,6 +1031,7 @@ const DocumentUpload: React.FC = () => {
           uploadedFile: sortedFiles[0],
           supports_multiple: documentType.supports_multiple,
           applicantType,
+          applicantUuid,
           applicantNumber
         });
 
@@ -923,7 +1039,7 @@ const DocumentUpload: React.FC = () => {
         if (documentType.supports_multiple) {
           for (let i = 1; i < sortedFiles.length; i++) {
             renderFields.push({
-              id: `additional_${applicantKey}_${documentTypeId}_${i}_${Date.now()}`,
+              id: `additional_${applicantKey}_${documentTypeId}_${i}`,
               documentTypeId,
               title: `Weitere ${documentType.title}`,
               description: `${documentType.description} (optional)`,
@@ -932,13 +1048,14 @@ const DocumentUpload: React.FC = () => {
               uploadedFile: sortedFiles[i],
               supports_multiple: documentType.supports_multiple,
               applicantType,
+              applicantUuid,
               applicantNumber
             });
           }
 
           // Always add one empty additional field when main field has content
           renderFields.push({
-            id: `additional_${applicantKey}_${documentTypeId}_empty_${Date.now()}`,
+            id: `additional_${applicantKey}_${documentTypeId}_empty`,
             documentTypeId,
             title: `Weitere ${documentType.title}`,
             description: `${documentType.description} (optional)`,
@@ -946,6 +1063,7 @@ const DocumentUpload: React.FC = () => {
             isMainField: false,
             supports_multiple: documentType.supports_multiple,
             applicantType,
+            applicantUuid,
             applicantNumber
           });
         }
@@ -953,38 +1071,157 @@ const DocumentUpload: React.FC = () => {
     };
 
     // Generate fields for required documents
-    requiredDocs.general.forEach(docId => 
-      generateFieldsForDocumentType(docId, 'General', 'general')
-    );
-    requiredDocs.hauptantragsteller.forEach(docId => 
-      generateFieldsForDocumentType(docId, 'hauptantragsteller', 'hauptantragsteller')
-    );
+    for (const docId of requiredDocs.general) {
+      await generateFieldsForDocumentType(docId, 'General', 'general');
+    }
     
-    Object.entries(requiredDocs.additionalApplicants).forEach(([applicantNum, docIds]) => {
-      const applicantNumber = parseInt(applicantNum);
-      docIds.forEach(docId => 
-        generateFieldsForDocumentType(docId, 'applicant', 'applicant', applicantNumber)
-      );
-    });
+    for (const docId of requiredDocs.hauptantragsteller) {
+      await generateFieldsForDocumentType(docId, 'hauptantragsteller', 'hauptantragsteller');
+    }
+    
+    for (const [applicantUuid, docIds] of Object.entries(requiredDocs.additionalApplicants)) {
+      for (const docId of docIds) {
+        await generateFieldsForDocumentType(docId, 'applicant', 'applicant', applicantUuid);
+      }
+    }
 
     // Generate fields for additional documents (user-selected) - applicant-aware
-    Object.entries(additionalDocs).forEach(([applicantKey, docIds]) => {
-      docIds.forEach(docId => {
+    for (const [applicantKey, docIds] of Object.entries(additionalDocs)) {
+      for (const docId of docIds) {
         const documentType = DOCUMENT_TYPES[docId];
         if (documentType) {
           if (applicantKey === 'general') {
-            generateFieldsForDocumentType(docId, 'General', 'general');
+            await generateFieldsForDocumentType(docId, 'General', 'general');
           } else if (applicantKey === 'hauptantragsteller') {
-            generateFieldsForDocumentType(docId, 'hauptantragsteller', 'hauptantragsteller');
+            await generateFieldsForDocumentType(docId, 'hauptantragsteller', 'hauptantragsteller');
           } else if (applicantKey.startsWith('applicant_')) {
-            const applicantNumber = parseInt(applicantKey.split('_')[1]);
-            generateFieldsForDocumentType(docId, 'applicant', 'applicant', applicantNumber);
+            const applicantUuid = applicantKey.split('_')[1];
+            await generateFieldsForDocumentType(docId, 'applicant', 'applicant', applicantUuid);
           }
+        }
+      }
+    }
+
+    // Generate empty sections for all applicants who don't have any documents yet
+    const allApplicants = await getAllApplicants();
+    for (const applicant of allApplicants) {
+      const applicantKey = `applicant_${applicant.uuid}`;
+      const hasRequiredDocs = requiredDocs.additionalApplicants[applicant.uuid]?.length > 0;
+      const hasAdditionalDocs = additionalDocs[applicantKey]?.length > 0;
+      const hasUploadedDocs = docStatus[applicantKey] && Object.keys(docStatus[applicantKey]).length > 0;
+      
+      // If this applicant has no documents at all, create an empty section
+      if (!hasRequiredDocs && !hasAdditionalDocs && !hasUploadedDocs) {
+        // Create a placeholder field to ensure the section is rendered
+        renderFields.push({
+          id: `empty_${applicantKey}_placeholder`,
+          documentTypeId: 'placeholder',
+          title: 'Placeholder',
+          description: 'This is a placeholder to ensure the section is rendered',
+          category: applicant.name && applicant.name.trim() ? applicant.name : `Person ${applicant.number}`,
+          isMainField: true,
+          applicantType: 'applicant',
+          applicantUuid: applicant.uuid,
+          applicantNumber: applicant.number
+        });
+      }
+    }
+
+    return renderFields;
+  };
+
+  // Function to clean up and sync additional_documents with current required documents
+  const cleanupAndSyncAdditionalDocuments = async (
+    requiredDocs: RequiredDocumentLists,
+    additionalDocs: AdditionalDocumentsByApplicant,
+    docStatus: DocumentStatusByApplicant
+  ): Promise<AdditionalDocumentsByApplicant> => {
+    if (!user?.id) return additionalDocs;
+
+    console.log('🧹 Cleaning up and syncing additional documents...');
+    
+    const cleanedAdditionalDocs = { ...additionalDocs };
+    let hasChanges = false;
+
+    // Helper function to check if a document is required for a specific applicant
+    const isDocumentRequiredForApplicant = (documentId: string, applicantKey: string): boolean => {
+      if (applicantKey === 'general') {
+        return requiredDocs.general.includes(documentId);
+      } else if (applicantKey === 'hauptantragsteller') {
+        return requiredDocs.hauptantragsteller.includes(documentId);
+      } else if (applicantKey.startsWith('applicant_')) {
+        const applicantUuid = applicantKey.split('_')[1];
+        return requiredDocs.additionalApplicants[applicantUuid]?.includes(documentId) || false;
+      }
+      return false;
+    };
+
+    // Helper function to check if a document has uploaded files for a specific applicant
+    const hasUploadedFilesForApplicant = (documentId: string, applicantKey: string): boolean => {
+      const files = docStatus[applicantKey]?.[documentId] || [];
+      return files.some(file => file.uploaded);
+    };
+
+    // Process each applicant section in additional documents
+    Object.entries(cleanedAdditionalDocs).forEach(([applicantKey, docIds]) => {
+      if (!Array.isArray(docIds)) return;
+
+      // Remove documents that are now required (Issue 1)
+      const filteredDocIds = docIds.filter(docId => {
+        const isRequired = isDocumentRequiredForApplicant(docId, applicantKey);
+        if (isRequired) {
+          console.log(`🗑️ Removing ${docId} from additional documents for ${applicantKey} - now required`);
+          hasChanges = true;
+          return false;
+        }
+        return true;
+      });
+
+      cleanedAdditionalDocs[applicantKey] = filteredDocIds;
+    });
+
+    // Add documents that are no longer required but have uploaded files (Issue 2)
+    Object.entries(docStatus).forEach(([applicantKey, applicantDocs]) => {
+      Object.keys(applicantDocs).forEach(documentId => {
+        const hasUploadedFiles = hasUploadedFilesForApplicant(documentId, applicantKey);
+        const isCurrentlyRequired = isDocumentRequiredForApplicant(documentId, applicantKey);
+        const isCurrentlyInAdditional = cleanedAdditionalDocs[applicantKey]?.includes(documentId) || false;
+
+        if (hasUploadedFiles && !isCurrentlyRequired && !isCurrentlyInAdditional) {
+          console.log(`➕ Adding ${documentId} to additional documents for ${applicantKey} - no longer required but has files`);
+          if (!cleanedAdditionalDocs[applicantKey]) {
+            cleanedAdditionalDocs[applicantKey] = [];
+          }
+          cleanedAdditionalDocs[applicantKey].push(documentId);
+          hasChanges = true;
         }
       });
     });
 
-    return renderFields;
+    // Save changes to database if any were made
+    if (hasChanges) {
+      try {
+        const { error } = await supabase
+          .from('user_data')
+          .update({
+            additional_documents: cleanedAdditionalDocs,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', user.id);
+
+        if (error) {
+          console.error('Error saving cleaned additional documents:', error);
+          return additionalDocs; // Return original if save fails
+        }
+
+        console.log('✅ Successfully saved cleaned additional documents');
+      } catch (error) {
+        console.error('Error in cleanupAndSyncAdditionalDocuments:', error);
+        return additionalDocs; // Return original if error occurs
+      }
+    }
+
+    return cleanedAdditionalDocs;
   };
 
   // Main function to load all document data
@@ -1009,13 +1246,16 @@ const DocumentUpload: React.FC = () => {
       console.log('📋 Additional documents:', additionalDocs);
       console.log('📋 Document status:', docStatus);
 
-      // Generate render fields
-      const fields = generateRenderFields(requiredDocs, additionalDocs, docStatus);
+      // Clean up and sync additional documents with current requirements
+      const cleanedAdditionalDocs = await cleanupAndSyncAdditionalDocuments(requiredDocs, additionalDocs, docStatus);
+
+      // Generate render fields with cleaned additional documents
+      const fields = await generateRenderFields(requiredDocs, cleanedAdditionalDocs, docStatus);
       console.log('📋 Generated render fields:', fields);
 
       // Update state
       setRequiredDocuments(requiredDocs);
-      setAdditionalDocuments(additionalDocs);
+      setAdditionalDocuments(cleanedAdditionalDocs);
       setDocumentStatus(docStatus);
       setRenderFields(fields);
 
@@ -1058,7 +1298,7 @@ const DocumentUpload: React.FC = () => {
 
       const documentTypeId = renderField.documentTypeId;
       const applicantType = renderField.applicantType;
-      const applicantNumber = renderField.applicantNumber;
+      const applicantUuid = renderField.applicantUuid;
       
       // Determine applicant key for storage path and data structure
       let applicantKey: string;
@@ -1067,7 +1307,7 @@ const DocumentUpload: React.FC = () => {
       } else if (applicantType === 'hauptantragsteller') {
         applicantKey = 'hauptantragsteller';
       } else {
-        applicantKey = `applicant_${applicantNumber}`;
+        applicantKey = `applicant_${applicantUuid}`;
       }
       
       // Create file path using applicant-aware structure
@@ -1160,7 +1400,8 @@ const DocumentUpload: React.FC = () => {
         uploadedAt: new Date().toISOString(),
         documentId: fieldId,
         applicantType,
-        applicantNumber
+        applicantUuid,
+        applicantNumber: renderField.applicantNumber
       };
 
       // Update document status in database with applicant-aware structure
@@ -1189,9 +1430,7 @@ const DocumentUpload: React.FC = () => {
       if (updateError) throw updateError;
 
       // Update local state and regenerate render fields
-      setDocumentStatus(updatedDocumentStatus);
-      
-      const newRenderFields = generateRenderFields(requiredDocuments, additionalDocuments, updatedDocumentStatus);
+      let newRenderFields = await generateRenderFields(requiredDocuments, additionalDocuments, updatedDocumentStatus);
       setRenderFields(newRenderFields);
 
       console.log(`✅ File uploaded successfully: ${file.name}`);
@@ -1220,11 +1459,12 @@ const DocumentUpload: React.FC = () => {
       const documentTypeId = renderField.documentTypeId;
       const fileToRemove = renderField.uploadedFile;
       const applicantType = renderField.applicantType;
-      const applicantNumber = renderField.applicantNumber;
+      const applicantUuid = renderField.applicantUuid;
 
       // Show loading state
       setDeletingFiles(prev => [...prev, fieldId]);
 
+      let newRenderFields: any;
       // Determine applicant key
       let applicantKey: string;
       if (applicantType === 'general') {
@@ -1232,7 +1472,7 @@ const DocumentUpload: React.FC = () => {
       } else if (applicantType === 'hauptantragsteller') {
         applicantKey = 'hauptantragsteller';
       } else {
-        applicantKey = `applicant_${applicantNumber}`;
+        applicantKey = `applicant_${applicantUuid}`;
       }
 
       // Delete file from storage
@@ -1268,9 +1508,7 @@ const DocumentUpload: React.FC = () => {
       if (updateError) throw updateError;
 
       // Update local state and regenerate render fields
-      setDocumentStatus(updatedDocumentStatus);
-      
-      const newRenderFields = generateRenderFields(requiredDocuments, additionalDocuments, updatedDocumentStatus);
+      newRenderFields = await generateRenderFields(requiredDocuments, additionalDocuments, updatedDocumentStatus);
       setRenderFields(newRenderFields);
 
       console.log(`✅ File removed successfully: ${fileToRemove.fileName}`);
@@ -1295,15 +1533,42 @@ const DocumentUpload: React.FC = () => {
     </Tooltip>
   );
 
-  const openAddDocumentModal = (category: string) => {
+  const openAddDocumentModal = async (category: string) => {
     // Determine applicant context from category
     if (category === 'General') {
       setCurrentModalApplicant({ type: 'general' });
     } else if (category === 'Hauptantragsteller') {
       setCurrentModalApplicant({ type: 'hauptantragsteller' });
-    } else if (category.startsWith('Antragsteller ')) {
-      const applicantNumber = parseInt(category.split(' ')[1]);
-      setCurrentModalApplicant({ type: 'applicant', number: applicantNumber });
+    } else if (category.startsWith('Person')) {
+      // Parse "Person X" format to find the correct UUID
+      const personMatch = category.match(/Person (\d+)/);
+      if (personMatch) {
+        const personNumber = parseInt(personMatch[1]);
+        // Get all applicants and find the one with the matching number
+        const allApplicants = await getAllApplicants();
+        const targetApplicant = allApplicants.find(app => app.number === personNumber);
+        
+        if (targetApplicant) {
+          setCurrentModalApplicant({ type: 'applicant', uuid: targetApplicant.uuid });
+        } else {
+          console.error('Could not find applicant for person number:', personNumber);
+          return; // Don't open modal if we can't determine the applicant
+        }
+      } else {
+        console.error('Could not parse person number from category:', category);
+        return; // Don't open modal if we can't parse the category
+      }
+    } else {
+      // For named applicants (not starting with "Person"), find by name
+      const allApplicants = await getAllApplicants();
+      const targetApplicant = allApplicants.find(app => app.name === category);
+      
+      if (targetApplicant) {
+        setCurrentModalApplicant({ type: 'applicant', uuid: targetApplicant.uuid });
+      } else {
+        console.error('Could not find applicant for name:', category);
+        return; // Don't open modal if we can't determine the applicant
+      }
     }
     
     setCurrentModalCategory(category);
@@ -1321,10 +1586,12 @@ const DocumentUpload: React.FC = () => {
       return 'Weitere Dokumente auswählen';
     } else if (category === 'Hauptantragsteller') {
       return 'Weitere Dokumente für den Hauptantragsteller auswählen';
-    } else if (category.startsWith('Antragsteller')) {
+    } else if (category.startsWith('Person')) {
+      return `Weitere Dokumente für ${category} auswählen`;
+    } else {
+      // For named applicants (not starting with "Person")
       return `Weitere Dokumente für ${category} auswählen`;
     }
-    return 'Weitere Dokumente auswählen';
   };
 
   const isDocumentAdded = (documentId: string, category: string) => {
@@ -1335,7 +1602,7 @@ const DocumentUpload: React.FC = () => {
     } else if (currentModalApplicant.type === 'hauptantragsteller') {
       applicantKey = 'hauptantragsteller';
     } else {
-      applicantKey = `applicant_${currentModalApplicant.number}`;
+      applicantKey = `applicant_${currentModalApplicant.uuid}`;
     }
 
     return additionalDocuments[applicantKey]?.includes(documentId) || false;
@@ -1351,7 +1618,7 @@ const DocumentUpload: React.FC = () => {
           documentId, 
           documentTitle,
           applicantType: currentModalApplicant.type,
-          applicantNumber: currentModalApplicant.number
+          applicantUuid: currentModalApplicant.uuid
         });
         setShowDeleteConfirmation(true);
       } else {
@@ -1360,7 +1627,7 @@ const DocumentUpload: React.FC = () => {
           documentId, 
           true, 
           currentModalApplicant.type, 
-          currentModalApplicant.number
+          currentModalApplicant.uuid
         );
       }
     } else {
@@ -1387,7 +1654,7 @@ const DocumentUpload: React.FC = () => {
     } else if (currentModalApplicant.type === 'hauptantragsteller') {
       applicantKey = 'hauptantragsteller';
     } else {
-      applicantKey = `applicant_${currentModalApplicant.number}`;
+      applicantKey = `applicant_${currentModalApplicant.uuid}`;
     }
 
     // Add to appropriate applicant section
@@ -1415,7 +1682,7 @@ const DocumentUpload: React.FC = () => {
       if (error) throw error;
 
       // Regenerate render fields
-      const newRenderFields = generateRenderFields(requiredDocuments, updatedAdditionalDocs, documentStatus);
+      let newRenderFields = await generateRenderFields(requiredDocuments, updatedAdditionalDocs, documentStatus);
       setRenderFields(newRenderFields);
 
     } catch (error) {
@@ -1429,20 +1696,20 @@ const DocumentUpload: React.FC = () => {
     documentId: string, 
     skipConfirmation: boolean = false,
     applicantType?: 'general' | 'hauptantragsteller' | 'applicant',
-    applicantNumber?: number
+    applicantUuid?: string
   ) => {
     if (!user?.id) return;
 
     // Check if document has uploaded files and show confirmation if needed
     if (!skipConfirmation && documentTypeHasFiles(documentId)) {
       const documentTitle = getDocumentTitle(documentId);
-      setPendingDeleteAction({ type: 'document', documentId, documentTitle, applicantType, applicantNumber });
+      setPendingDeleteAction({ type: 'document', documentId, documentTitle, applicantType, applicantUuid });
       setShowDeleteConfirmation(true);
       return;
     }
 
     try {
-      console.log(`➖ Removing document: ${documentId} for applicant: ${applicantType} ${applicantNumber || ''}`);
+      console.log(`➖ Removing document: ${documentId} for applicant: ${applicantType} ${applicantUuid || ''}`);
       
       // Show loading state
       setDeletingDocumentTypes(prev => [...prev, documentId]);
@@ -1453,8 +1720,8 @@ const DocumentUpload: React.FC = () => {
         targetApplicantKey = 'general';
       } else if (applicantType === 'hauptantragsteller') {
         targetApplicantKey = 'hauptantragsteller';
-      } else if (applicantType === 'applicant' && applicantNumber) {
-        targetApplicantKey = `applicant_${applicantNumber}`;
+      } else if (applicantType === 'applicant' && applicantUuid) {
+        targetApplicantKey = `applicant_${applicantUuid}`;
       } else {
         console.error('Invalid applicant context for document removal');
         return;
@@ -1501,8 +1768,9 @@ const DocumentUpload: React.FC = () => {
 
       if (error) throw error;
 
+      let newRenderFields: any;
       // Regenerate render fields
-      const newRenderFields = generateRenderFields(requiredDocuments, updatedAdditionalDocs, updatedDocumentStatus);
+      newRenderFields = await generateRenderFields(requiredDocuments, updatedAdditionalDocs, updatedDocumentStatus);
       setRenderFields(newRenderFields);
 
     } catch (error) {
@@ -1660,7 +1928,7 @@ const DocumentUpload: React.FC = () => {
                         field.documentTypeId, 
                         false, 
                         field.applicantType, 
-                        field.applicantNumber
+                        field.applicantUuid
                       );
                     }}
                     disabled={isDocumentTypeDeleting}
@@ -1690,6 +1958,69 @@ const DocumentUpload: React.FC = () => {
         </OverlayTrigger>
       </div>
     );
+  };
+
+  // Function to get applicant information for display
+  const getApplicantInfo = async (applicantUuid: string): Promise<{ name: string; number: number } | null> => {
+    if (!user?.id) return null;
+
+    try {
+      const { data: userData, error } = await supabase
+        .from('user_data')
+        .select('weitere_antragstellende_personen')
+        .eq('id', user.id)
+        .single();
+
+      if (error) return null;
+
+      const weiterePersonenData = userData?.weitere_antragstellende_personen || {};
+      let weiterePersonenObj: Record<string, any> = {};
+      
+      // Handle backwards compatibility: convert array to UUID-based object if needed
+      if (Array.isArray(weiterePersonenData)) {
+        weiterePersonenData.forEach((person: any, index: number) => {
+          const personUuid = person.id || `legacy_${index}`;
+          weiterePersonenObj[personUuid] = { ...person, id: personUuid };
+        });
+      } else {
+        weiterePersonenObj = weiterePersonenData;
+      }
+
+      const person = weiterePersonenObj[applicantUuid];
+      if (!person) return null;
+
+      // Get the person number by finding their position in the array
+      const personUuids = Object.keys(weiterePersonenObj);
+      const personIndex = personUuids.indexOf(applicantUuid);
+      const personNumber = personIndex + 2; // +2 because main applicant is 1
+
+      const firstName = person.firstName || person.firstname || '';
+      const lastName = person.lastName || person.lastname || '';
+      const name = `${firstName} ${lastName}`.trim();
+
+      return {
+        name: name, // Return just the name, without fallback to "Person X"
+        number: personNumber
+      };
+    } catch (error) {
+      console.error('Error getting applicant info:', error);
+      return null;
+    }
+  };
+
+  // Function to get applicant information for display (cached version)
+  const [applicantInfoCache, setApplicantInfoCache] = useState<Record<string, { name: string; number: number }>>({});
+
+  const getApplicantInfoCached = async (applicantUuid: string): Promise<{ name: string; number: number } | null> => {
+    if (applicantInfoCache[applicantUuid]) {
+      return applicantInfoCache[applicantUuid];
+    }
+
+    const info = await getApplicantInfo(applicantUuid);
+    if (info) {
+      setApplicantInfoCache(prev => ({ ...prev, [applicantUuid]: info }));
+    }
+    return info;
   };
 
   if (isLoading) {
@@ -1768,7 +2099,7 @@ const DocumentUpload: React.FC = () => {
                     pendingDeleteAction.documentId, 
                     true,
                     pendingDeleteAction.applicantType,
-                    pendingDeleteAction.applicantNumber
+                    pendingDeleteAction.applicantUuid
                   );
                   setShowDeleteConfirmation(false);
                   setPendingDeleteAction(null);
@@ -1789,11 +2120,11 @@ const DocumentUpload: React.FC = () => {
         </Modal.Header>
         <Modal.Body style={{ maxHeight: '60vh', overflowY: 'auto' }}>
           {(() => {
-            // Determine target category based on current modal category
+            // Determine target category based on current modal category and applicant type
             let targetCategory = 'General';
             if (currentModalCategory === 'General') {
               targetCategory = 'General';
-            } else if (currentModalCategory === 'Hauptantragsteller' || currentModalCategory.startsWith('Antragsteller')) {
+            } else if (currentModalCategory === 'Hauptantragsteller' || currentModalCategory.startsWith('Person') || currentModalApplicant.type === 'applicant') {
               targetCategory = 'Applicant';
             }
 
@@ -1804,8 +2135,8 @@ const DocumentUpload: React.FC = () => {
               systemRequiredDocumentsForCurrentApplicant = requiredDocuments.general;
             } else if (currentModalApplicant.type === 'hauptantragsteller') {
               systemRequiredDocumentsForCurrentApplicant = requiredDocuments.hauptantragsteller;
-            } else if (currentModalApplicant.type === 'applicant' && currentModalApplicant.number) {
-              systemRequiredDocumentsForCurrentApplicant = requiredDocuments.additionalApplicants[currentModalApplicant.number] || [];
+            } else if (currentModalApplicant.type === 'applicant' && currentModalApplicant.uuid) {
+              systemRequiredDocumentsForCurrentApplicant = requiredDocuments.additionalApplicants[currentModalApplicant.uuid] || [];
             }
 
             // Filter documents for this category that aren't already required by system FOR THIS APPLICANT
@@ -1924,7 +2255,7 @@ const DocumentUpload: React.FC = () => {
               Verpflichtende Dokumente zum ausfüllen
             </h3>
             <p className="mb-4">
-              Bitte füllen Sie die folgenden zwei Formulare aus, damit wir diese digital prüfen können.
+              Bitte füllen Sie die folgenden drei Formulare aus, damit wir diese digital prüfen können.
             </p>
             {formSections.map((section, index) => (
               <div key={index} className="d-flex align-items-center mb-4">
@@ -1942,6 +2273,9 @@ const DocumentUpload: React.FC = () => {
                     } else if (index === 1) {
                       // Navigate to DIN 277 form for second button
                       navigate('/din277', { state: { from: 'document-upload' } });
+                    } else if (index === 2) {
+                      // Navigate to Selbsthilfe form for third button
+                      navigate('/selbsthilfe', { state: { from: 'document-upload' } });
                     }
                   }}
                 >
@@ -2035,8 +2369,10 @@ const DocumentUpload: React.FC = () => {
             }, {} as Record<string, DocumentFieldRender[]>);
 
             return Object.entries(groupedFields).map(([category, categoryFields]) => {
-              const mainFields = categoryFields.filter(f => f.isMainField);
-              const additionalFields = categoryFields.filter(f => !f.isMainField);
+              // Filter out placeholder fields
+              const realFields = categoryFields.filter(f => f.documentTypeId !== 'placeholder');
+              const mainFields = realFields.filter(f => f.isMainField);
+              const additionalFields = realFields.filter(f => !f.isMainField);
 
               const groupedAdditionalFields = additionalFields.reduce((groups, field) => {
                 if (!groups[field.documentTypeId]) {
@@ -2046,19 +2382,51 @@ const DocumentUpload: React.FC = () => {
                 return groups;
               }, {} as Record<string, DocumentFieldRender[]>);
 
+              // Helper function to check if a document is required for a specific field
+              const isDocumentRequiredForField = (field: DocumentFieldRender): boolean => {
+                if (field.applicantType === 'general') {
+                  return requiredDocuments.general.includes(field.documentTypeId);
+                } else if (field.applicantType === 'hauptantragsteller') {
+                  return requiredDocuments.hauptantragsteller.includes(field.documentTypeId);
+                } else if (field.applicantType === 'applicant' && field.applicantUuid) {
+                  return requiredDocuments.additionalApplicants[field.applicantUuid]?.includes(field.documentTypeId) || false;
+                }
+                return false;
+              };
+
+              // Helper function to check if a document is in additional documents for a specific field
+              const isDocumentInAdditionalForField = (field: DocumentFieldRender): boolean => {
+                if (field.applicantType === 'general') {
+                  return additionalDocuments.general?.includes(field.documentTypeId) || false;
+                } else if (field.applicantType === 'hauptantragsteller') {
+                  return additionalDocuments.hauptantragsteller?.includes(field.documentTypeId) || false;
+                } else if (field.applicantType === 'applicant' && field.applicantUuid) {
+                  const applicantKey = `applicant_${field.applicantUuid}`;
+                  return additionalDocuments[applicantKey]?.includes(field.documentTypeId) || false;
+                }
+                return false;
+              };
+
               // Separate system-required from user-added documents
-              const systemRequiredFields = mainFields.filter(field => 
-                requiredDocuments.general.includes(field.documentTypeId) ||
-                requiredDocuments.hauptantragsteller.includes(field.documentTypeId) ||
-                Object.values(requiredDocuments.additionalApplicants).some(docs => docs.includes(field.documentTypeId))
-              );
+              const systemRequiredFields = mainFields.filter(field => {
+                // Check if this document is in additional documents for this specific field
+                const isUserAdded = isDocumentInAdditionalForField(field);
+                
+                // If it's user-added, it's not system required
+                if (isUserAdded) return false;
+                
+                // Otherwise, check if it's system required for this field
+                return isDocumentRequiredForField(field);
+              });
               
               const userAddedFields = mainFields.filter(field => {
-                // Check if this document is in any of the additional documents lists
-                return Object.values(additionalDocuments).some(docList => 
-                  Array.isArray(docList) && docList.includes(field.documentTypeId)
-                );
+                // Check if this document is in additional documents for this specific field
+                return isDocumentInAdditionalForField(field);
               });
+
+              // Check if this is an empty section (has placeholder but no real fields)
+              const hasPlaceholder = categoryFields.some(f => f.documentTypeId === 'placeholder');
+              const isEmptySection = hasPlaceholder && mainFields.length === 0;
 
               return (
                 <div key={category} className="mb-4">
@@ -2067,53 +2435,57 @@ const DocumentUpload: React.FC = () => {
                   {expandedSection === category && (
                     <div className="section-content" style={{ padding: '0 1rem 1rem 1rem' }}>
                       
-                      {/* System Required Documents Section */}
-                      {systemRequiredFields.length > 0 && (
+                      {!isEmptySection && (
                         <>
-                          {userAddedFields.length > 0 && (
-                            <div className="mb-4">
-                              <h5 className="text-[#064497] font-regular mb-3" style={{ fontSize: '1rem' }}>
-                                Verpflichtende Dokumente
-                              </h5>
-                              <hr className="mb-3" style={{ borderColor: '#D7DAEA', borderWidth: '1px' }} />
-                            </div>
+                          {/* System Required Documents Section */}
+                          {systemRequiredFields.length > 0 && (
+                            <>
+                              {userAddedFields.length > 0 && (
+                                <div className="mb-4">
+                                  <h5 className="text-[#064497] font-regular mb-3" style={{ fontSize: '1rem' }}>
+                                    Verpflichtende Dokumente
+                                  </h5>
+                                  <hr className="mb-3" style={{ borderColor: '#D7DAEA', borderWidth: '1px' }} />
+                                </div>
+                              )}
+                              
+                              {systemRequiredFields.map((mainField) => (
+                                <div key={mainField.id}>
+                                  {renderDocumentField(mainField, false)}
+                                  {groupedAdditionalFields[mainField.documentTypeId]?.map((additionalField, index) => 
+                                    renderDocumentField(additionalField, true, false, index)
+                                  )}
+                                </div>
+                              ))}
+                            </>
                           )}
                           
-                          {systemRequiredFields.map((mainField) => (
-                            <div key={mainField.id}>
-                              {renderDocumentField(mainField, false)}
-                              {groupedAdditionalFields[mainField.documentTypeId]?.map((additionalField, index) => 
-                                renderDocumentField(additionalField, true, false, index)
-                              )}
-                            </div>
-                          ))}
-                        </>
-                      )}
-                      
-                      {/* User Added Optional Documents Section */}
-                      {userAddedFields.length > 0 && (
-                        <>
-                          <div className="mb-4 mt-5">
-                            <h5 className="text-[#064497] font-regular mb-3" style={{ fontSize: '1rem' }}>
-                              Optionale Dokumente
-                            </h5>
-                            <hr className="mb-3" style={{ borderColor: '#D7DAEA', borderWidth: '1px' }} />
-                          </div>
-                          
-                          {userAddedFields.map((mainField) => (
-                            <div key={mainField.id}>
-                              {renderDocumentField(mainField, false, true)}
-                              {groupedAdditionalFields[mainField.documentTypeId]?.map((additionalField, index) => 
-                                renderDocumentField(additionalField, true, true, index)
-                              )}
-                            </div>
-                          ))}
+                          {/* User Added Optional Documents Section */}
+                          {userAddedFields.length > 0 && (
+                            <>
+                              <div className="mb-4 mt-5">
+                                <h5 className="text-[#064497] font-regular mb-3" style={{ fontSize: '1rem' }}>
+                                  Optionale Dokumente
+                                </h5>
+                                <hr className="mb-3" style={{ borderColor: '#D7DAEA', borderWidth: '1px' }} />
+                              </div>
+                              
+                              {userAddedFields.map((mainField) => (
+                                <div key={mainField.id}>
+                                  {renderDocumentField(mainField, false, true)}
+                                  {groupedAdditionalFields[mainField.documentTypeId]?.map((additionalField, index) => 
+                                    renderDocumentField(additionalField, true, true, index)
+                                  )}
+                                </div>
+                              ))}
+                            </>
+                          )}
                         </>
                       )}
                       
                       <div className="mb-3">
                         <Button
-                          onClick={() => openAddDocumentModal(category)}
+                          onClick={async () => await openAddDocumentModal(category)}
                           className="w-100"
                           style={{ 
                             backgroundColor: '#D7DAEA', 

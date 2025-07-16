@@ -26,6 +26,8 @@ import ApplicationReviewContainer from './components/government/review/Applicati
 import SelbstauskunftContainer from './components/Selbstauskunft/SelbstauskunftContainer';
 import WoFIVContainer from './components/WoFIV/WoFIVContainer';
 import Din277Container from './components/DIN277/Din277Container';
+import SelbsthilfeContainer from './components/Selbsthilfe/SelbsthilfeContainer';
+import HaushaltContainer from './components/Haushaltsauskunft/HaushaltContainer';
 
 function App() {
   return (
@@ -87,6 +89,16 @@ function App() {
               <Route path="/din277" element={
                 <RoutingProtection requireAuth>
                   <Din277Container />
+                </RoutingProtection>
+              } />
+              <Route path="/selbsthilfe" element={
+                <RoutingProtection requireAuth>
+                  <SelbsthilfeContainer />
+                </RoutingProtection>
+              } />
+              <Route path="/haushaltsauskunft" element={
+                <RoutingProtection requireAuth>
+                  <HaushaltContainer />
                 </RoutingProtection>
               } />
               <Route path="/upload-document/:token" element={<UploadDocumentPage />} />

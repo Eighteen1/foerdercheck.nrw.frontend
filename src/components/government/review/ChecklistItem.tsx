@@ -39,11 +39,54 @@ const ChecklistItem: React.FC<DynamicChecklistItemProps> = ({
   const getApplicantKeyFromItemId = (itemId: string): string => {
     if (itemId.includes('_hauptantragsteller')) return 'hauptantragsteller';
     if (itemId.includes('_applicant_')) {
-      const match = itemId.match(/_applicant_(\d+)/);
+      // Handle new UID-based format: applicant_UUID
+      const match = itemId.match(/_applicant_([a-f0-9-]+)/);
       return match ? `applicant_${match[1]}` : 'hauptantragsteller';
     }
     if (itemId.includes('_general')) return 'general';
     return 'hauptantragsteller'; // Default fallback
+  };
+
+  // Function to get applicant name with abbreviation
+  const getApplicantNameWithAbbreviation = (applicantKey: string): string => {
+    if (applicantKey === 'general') return 'Allgemein';
+    if (applicantKey === 'hauptantragsteller') return 'Hauptantragsteller';
+    
+    // Handle applicant categories with UIDs
+    if (applicantKey.startsWith('applicant_')) {
+      const uuid = applicantKey.replace('applicant_', '');
+      const weiterePersonen = userData?.weitere_antragstellende_personen;
+      
+      if (weiterePersonen && weiterePersonen[uuid]) {
+        const person = weiterePersonen[uuid];
+        const firstName = person.firstName || person.firstname || '';
+        const lastName = person.lastName || person.lastname || '';
+        
+        if (firstName && lastName) {
+          const firstTwo = firstName.substring(0, 2);
+          const lastOne = lastName.substring(0, 1);
+          
+          // Count position in weitere_antragstellende_personen
+          const personEntries = Object.entries(weiterePersonen);
+          const personIndex = personEntries.findIndex(([key]) => key === uuid);
+          const personNumber = personIndex + 2; // +2 because main applicant is 1
+          
+          return `Person (${firstTwo}.${lastOne}.)`;
+        } else {
+          // Count position in weitere_antragstellende_personen
+          const personEntries = Object.entries(weiterePersonen);
+          const personIndex = personEntries.findIndex(([key]) => key === uuid);
+          const personNumber = personIndex + 2; // +2 because main applicant is 1
+          
+          return `Person ${personNumber}`;
+        }
+      }
+      
+      // Fallback if no name found
+      return `Person ${uuid.substring(0, 8)}`;
+    }
+    
+    return applicantKey;
   };
 
   // Function to get document label
@@ -121,7 +164,8 @@ const ChecklistItem: React.FC<DynamicChecklistItemProps> = ({
         }
       } else {
         // Step 4: Document not found - add to missing documents
-        missingDocErrors.push(`Fehlendes Dokument: ${getDocumentLabel(docId)}`);
+        const applicantName = getApplicantNameWithAbbreviation(searchKey);
+        missingDocErrors.push(`Fehlendes Dokument: ${getDocumentLabel(docId)} - ${applicantName}`);
       }
     });
 

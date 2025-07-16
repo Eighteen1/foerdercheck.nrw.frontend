@@ -65,7 +65,7 @@ const AddressInput: React.FC<AddressInputProps> = ({
   const inputRef = useRef<HTMLInputElement>(null);
   
   // Debug API key
-  console.log('Google Maps API Key:', process.env.REACT_APP_GOOGLE_MAPS_API_KEY);
+  //console.log('Google Maps API Key:', process.env.REACT_APP_GOOGLE_MAPS_API_KEY);
   
   const { isLoaded, loadError } = useLoadScript({
     googleMapsApiKey: process.env.REACT_APP_GOOGLE_MAPS_API_KEY || '',

@@ -70,7 +70,9 @@ interface MainFinancials {
   steuerid?: string;
 }
 
-interface AdditionalApplicantFinancials extends MainFinancials {}
+interface AdditionalApplicantFinancials extends MainFinancials {
+  originalPersonId?: string;
+}
 
 interface SearchResult {
   section: string;
@@ -176,6 +178,23 @@ const EinkommenserklaerungReviewContainer: React.FC<EinkommenserklaerungReviewCo
   const [showScrollHint, setShowScrollHint] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollHintTimeout = useRef<any>(null);
+
+  // Helper function to get applicant display name
+  const getApplicantDisplayName = (applicant: MainFinancials | AdditionalApplicantFinancials, index: number): string => {
+    if (index === 0) {
+      return 'Hauptantragsteller';
+    }
+    
+    const firstName = applicant.firstName || '';
+    const lastName = applicant.lastName || '';
+    const fullName = `${firstName} ${lastName}`.trim();
+    
+    if (fullName) {
+      return `${fullName}`;
+    } else {
+      return `Person ${index + 1}`;
+    }
+  };
 
   useEffect(() => {
     loadSavedData();
@@ -434,7 +453,29 @@ const EinkommenserklaerungReviewContainer: React.FC<EinkommenserklaerungReviewCo
 
         // Load additional applicants data with empty financial data
         if (userData?.weitere_antragstellende_personen) {
-          const additionalApplicantsData = userData.weitere_antragstellende_personen.map((person: any) => ({
+          // Handle UUID-based structure for additional applicants
+          const weiterePersonenData = userData.weitere_antragstellende_personen || {};
+          let weiterePersonenObj: Record<string, any> = {};
+          
+          // Handle backwards compatibility: convert array to UUID-based object if needed
+          if (Array.isArray(weiterePersonenData)) {
+            weiterePersonenData.forEach((person: any, index: number) => {
+              const uuid = person.id || `legacy_${index}`;
+              weiterePersonenObj[uuid] = { ...person, id: uuid };
+            });
+          } else {
+            weiterePersonenObj = weiterePersonenData;
+          }
+
+          // Filter out persons with noIncome = true
+          const applicantEntries = Object.entries(weiterePersonenObj).filter(([uuid, person]: [string, any]) => {
+            const noIncome = person.noIncome;
+            const notHousehold = person.notHousehold;
+            return noIncome !== true && notHousehold !== true; // Include if not explicitly set to true
+          });
+
+          const additionalApplicantsData = applicantEntries.map(([uuid, person]: [string, any]) => ({
+            originalPersonId: uuid,
             title: person.title || '',
             firstName: person.firstName || '',
             lastName: person.lastName || '',
@@ -602,23 +643,148 @@ const EinkommenserklaerungReviewContainer: React.FC<EinkommenserklaerungReviewCo
 
       // Load additional applicants data
       if (userData?.weitere_antragstellende_personen) {
-        const additionalApplicantsData = userData.weitere_antragstellende_personen.map((person: any) => ({
-          title: person.title || '',
-          firstName: person.firstName || '',
-          lastName: person.lastName || '',
-          street: person.street || '',
-          houseNumber: person.houseNumber || '',
-          postalCode: person.postalCode || '',
-          city: person.city || ''
-        }));
+        // Load additional applicants data (UUID-based structure)
+        const weiterePersonenData = userData.weitere_antragstellende_personen || {};
+        console.log('Loading weitere_antragstellende_personen:', weiterePersonenData);
+        let weiterePersonenObj: Record<string, any> = {};
+        
+        // Handle backwards compatibility: convert array to UUID-based object if needed
+        if (Array.isArray(weiterePersonenData)) {
+          console.log('Converting from legacy array format');
+          // Legacy array format - convert to UUID-based object
+          weiterePersonenData.forEach((person: any, index: number) => {
+            const uuid = person.id || `legacy_${index}`;
+            weiterePersonenObj[uuid] = { ...person, id: uuid };
+          });
+        } else {
+          console.log('Using UUID-based object format');
+          // Already UUID-based object format
+          weiterePersonenObj = weiterePersonenData;
+        }
 
-        const additionalFinancials = financialData?.additional_applicants_financials || [];
-        const mergedApplicants = additionalApplicantsData.map((applicant: AdditionalApplicantFinancials, index: number) => {
-          const financialData = additionalFinancials?.[index];
-          if (!financialData) return applicant;
+        console.log('Processed weiterePersonenObj:', weiterePersonenObj);
+
+        // Load financial data - also convert to UUID-based if needed
+        const additionalFinancialsData = financialData?.additional_applicants_financials || {};
+        console.log('Loading additional_applicants_financials:', additionalFinancialsData);
+        let additionalFinancialsObj: Record<string, any> = {};
+        
+        if (Array.isArray(additionalFinancialsData)) {
+          console.log('Converting financial data from legacy array format');
+          // Legacy array format - match by index to UUID
+          const personUuids = Object.keys(weiterePersonenObj);
+          additionalFinancialsData.forEach((fin: any, index: number) => {
+            if (personUuids[index]) {
+              additionalFinancialsObj[personUuids[index]] = fin;
+            }
+          });
+        } else {
+          console.log('Using UUID-based financial data format');
+          // Already UUID-based object format
+          additionalFinancialsObj = additionalFinancialsData;
+        }
+        
+        console.log('Processed additionalFinancialsObj:', additionalFinancialsObj);
+
+        // Check for all persons and log their status
+        const allPersons = Object.entries(weiterePersonenObj);
+        console.log(`Found ${allPersons.length} total persons in weitere_antragstellende_personen`);
+        
+        allPersons.forEach(([uuid, person]: [string, any]) => {
+          console.log(`Person ${uuid}:`, {
+            name: `${person.firstName} ${person.lastName}`,
+            noIncome: person.noIncome,
+            notHousehold: person.notHousehold,
+            hasApplicantData: !!(person.title || person.firstName || person.lastName)
+          });
+        });
+
+        const applicantEntries = Object.entries(weiterePersonenObj).filter(([uuid, person]: [string, any]) => {
+          const noIncome = person.noIncome;
+          const notHousehold = person.notHousehold;
+          const shouldInclude = noIncome !== true && notHousehold !== true; // Exclude if noIncome or notHousehold is true
+          
+          console.log(`Person ${uuid} (${person.firstName} ${person.lastName}):`, {
+            noIncome: person.noIncome,
+            notHousehold: person.notHousehold,
+            shouldInclude,
+            reason: 
+              noIncome === true
+                ? 'Excluded: noIncome is true'
+                : notHousehold === true
+                  ? 'Excluded: notHousehold is true'
+                  : 'Included: neither noIncome nor notHousehold is true'
+          });
+          
+          return shouldInclude;
+        });
+
+        console.log('Filtered applicant entries:', applicantEntries);
+        // Merge personal and financial data
+        const mergedApplicants: AdditionalApplicantFinancials[] = applicantEntries.map(([uuid, person]: [string, any], index: number) => {
+          const financialData = additionalFinancialsObj[uuid] || {};
+          console.log(`Creating merged applicant for ${uuid}:`, { person, financialData });
+          
+          if (!financialData) return {
+            originalPersonId: uuid,
+            title: person.title || '',
+            firstName: person.firstName || '',
+            lastName: person.lastName || '',
+            street: person.street || '',
+            houseNumber: person.houseNumber || '',
+            postalCode: person.postalCode || '',
+            city: person.city || '',
+            hasEmploymentIncome: null,
+            incomeYear: '',
+            incomeYearAmount: '',
+            incomeEndMonth: '',
+            incomeEndYear: '',
+            monthlyIncome: {},
+            sonderzuwendungenVergangen: {},
+            sonderzuwendungenKommend: {},
+            willChangeIncome: null,
+            incomeChangeDate: '',
+            willChangeIncrease: null,
+            newIncome: '',
+            isNewIncomeMonthly: null,
+            newIncomeReason: '',
+            startEmployment: '',
+            isContractLimited: null,
+            endOfContract: '',
+            weitereEinkuenfte: {
+              selectedTypes: [],
+              renten: undefined,
+              vermietung: undefined,
+              gewerbe: undefined,
+              landforst: undefined,
+              sonstige: undefined,
+              unterhaltsteuerfrei: undefined,
+              unterhaltsteuerpflichtig: undefined,
+              ausland: undefined,
+              pauschal: undefined,
+              arbeitslosengeld: undefined,
+            },
+            werbungskosten: '',
+            kinderbetreuungskosten: '',
+            ispayingincometax: null,
+            ispayinghealthinsurance: null,
+            ispayingpension: null,
+            ispayingunterhalt: null,
+            unterhaltszahlungen: [],
+            additionalIncomeChanges: initialAdditionalIncomeChanges,
+            finanzamt: '',
+            steuerid: '',
+          };
 
           return {
-            ...applicant,
+            originalPersonId: uuid,
+            title: person.title || '',
+            firstName: person.firstName || '',
+            lastName: person.lastName || '',
+            street: person.street || '',
+            houseNumber: person.houseNumber || '',
+            postalCode: person.postalCode || '',
+            city: person.city || '',
             hasEmploymentIncome: financialData.isEarningRegularIncome,
             incomeYear: financialData.prior_year || '',
             incomeYearAmount: financialData.prior_year_earning ? formatCurrencyForDisplay(financialData.prior_year_earning) : '',
@@ -630,11 +796,13 @@ const EinkommenserklaerungReviewContainer: React.FC<EinkommenserklaerungReviewCo
               const endYear = parseInt(financialData?.end_year_past12 || '0');
               
               if (!isNaN(endMonth) && !isNaN(endYear)) {
+                // Add all 12 months
                 for (let i = 11; i >= 0; i--) {
                   const month = (endMonth - i + 12) % 12;
                   const year = endYear - (endMonth < i ? 1 : 0);
                   const key = `${year}-${month}`;
                   
+                  // Map database fields to monthly income
                   const monthData = {
                     '0': financialData?.income_month1,
                     '1': financialData?.income_month2,
@@ -697,19 +865,19 @@ const EinkommenserklaerungReviewContainer: React.FC<EinkommenserklaerungReviewCo
                 financialData?.haspauschalincome ? 'pauschal' : null,
                 financialData?.hasablgincome ? 'arbeitslosengeld' : null,
               ].filter(Boolean)) as string[],
-              renten: financialData?.haspensionincome ? { betrag: financialData.incomepension ? formatCurrencyForDisplay(financialData.incomepension) : '', turnus: 'monatlich' } : undefined,
+              renten: financialData?.haspensionincome ? { betrag: financialData.incomepension ? formatCurrencyForDisplay(financialData.incomepension) : '', turnus: 'monatlich' as const } : undefined,
               vermietung: financialData?.hasrentincome ? { betrag: financialData.incomerent ? formatCurrencyForDisplay(financialData.incomerent) : '', jahr: financialData.incomerentyear ? String(financialData.incomerentyear) : '' } : undefined,
               gewerbe: financialData?.hasbusinessincome ? { betrag: financialData.incomebusiness ? formatCurrencyForDisplay(financialData.incomebusiness) : '', jahr: financialData.incomebusinessyear ? String(financialData.incomebusinessyear) : '' } : undefined,
               landforst: financialData?.hasagricultureincome ? { betrag: financialData.incomeagriculture ? formatCurrencyForDisplay(financialData.incomeagriculture) : '', jahr: financialData.incomeagricultureyear ? String(financialData.incomeagricultureyear) : '' } : undefined,
               sonstige: financialData?.hasothercome ? { betrag: financialData.incomeothers ? formatCurrencyForDisplay(financialData.incomeothers) : '', jahr: financialData.incomeothersyear ? String(financialData.incomeothersyear) : '' } : undefined,
               unterhaltsteuerfrei: financialData?.hastaxfreeunterhaltincome ? { betrag: financialData.incomeunterhalttaxfree ? formatCurrencyForDisplay(financialData.incomeunterhalttaxfree) : '' } : undefined,
               unterhaltsteuerpflichtig: financialData?.hastaxableunterhaltincome ? { betrag: financialData.incomeunterhalttaxable ? formatCurrencyForDisplay(financialData.incomeunterhalttaxable) : '' } : undefined,
-              ausland: financialData?.hasforeignincome ? { betrag: financialData.incomeforeign ? formatCurrencyForDisplay(financialData.incomeforeign) : '', jahr: financialData.incomeforeignyear ? String(financialData.incomeforeignyear) : '', turnus: financialData.incomeforeignmonthly ? 'monatlich' : 'jährlich' } : undefined,
-              pauschal: financialData?.haspauschalincome ? { betrag: financialData.incomepauschal ? formatCurrencyForDisplay(financialData.incomepauschal) : '', turnus: 'monatlich' } : undefined,
+              ausland: financialData?.hasforeignincome ? { betrag: financialData.incomeforeign ? formatCurrencyForDisplay(financialData.incomeforeign) : '', jahr: financialData.incomeforeignyear ? String(financialData.incomeforeignyear) : '', turnus: (financialData.incomeforeignmonthly ? 'monatlich' : 'jährlich') as 'monatlich' | 'jährlich' } : undefined,
+              pauschal: financialData?.haspauschalincome ? { betrag: financialData.incomepauschal ? formatCurrencyForDisplay(financialData.incomepauschal) : '', turnus: 'monatlich' as const } : undefined,
               arbeitslosengeld: financialData?.hasablgincome && (financialData.incomealbgtype === 0 || financialData.incomealbgtype === 1 || financialData.incomealbgtype === 2)
                 ? {
                     betrag: financialData.incomeablg ? formatCurrencyForDisplay(financialData.incomeablg) : '',
-                    turnus: financialData.incomealbgtype === 0 ? 'täglich' : financialData.incomealbgtype === 1 ? 'monatlich' : 'jährlich',
+                    turnus: (financialData.incomealbgtype === 0 ? 'täglich' : financialData.incomealbgtype === 1 ? 'monatlich' : 'jährlich') as 'täglich' | 'monatlich' | 'jährlich',
                   }
                 : undefined,
             },
@@ -718,6 +886,7 @@ const EinkommenserklaerungReviewContainer: React.FC<EinkommenserklaerungReviewCo
           };
         });
 
+        console.log('Final mergedApplicants:', mergedApplicants);
         setAdditionalApplicants(mergedApplicants);
       }
     } catch (error) {
@@ -805,7 +974,7 @@ const EinkommenserklaerungReviewContainer: React.FC<EinkommenserklaerungReviewCo
                 >
                     Hauptantragsteller
                 </button>
-                {additionalApplicants.map((_, index) => (
+                {additionalApplicants.map((applicant, index) => (
                     <button
                         key={index}
                         onClick={() => setCurrentApplicantIndex(index + 1)}
@@ -813,7 +982,7 @@ const EinkommenserklaerungReviewContainer: React.FC<EinkommenserklaerungReviewCo
                             'applicant-switcher-button' + (currentApplicantIndex === index + 1 ? ' active' : '')
                         }
                     >
-                        {`Antragsteller ${index + 1}`}
+                        {getApplicantDisplayName(applicant, index + 1)}
                     </button>
                 ))}
               </div>

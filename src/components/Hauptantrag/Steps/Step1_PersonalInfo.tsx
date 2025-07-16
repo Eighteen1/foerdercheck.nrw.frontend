@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Button, OverlayTrigger, Tooltip } from 'react-bootstrap';
+import { Form, Button, OverlayTrigger, Tooltip, Modal } from 'react-bootstrap';
 import AddressInput from '../../common/AddressInput';
+import { supabase } from '../../../lib/supabase';
+import { useAuth } from '../../../contexts/AuthContext';
 
 // Add styles
 const styles = `
@@ -266,6 +268,8 @@ interface Person {
     type: string;
     details: string;
   };
+  isApplicant?: boolean; // Add isApplicant field
+  originalPersonId?: string; // Add to track which existing person this came from
 }
 
 interface Step1Data {
@@ -278,16 +282,59 @@ interface Step1Props {
   updateFormData: (data: Step1Data) => void;
   showValidation?: boolean;
   readOnly?: boolean;
+  deletePerson?: (index: number) => void;
+}
+
+// Interface for existing non-applicant people
+interface ExistingPerson {
+  id?: string; // UUID of the person
+  title?: string;
+  firstName?: string;
+  lastName?: string;
+  nationality?: string;
+  birthDate?: string;
+  street?: string;
+  houseNumber?: string;
+  postalCode?: string;
+  city?: string;
+  phone?: string;
+  email?: string;
+  employment?: {
+    type?: string;
+    details?: string;
+  };
+  // Additional fields from household form
+  employment_title?: string;
+  entrydate?: string;
+  behinderungsgrad?: string;
+  pflegegrad?: string;
+  noIncome?: boolean;
+  isApplicant?: boolean;
+  [key: string]: any; // Allow other fields from different forms
 }
 
 const Step1_PersonalInfo: React.FC<Step1Props> = ({ 
   formData, 
   updateFormData,
   showValidation = false,
-  readOnly = false
+  readOnly = false,
+  deletePerson
 }) => {
+  const { user } = useAuth();
   const [expandedEmploymentSections, setExpandedEmploymentSections] = useState<Record<number, string | null>>({});
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
+  const [showAddPersonModal, setShowAddPersonModal] = useState(false);
+  const [existingNonApplicants, setExistingNonApplicants] = useState<ExistingPerson[]>([]);
+  const [selectedExistingPerson, setSelectedExistingPerson] = useState<string>('');
+
+  // Generate UUID helper function
+  const generateUUID = (): string => {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      const r = Math.random() * 16 | 0;
+      const v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  };
 
   // Initialize default representative state if not present
   const ensureRepresentativeState = (data: Step1Data): Step1Data => {
@@ -313,6 +360,40 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
       };
     }
     return data;
+  };
+
+  // Load existing non-applicant people
+  const loadExistingNonApplicants = async (): Promise<ExistingPerson[]> => {
+    if (!user?.id) return [];
+    
+    try {
+      const { data: userData, error } = await supabase
+        .from('user_data')
+        .select('weitere_antragstellende_personen')
+        .eq('id', user.id)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error loading existing people:', error);
+        return [];
+      }
+
+      const weiterePersonen = userData?.weitere_antragstellende_personen || {};
+      
+      // Convert UUID-based object to array of non-applicants
+      const existingPeople: ExistingPerson[] = Object.entries(weiterePersonen)
+        .filter(([uuid, person]: [string, any]) => person.isApplicant !== true)
+        .map(([uuid, person]: [string, any]) => ({
+          ...person,
+          id: uuid // Use the UUID as the ID
+        }));
+
+      setExistingNonApplicants(existingPeople);
+      return existingPeople;
+    } catch (error) {
+      console.error('Error loading existing people:', error);
+      return [];
+    }
   };
 
   // Set expanded employment sections based on loaded data
@@ -413,40 +494,84 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
     }));
   };
 
-  const deletePerson = (index: number) => {
+  const addPerson = async () => {
     if (readOnly) return;
-    const updatedPersons = formData.persons.filter((_, i) => i !== index);
-    updateFormData(ensureRepresentativeState({
-      ...formData,
-      persons: updatedPersons
-    }));
+    
+    // Load existing non-applicants and get the result directly
+    const existingPeople = await loadExistingNonApplicants();
+    
+    // If there are existing non-applicants, show modal
+    if (existingPeople.length > 0) {
+      setShowAddPersonModal(true);
+    } else {
+      // If no existing non-applicants, directly add new person
+      addNewPerson();
+    }
   };
 
-  const addPerson = () => {
-    if (readOnly) return;
+  const addNewPerson = () => {
+    const newPerson: Person = {
+      title: '',
+      firstName: '',
+      lastName: '',
+      nationality: '',
+      birthDate: '',
+      street: '',
+      houseNumber: '',
+      postalCode: '',
+      city: '',
+      phone: '',
+      email: '',
+      employment: {
+        type: '',
+        details: ''
+      },
+      isApplicant: true,
+      originalPersonId: generateUUID() // Generate new UUID for completely new person
+    };
+
     updateFormData(ensureRepresentativeState({
       ...formData,
-      persons: [
-        ...formData.persons,
-        {
-          title: '',
-          firstName: '',
-          lastName: '',
-          nationality: '',
-          birthDate: '',
-          street: '',
-          houseNumber: '',
-          postalCode: '',
-          city: '',
-          phone: '',
-          email: '',
-          employment: {
-            type: '',
-            details: ''
-          }
-        }
-      ]
+      persons: [...formData.persons, newPerson]
     }));
+    setShowAddPersonModal(false);
+  };
+
+  const addExistingPersonAsApplicant = () => {
+    if (!selectedExistingPerson) return;
+    
+    // Find the selected person by UUID
+    const selectedPerson = existingNonApplicants.find(person => person.id === selectedExistingPerson);
+    
+    if (selectedPerson) {
+      const newPerson: Person = {
+        title: selectedPerson.title || '',
+        firstName: selectedPerson.firstName || '',
+        lastName: selectedPerson.lastName || '',
+        nationality: selectedPerson.nationality || '',
+        birthDate: selectedPerson.birthDate || '',
+        street: selectedPerson.street || '',
+        houseNumber: selectedPerson.houseNumber || '',
+        postalCode: selectedPerson.postalCode || '',
+        city: selectedPerson.city || '',
+        phone: selectedPerson.phone || '',
+        email: selectedPerson.email || '',
+        employment: {
+          type: selectedPerson.employment?.type || '',
+          details: selectedPerson.employment?.details || ''
+        },
+        isApplicant: true,
+        originalPersonId: selectedPerson.id // Use the person's UUID
+      };
+
+      updateFormData(ensureRepresentativeState({
+        ...formData,
+        persons: [...formData.persons, newPerson]
+      }));
+    }
+    
+    setShowAddPersonModal(false);
+    setSelectedExistingPerson('');
   };
 
   const renderTooltip = (text: string) => (
@@ -552,36 +677,36 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
     <div key={index} className="mb-5">
       <div className="d-flex align-items-center gap-3 mb-6">
         <h3 className="text-xl font-medium text-[#000000] mb-0">
-          {index === 0 ? "Antragstellende Person 1" : `Antragstellende Person ${index + 1}`}
+          {index === 0 ? "Hauptantragsteller" : `Antragstellende Person ${index + 1}`}
         </h3>
-        {index > 0 && (
-          <Button
-            variant="outline-danger"
-            className="rounded-circle p-0 d-flex align-items-center justify-content-center"
-            style={{
-              width: '24px',
-              height: '24px',
-              padding: '0',
-              borderColor: '#FEF1F1',
-              color: '#970606',
-              backgroundColor: '#FEF1F1',
-              transition: 'all 0.2s ease-in-out',
-              fontSize: '26px'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#970606';
-              e.currentTarget.style.color = '#fff';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = '#FEF1F1';
-              e.currentTarget.style.color = '#970606';
-            }}
-            onClick={() => deletePerson(index)}
-            disabled={readOnly}
-          >
-            -
-          </Button>
-        )}
+          {index > 0 && !readOnly && (
+            <Button
+              variant="outline-danger"
+              className="rounded-circle p-0 d-flex align-items-center justify-content-center"
+              style={{
+                width: '24px',
+                height: '24px',
+                padding: '0',
+                borderColor: '#FEF1F1',
+                color: '#970606',
+                backgroundColor: '#FEF1F1',
+                transition: 'all 0.2s ease-in-out',
+                fontSize: '26px'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#970606';
+                e.currentTarget.style.color = '#fff';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = '#FEF1F1';
+                e.currentTarget.style.color = '#970606';
+              }}
+              onClick={() => deletePerson?.(index)}
+              disabled={readOnly}
+            >
+              -
+            </Button>
+          )}
       </div>
 
       <div className="mb-4">
@@ -1463,7 +1588,8 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
           .text-danger {
             color: #f61c1c !important;
           }
-        `}
+        `
+      }
       </style>
       
       {renderRepresentativeSection()}
@@ -1478,8 +1604,77 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
           + Weitere Antragstellende Person hinzufügen
         </Button> }
       </div>
+
+      <Modal show={showAddPersonModal} onHide={() => setShowAddPersonModal(false)} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>Person hinzufügen</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {existingNonApplicants.length === 0 ? (
+            <p>Keine weiteren Personen im Haushalt gefunden. Eine neue Person wird erstellt.</p>
+          ) : (
+            <div>
+              <p>Möchten Sie eine Person aus Ihrem Haushalt als Antragsteller hinzufügen oder eine neue Person erstellen?</p>
+              <Form>
+                <Form.Group>
+                  <Form.Label className="fw-bold mb-2 mt-3">Vorhandene Personen:</Form.Label>
+                  {existingNonApplicants.map((person, index) => {
+                    // Create a meaningful display label based on available information
+                    const name = `${person.title || ''} ${person.firstName || ''} ${person.lastName || ''}`.trim();
+                    const details = [];
+                    
+                    if (person.nationality) details.push(person.nationality);
+                    if (person.birthDate) details.push(person.birthDate);
+                    if (person.employment_title) details.push(`Beruf: ${person.employment_title}`);
+                    
+                    const detailsText = details.length > 0 ? ` (${details.join(', ')})` : '';
+                    const displayLabel = name + detailsText || 'Unbenannte Person';
+                    
+                    return (
+                      <Form.Check
+                        key={person.id || index} // Use person.id if available, otherwise index
+                        type="radio"
+                        label={displayLabel}
+                        name="existingPerson"
+                        onChange={() => setSelectedExistingPerson(person.id || index.toString())}
+                        checked={selectedExistingPerson === (person.id || index.toString())}
+                        disabled={readOnly}
+                        className="mb-2"
+                      />
+                    );
+                  })}
+                </Form.Group>
+              </Form>
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <div className="d-flex w-100 gap-3 px-2">
+            {existingNonApplicants.length > 0 && (
+              <Button 
+                variant="primary" 
+                onClick={addNewPerson} 
+                disabled={readOnly}
+                className="flex-grow-1 py-2"
+                style={{ backgroundColor: '#D7DAEA', border: 'none', color: 'black' }}
+              >
+                Neue Person erstellen
+              </Button>
+            )}
+            <Button 
+              variant="primary" 
+              onClick={existingNonApplicants.length > 0 ? addExistingPersonAsApplicant : addNewPerson} 
+              disabled={readOnly || (existingNonApplicants.length > 0 && !selectedExistingPerson)}
+              className="flex-grow-1 py-2"
+              style={{ backgroundColor: '#064497', borderColor: '#064497' }}
+            >
+              {existingNonApplicants.length > 0 ? 'Vorhandene Person hinzufügen' : 'Neue Person erstellen'}
+            </Button>
+          </div>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 };
 
-export default Step1_PersonalInfo; 
+export default Step1_PersonalInfo;

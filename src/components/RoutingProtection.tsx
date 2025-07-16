@@ -71,6 +71,8 @@ const RoutingProtection: React.FC<RoutingProtectionProps> = ({
     case '/selbstauskunft':
     case '/wofiv':
     case '/din277':
+    case '/selbsthilfe':
+    case '/haushaltsauskunft':
       if (!isAuthenticated && !isDevelopment) {
         console.log('Redirecting from protected pages - not authenticated');
         return <Navigate to="/" replace state={{ from: currentPath }} />;
@@ -78,13 +80,15 @@ const RoutingProtection: React.FC<RoutingProtectionProps> = ({
       
       // Define allowed navigation sources for each page
       const allowedSources = {
-        '/document-upload': ['document-check', 'wofiv', 'din277', 'hauptantrag', 'einkommenserklaerung', 'selbstauskunft', 'personal-space'],
+        '/document-upload': ['document-check', 'wofiv', 'din277', 'selbsthilfe', 'hauptantrag', 'einkommenserklaerung', 'selbstauskunft', 'haushaltsauskunft', 'personal-space'],
         '/document-check': ['personal-space'],
         '/hauptantrag': ['document-upload', 'personal-space'],
         '/einkommenserklaerung': ['document-upload', 'personal-space'],
         '/selbstauskunft': ['document-upload', 'personal-space'],
         '/wofiv': ['document-upload', 'personal-space'],
-        '/din277': ['document-upload', 'personal-space']
+        '/din277': ['document-upload', 'personal-space'],
+        '/selbsthilfe': ['document-upload', 'personal-space'],
+        '/haushaltsauskunft': ['document-upload', 'personal-space']
       };
       
       // Check if navigation is from an allowed source

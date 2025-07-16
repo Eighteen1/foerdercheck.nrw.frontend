@@ -66,7 +66,7 @@ interface OutstandingDocumentRequest {
   document_title: string;
   document_description: string;
   applicant_type: string;
-  applicant_number: number | null;
+  applicant_uuid: string | null;
   applicant_name: string;
   custom_message: string;
   requested_by: string;
@@ -326,9 +326,9 @@ const ReviewActionsPanel: React.FC<ReviewActionsPanelProps> = ({
   const [documentRequestSuccess, setDocumentRequestSuccess] = useState(false);
   const [selectedDocumentType, setSelectedDocumentType] = useState('');
   const [selectedApplicantType, setSelectedApplicantType] = useState<'general' | 'hauptantragsteller' | 'applicant'>('general');
-  const [selectedApplicantNumber, setSelectedApplicantNumber] = useState<number>(2);
+  const [selectedApplicantUuid, setSelectedApplicantUuid] = useState<string>('');
   const [documentRequestMessage, setDocumentRequestMessage] = useState('');
-  const [availableApplicants, setAvailableApplicants] = useState<Array<{key: string, name: string, type: 'general' | 'hauptantragsteller' | 'applicant', number?: number}>>([]);
+  const [availableApplicants, setAvailableApplicants] = useState<Array<{key: string, name: string, type: 'general' | 'hauptantragsteller' | 'applicant', uuid?: string}>>([]);
 
   // Add state for outstanding document requests modal
   const [showOutstandingRequestsModal, setShowOutstandingRequestsModal] = useState(false);
@@ -710,7 +710,7 @@ const ReviewActionsPanel: React.FC<ReviewActionsPanelProps> = ({
     setDocumentRequestSuccess(false);
     setSelectedDocumentType('');
     setSelectedApplicantType('general');
-    setSelectedApplicantNumber(2);
+    setSelectedApplicantUuid('');
     setDocumentRequestMessage('');
     setShowDocumentRequestModal(true);
 
@@ -729,20 +729,33 @@ const ReviewActionsPanel: React.FC<ReviewActionsPanelProps> = ({
         .eq('id', app.resident_id)
         .single();
       
-      const applicants: Array<{key: string, name: string, type: 'general' | 'hauptantragsteller' | 'applicant', number?: number}> = [
+      const applicants: Array<{key: string, name: string, type: 'general' | 'hauptantragsteller' | 'applicant', uuid?: string}> = [
         { key: 'general', name: 'Allgemeine Dokumente', type: 'general' as const },
         { key: 'hauptantragsteller', name: 'Hauptantragsteller', type: 'hauptantragsteller' as const }
       ];
 
       // Add additional applicants if they exist
-      if (userData?.weitere_antragstellende_personen && Array.isArray(userData.weitere_antragstellende_personen)) {
-        userData.weitere_antragstellende_personen.forEach((_: any, index: number) => {
-          const applicantNumber = index + 2;
+      if (userData?.weitere_antragstellende_personen) {
+        const weiterePersonen = userData.weitere_antragstellende_personen;
+        let personCount = 0;
+        
+        Object.entries(weiterePersonen).forEach(([uuid, person]: [string, any]) => {
+          personCount++;
+          const firstName = person.firstName || person.firstname || '';
+          const lastName = person.lastName || person.lastname || '';
+          
+          let name;
+          if (firstName && lastName) {
+            name = `Person (${firstName} ${lastName})`;
+          } else {
+            name = `Person ${personCount + 1} (Kein Name)`;
+          }
+          
           applicants.push({
-            key: `applicant_${applicantNumber}`,
-            name: `Antragsteller ${applicantNumber}`,
+            key: `applicant_${uuid}`,
+            name: name,
             type: 'applicant' as const,
-            number: applicantNumber
+            uuid: uuid
           });
         });
       }
@@ -761,7 +774,7 @@ const ReviewActionsPanel: React.FC<ReviewActionsPanelProps> = ({
     setShowDocumentRequestModal(false);
     setSelectedDocumentType('');
     setSelectedApplicantType('general');
-    setSelectedApplicantNumber(2);
+    setSelectedApplicantUuid('');
     setDocumentRequestMessage('');
     setDocumentRequestError(null);
     setDocumentRequestSuccess(false);
@@ -788,7 +801,7 @@ const ReviewActionsPanel: React.FC<ReviewActionsPanelProps> = ({
           application_id: applicationId,
           document_type_id: selectedDocumentType,
           applicant_type: selectedApplicantType,
-          applicant_number: selectedApplicantType === 'applicant' ? selectedApplicantNumber : null,
+          applicant_uuid: selectedApplicantType === 'applicant' ? selectedApplicantUuid : null,
           custom_message: documentRequestMessage,
         })
       });
@@ -801,7 +814,7 @@ const ReviewActionsPanel: React.FC<ReviewActionsPanelProps> = ({
       setDocumentRequestSuccess(true);
       setSelectedDocumentType('');
       setSelectedApplicantType('general');
-      setSelectedApplicantNumber(2);
+      setSelectedApplicantUuid('');
       setDocumentRequestMessage('');
     } catch (err: any) {
       setDocumentRequestError(err.message || 'Fehler beim Senden der Dokumentenanfrage.');
@@ -1473,14 +1486,16 @@ const ReviewActionsPanel: React.FC<ReviewActionsPanelProps> = ({
                   <label className="form-label">Für welchen Antragsteller?</label>
                   <select
                     className="form-select"
-                    value={selectedApplicantType === 'applicant' ? `applicant_${selectedApplicantNumber}` : selectedApplicantType}
+                    value={selectedApplicantType === 'applicant' ? `applicant_${selectedApplicantUuid}` : selectedApplicantType}
                     onChange={(e) => {
                       const value = e.target.value;
-                      if (value.startsWith('applicant_')) {
+                      if (value === 'general') {
+                        setSelectedApplicantType('general');
+                      } else if (value === 'hauptantragsteller') {
+                        setSelectedApplicantType('hauptantragsteller');
+                      } else if (value.startsWith('applicant_')) {
                         setSelectedApplicantType('applicant');
-                        setSelectedApplicantNumber(parseInt(value.split('_')[1]));
-                      } else {
-                        setSelectedApplicantType(value as 'general' | 'hauptantragsteller');
+                        setSelectedApplicantUuid(value.replace('applicant_', ''));
                       }
                     }}
                     disabled={documentRequestLoading}

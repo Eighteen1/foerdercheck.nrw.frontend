@@ -650,7 +650,7 @@ const Din277Form: React.FC<Props> = ({ data, onChange, showValidation, isReadOnl
         const errors = getValidationErrors();
         return errors.length > 0 ? (
           <div className="alert alert-danger mt-3" role="alert">
-            <h6>Bitte korrigieren Sie folgende Fehler:</h6>
+            <h6><strong>Bitte korrigieren Sie folgende Fehler:</strong></h6>
             <ul className="mb-0">
               {errors.map((error, idx) => (
                 <li key={idx}>{error}</li>

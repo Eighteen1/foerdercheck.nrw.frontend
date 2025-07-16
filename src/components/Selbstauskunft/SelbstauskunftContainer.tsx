@@ -75,6 +75,7 @@ interface MainFinancials {
 
 interface AdditionalApplicantFinancials extends MainFinancials {
   // Same structure as MainFinancials for consistency
+  originalPersonId?: string; // Add UUID for tracking
 }
 
 interface SelbstauskunftContainerProps {
@@ -268,6 +269,23 @@ const SelbstauskunftContainer: React.FC<SelbstauskunftContainerProps> = ({ resid
   const { user } = useAuth();
   const navigate = useNavigate();
 
+  // Helper function to get applicant display name
+  const getApplicantDisplayName = (applicant: MainFinancials | AdditionalApplicantFinancials, index: number): string => {
+    if (index === 0) {
+      return 'Hauptantragsteller';
+    }
+    
+    const firstName = applicant.firstName || '';
+    const lastName = applicant.lastName || '';
+    const fullName = `${firstName} ${lastName}`.trim();
+    
+    if (fullName) {
+      return `${fullName}`;
+    } else {
+      return `Person ${index + 1}`;
+    }
+  };
+
   // Load data from Supabase (aligned with EK pattern)
   useEffect(() => {
     const loadSavedData = async () => {
@@ -383,16 +401,92 @@ const SelbstauskunftContainer: React.FC<SelbstauskunftContainerProps> = ({ resid
           incomeunterhalttaxable: financialData?.incomeunterhalttaxable ? formatCurrencyForDisplay(financialData.incomeunterhalttaxable) : ''
         });
 
-        // Load additional applicants data (similar to EK pattern)
+                // Load additional applicants data (UUID-based structure)
         if (userData?.weitere_antragstellende_personen) {
-          const weitere = userData.weitere_antragstellende_personen || [];
-          const additionalFinancials = financialData.additional_applicants_financials || [];
+          const weiterePersonenData = userData.weitere_antragstellende_personen || {};
+          console.log('Loading weitere_antragstellende_personen:', weiterePersonenData);
+          let weiterePersonenObj: Record<string, any> = {};
           
-          const mergedApplicants = weitere.map((person: any, index: number) => {
-            const fin = additionalFinancials?.[index] || {};
+          // Handle backwards compatibility: convert array to UUID-based object if needed
+          if (Array.isArray(weiterePersonenData)) {
+            console.log('Converting from legacy array format');
+            // Legacy array format - convert to UUID-based object
+            weiterePersonenData.forEach((person: any, index: number) => {
+              const uuid = person.id || `legacy_${index}`;
+              weiterePersonenObj[uuid] = { ...person, id: uuid };
+            });
+          } else {
+            console.log('Using UUID-based object format');
+            // Already UUID-based object format
+            weiterePersonenObj = weiterePersonenData;
+          }
+
+          console.log('Processed weiterePersonenObj:', weiterePersonenObj);
+
+          // Load financial data - also convert to UUID-based if needed
+          const additionalFinancialsData = financialData.additional_applicants_financials || {};
+          console.log('Loading additional_applicants_financials:', additionalFinancialsData);
+          let additionalFinancialsObj: Record<string, any> = {};
+          
+          if (Array.isArray(additionalFinancialsData)) {
+            console.log('Converting financial data from legacy array format');
+            // Legacy array format - match by index to UUID
+            const personUuids = Object.keys(weiterePersonenObj);
+            additionalFinancialsData.forEach((fin: any, index: number) => {
+              if (personUuids[index]) {
+                additionalFinancialsObj[personUuids[index]] = fin;
+              }
+            });
+          } else {
+            console.log('Using UUID-based financial data format');
+            // Already UUID-based object format
+            additionalFinancialsObj = additionalFinancialsData;
+          }
+          
+          console.log('Processed additionalFinancialsObj:', additionalFinancialsObj);
+
+          // Check for all persons and log their status
+          const allPersons = Object.entries(weiterePersonenObj);
+          console.log(`Found ${allPersons.length} total persons in weitere_antragstellende_personen`);
+          
+          allPersons.forEach(([uuid, person]: [string, any]) => {
+            console.log(`Person ${uuid}:`, {
+              name: `${person.firstName} ${person.lastName}`,
+              noIncome: person.noIncome,
+              notHousehold: person.notHousehold,
+              hasApplicantData: !!(person.title || person.firstName || person.lastName)
+            });
+          });
+
+          const applicantEntries = Object.entries(weiterePersonenObj).filter(([uuid, person]: [string, any]) => {
+            const noIncome = person.noIncome;
+            const notHousehold = person.notHousehold;
+            const shouldInclude = noIncome !== true && notHousehold !== true; // Exclude if noIncome or notHousehold is true
+            
+            console.log(`Person ${uuid} (${person.firstName} ${person.lastName}):`, {
+              noIncome: person.noIncome,
+              notHousehold: person.notHousehold,
+              shouldInclude,
+              reason: 
+                noIncome === true
+                  ? 'Excluded: noIncome is true'
+                  : notHousehold === true
+                    ? 'Excluded: notHousehold is true'
+                    : 'Included: neither noIncome nor notHousehold is true'
+            });
+            
+            return shouldInclude;
+          });
+
+          console.log('Filtered applicant entries:', applicantEntries);
+          
+          const mergedApplicants = applicantEntries.map(([uuid, person]: [string, any], index: number) => {
+              const fin = additionalFinancialsObj[uuid] || {};
+              console.log(`Creating merged applicant for ${uuid}:`, { person, fin });
             
             return {
               id: index + 2,
+                originalPersonId: uuid, // Store the UUID for tracking
               title: person.title || '',
               firstName: person.firstName || '',
               lastName: person.lastName || '',
@@ -465,6 +559,7 @@ const SelbstauskunftContainer: React.FC<SelbstauskunftContainerProps> = ({ resid
             };
           });
           
+          console.log('Final mergedApplicants:', mergedApplicants);
           setAdditionalApplicants(mergedApplicants);
         }
 
@@ -478,20 +573,28 @@ const SelbstauskunftContainer: React.FC<SelbstauskunftContainerProps> = ({ resid
     loadSavedData();
   }, [user?.id, residentId]);
 
-  // Applicant Management (aligned with EK pattern)
+  // Generate UUID helper function
+  const generateUUID = (): string => {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      const r = Math.random() * 16 | 0;
+      const v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  };
+
+  // State for info modal
+  const [showInfoModal, setShowInfoModal] = useState(false);
+  const [infoModalType, setInfoModalType] = useState<'add' | 'remove'>('add');
+
+  // Applicant Management - now shows info modal instead of actual changes
   const handleAddApplicant = () => {
-    const newApplicant: AdditionalApplicantFinancials = {
-      ...initialMainFinancials,
-      id: additionalApplicants.length + 2,
-    };
-    setAdditionalApplicants((prev) => [...prev, newApplicant]);
-    setSelectedIndex(additionalApplicants.length + 1);
+    setInfoModalType('add');
+    setShowInfoModal(true);
   };
 
   const handleRemoveApplicant = (index: number) => {
-    if (index === 0) return; // Can't remove main applicant
-    setAdditionalApplicants((prev) => prev.filter((_, i) => i !== index - 1));
-    setSelectedIndex(0);
+    setInfoModalType('remove');
+    setShowInfoModal(true);
   };
 
   const handleMainFinancialsChange = (data: MainFinancials) => {
@@ -569,23 +672,45 @@ const SelbstauskunftContainer: React.FC<SelbstauskunftContainerProps> = ({ resid
         .eq('user_id', userId)
         .single();
 
+      // Prepare UUID-based weitere_antragstellende_personen object
+      const existingWeiterePersonen = existingUserData?.weitere_antragstellende_personen || {};
+      let updatedWeiterePersonen: Record<string, any> = {};
+      
+      // Handle backwards compatibility: convert array to UUID-based object if needed
+      if (Array.isArray(existingWeiterePersonen)) {
+        // Legacy array format - convert to UUID-based object
+        existingWeiterePersonen.forEach((person: any, index: number) => {
+          const uuid = person.id || `legacy_${index}`;
+          updatedWeiterePersonen[uuid] = { ...person, id: uuid };
+        });
+      } else {
+        // Already UUID-based object format
+        updatedWeiterePersonen = { ...existingWeiterePersonen };
+      }
+
+      // Update with current additional applicants data
+      additionalApplicants.forEach(applicant => {
+        const uuid = applicant.originalPersonId || generateUUID();
+        const existingPerson = updatedWeiterePersonen[uuid] || {};
+        
+        updatedWeiterePersonen[uuid] = {
+          ...existingPerson,
+          id: uuid,
+          title: applicant.title,
+          firstName: applicant.firstName,
+          lastName: applicant.lastName,
+        };
+      });
+
       // Update user_data
       const { error: userDataError } = await supabase
         .from('user_data')
         .update({
-          title: mainFinancials.title || null,
-          firstname: mainFinancials.firstName || null,
-          lastname: mainFinancials.lastName || null,
+          title: mainFinancials.title,
+          firstname: mainFinancials.firstName,
+          lastname: mainFinancials.lastName,
           selbstauskunft_progress: selbstauskunftProgress,
-          weitere_antragstellende_personen: additionalApplicants.map((a, idx) => {
-            const existingPerson = existingUserData?.weitere_antragstellende_personen?.[idx] || {};
-            return {
-              ...existingPerson,
-              title: a.title || existingPerson.title || null,
-              firstname: a.firstName || existingPerson.firstname || null,
-              lastname: a.lastName || existingPerson.lastname || null,
-            };
-          })
+          weitere_antragstellende_personen: Object.keys(updatedWeiterePersonen).length > 0 ? updatedWeiterePersonen : null
         })
         .eq('id', userId);
 
@@ -652,19 +777,42 @@ const SelbstauskunftContainer: React.FC<SelbstauskunftContainerProps> = ({ resid
 
       // Prepare the update data by merging with existing data to preserve fields from other forms
       const mainApplicantData = convertFinancialData(mainFinancials);
-      const additionalApplicantsData = additionalApplicants.map(a => convertFinancialData(a));
+
+      // Prepare UUID-based additional_applicants_financials object
+      const existingAdditionalFinancials = existingFinancialData?.additional_applicants_financials || {};
+      let updatedAdditionalFinancials: Record<string, any> = {};
+      
+      // Handle backwards compatibility: convert array to UUID-based object if needed
+      if (Array.isArray(existingAdditionalFinancials)) {
+        // Legacy array format - convert to UUID-based object using person UUIDs
+        const personUuids = Object.keys(updatedWeiterePersonen);
+        existingAdditionalFinancials.forEach((fin: any, index: number) => {
+          if (personUuids[index]) {
+            updatedAdditionalFinancials[personUuids[index]] = fin;
+          }
+        });
+      } else {
+        // Already UUID-based object format
+        updatedAdditionalFinancials = { ...existingAdditionalFinancials };
+      }
+
+      // Update with current additional applicants financial data
+      additionalApplicants.forEach(applicant => {
+        const uuid = applicant.originalPersonId || generateUUID();
+        const existingFinancialData = updatedAdditionalFinancials[uuid] || {};
+        const newFinancialData = convertFinancialData(applicant);
+        
+        updatedAdditionalFinancials[uuid] = {
+          ...existingFinancialData, // Preserve existing financial data from other forms
+          ...newFinancialData // Override with new Selbstauskunft data
+        };
+      });
 
       // Merge with existing data to preserve fields from Einkommenserklaerung
       const updateData = {
         ...existingFinancialData, // Preserve all existing data
         ...mainApplicantData, // Override with Selbstauskunft data
-        additional_applicants_financials: additionalApplicantsData.map((newData, index) => {
-          const existingAdditionalData = existingFinancialData?.additional_applicants_financials?.[index] || {};
-          return {
-            ...existingAdditionalData, // Preserve existing additional applicant data
-            ...newData // Override with new Selbstauskunft data
-          };
-        })
+        additional_applicants_financials: Object.keys(updatedAdditionalFinancials).length > 0 ? updatedAdditionalFinancials : null
       };
 
       // Update user_financials
@@ -937,7 +1085,7 @@ const SelbstauskunftContainer: React.FC<SelbstauskunftContainerProps> = ({ resid
     // Section 4: Weitere Angaben
     // No required fields in section 4, but hasbuergschaft is optional
 
-    errors['Antragstellende Person 1'] = mainSectionErrors;
+    errors[getApplicantDisplayName(mainFinancials, 0)] = mainSectionErrors;
 
     // --- Additional Applicants ---
     additionalApplicants.forEach((applicant, index) => {
@@ -1173,7 +1321,7 @@ const SelbstauskunftContainer: React.FC<SelbstauskunftContainerProps> = ({ resid
         }
       }
 
-      errors[`Antragstellende Person ${index + 2}`] = applicantSectionErrors;
+      errors[getApplicantDisplayName(applicant, index + 1)] = applicantSectionErrors;
     });
 
     setValidationErrors(errors);
@@ -1546,6 +1694,12 @@ const SelbstauskunftContainer: React.FC<SelbstauskunftContainerProps> = ({ resid
     }
   }, [pendingSection]);
 
+  // Force re-render when applicant names change to update button labels
+  useEffect(() => {
+    // This effect will trigger a re-render when any applicant's firstName or lastName changes
+    // The getApplicantDisplayName function will be called again with updated names
+  }, [mainFinancials.firstName, mainFinancials.lastName, ...additionalApplicants.map(a => [a.firstName, a.lastName]).flat()]);
+
   // Handle toggle validation (aligned with EK pattern)
   const handleToggleValidation = async () => {
     const newShowValidation = !showValidation;
@@ -1901,7 +2055,7 @@ const SelbstauskunftContainer: React.FC<SelbstauskunftContainerProps> = ({ resid
                   style={{ backgroundColor: selectedIndex === 0 ? '#064497' : '#D7DAEA', border: 'none', color: selectedIndex === 0 ? 'white' : 'black', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', minWidth: '200px' }}
                   onClick={() => setSelectedIndex(0)}
                 >
-                  Antragstellende Person 1
+                  Hauptantragsteller
                 </Button>
               </div>
               {/* Additional applicant buttons */}
@@ -1913,7 +2067,7 @@ const SelbstauskunftContainer: React.FC<SelbstauskunftContainerProps> = ({ resid
                     style={{ backgroundColor: selectedIndex === idx + 1 ? '#064497' : '#D7DAEA', border: 'none', color: selectedIndex === idx + 1 ? 'white' : 'black', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', minWidth: '200px' }}
                     onClick={() => setSelectedIndex(idx + 1)}
                   >
-                    Antragstellende Person {idx + 2}
+                    {getApplicantDisplayName(a, idx + 1)}
                   </Button>
                   <Button variant="link" className="text-danger p-0 flex-shrink-0" onClick={() => handleRemoveApplicant(idx + 1)} style={{ minWidth: 'auto', boxShadow: 'none' }}>
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 18L18 6M6 6L18 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -1948,7 +2102,7 @@ const SelbstauskunftContainer: React.FC<SelbstauskunftContainerProps> = ({ resid
               const applicantIncome = calculateApplicantIncome(applicant);
               return (
                 <div key={index} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', marginBottom: '0.5rem', backgroundColor: 'white', border: '1px solid #dee2e6', borderLeft: '4px solid #064497', borderRadius: '5px' }}>
-                  <span>{index === 0 ? 'Antragstellende Person 1' : `Antragstellende Person ${index + 1}`}:</span>
+                  <span>{getApplicantDisplayName(applicant, index)}:</span>
                   <span style={{ color: '#064497', fontWeight: 'bold' }}>
                     {applicantIncome.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
                   </span>
@@ -1976,7 +2130,7 @@ const SelbstauskunftContainer: React.FC<SelbstauskunftContainerProps> = ({ resid
               const applicantExpenses = calculateApplicantExpenses(applicant);
               return (
                 <div key={index} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', marginBottom: '0.5rem', backgroundColor: 'white', border: '1px solid #dee2e6', borderLeft: '4px solid #dc3545', borderRadius: '5px' }}>
-                  <span>{index === 0 ? 'Antragstellende Person 1' : `Antragstellende Person ${index + 1}`}:</span>
+                  <span>{getApplicantDisplayName(applicant, index)}:</span>
                   <span style={{ color: '#dc3545', fontWeight: 'bold' }}>
                     {applicantExpenses.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
                   </span>
@@ -2109,6 +2263,32 @@ const SelbstauskunftContainer: React.FC<SelbstauskunftContainerProps> = ({ resid
               // Only show if this applicant has any errors
               const hasErrors = Object.values(sectionErrors).some(arr => arr.length > 0);
               if (!hasErrors) return null;
+              
+              // Find the applicant index based on the display name
+              const findApplicantIndex = (displayName: string): number => {
+                if (displayName === 'Hauptantragsteller') {
+                  return 0;
+                }
+                
+                // For additional applicants, find by matching the display name
+                for (let i = 0; i < additionalApplicants.length; i++) {
+                  const applicantDisplayName = getApplicantDisplayName(additionalApplicants[i], i + 1);
+                  if (applicantDisplayName === displayName) {
+                    return i + 1;
+                  }
+                }
+                
+                // Fallback: try to extract from "Person X" format if still using old format
+                const match = displayName.match(/Person (\d+)/);
+                if (match) {
+                  return parseInt(match[1]) - 1;
+                }
+                
+                return 0; // Default fallback
+              };
+              
+              const applicantIndex = findApplicantIndex(applicant);
+              
               return (
                 <div key={applicant} className="mb-3">
                   {/* Person Headline and Button (outside red background) */}
@@ -2119,7 +2299,6 @@ const SelbstauskunftContainer: React.FC<SelbstauskunftContainerProps> = ({ resid
                       size="sm"
                       onClick={() => {
                         setShowValidationModal(false);
-                        const applicantIndex = parseInt(applicant.split(' ')[2]) - 1;
                         setSelectedIndex(applicantIndex);
                         setPendingSection(null);
                       }}
@@ -2140,7 +2319,6 @@ const SelbstauskunftContainer: React.FC<SelbstauskunftContainerProps> = ({ resid
                               size="sm"
                               onClick={() => {
                                 setShowValidationModal(false);
-                                const applicantIndex = parseInt(applicant.split(' ')[2]) - 1;
                                 setSelectedIndex(applicantIndex);
                                 setPendingSection(section);
                               }}
@@ -2205,6 +2383,76 @@ const SelbstauskunftContainer: React.FC<SelbstauskunftContainerProps> = ({ resid
               Speichern und zum persönlichen Bereich
             </Button>
           </div>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Info Modal for Add/Remove Applicants */}
+      <Modal show={showInfoModal} onHide={() => setShowInfoModal(false)} centered>
+        <Modal.Header>
+          <Modal.Title>
+            {infoModalType === 'add' ? 'Person hinzufügen' : 'Person entfernen'}
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <div className="mb-4">
+            <p>
+              Alle Mitglieder Ihres Haushalts, die ein eigenes Einkommen haben, 
+              müssen die Einkommenserklärung und Selbstauskunft ausfüllen.
+            </p>
+            <div className="my-3" />
+            <p>
+              Falls Sie Ihre Haushaltsangaben ändern möchten, können Sie diese 
+              im Schritt 2 des persönlichen Bereichs unter "Haushaltsauskunft" anpassen.
+            </p>
+          </div>
+          
+          <div className="d-flex flex-column gap-3">
+            <Button
+              variant="outline-primary"
+              onClick={() => {
+                setShowInfoModal(false);
+                navigate('/personal-space');
+              }}
+              className="text-start p-3"
+              style={{ borderColor: '#064497', color: '#064497', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#D7DAEA'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+            >
+              <div className="fw-bold mb-1">
+                Zum persönlichen Bereich
+              </div>
+              <div className="text-muted small">
+                Hier können Sie alle Ihre Formulare einsehen und verwalten.
+              </div>
+            </Button>
+            
+            <Button
+              variant="outline-secondary"
+              onClick={() => {
+                setShowInfoModal(false);
+                navigate('/haushaltsauskunft');
+              }}
+              className="text-start p-3"
+              style={{ borderColor: '#064497', color: '#064497', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#D7DAEA'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+            >
+              <div className="fw-bold mb-1">
+                Zur Haushaltsauskunft
+              </div>
+              <div className="text-muted small">
+                Hier können Sie Ihre Haushaltsmitglieder verwalten und deren Einkommensstatus anpassen.
+              </div>
+            </Button>
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button 
+            variant="secondary" 
+            onClick={() => setShowInfoModal(false)}
+          >
+            Abbrechen
+          </Button>
         </Modal.Footer>
       </Modal>
     </div>

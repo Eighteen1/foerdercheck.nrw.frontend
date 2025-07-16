@@ -203,7 +203,7 @@ const HauptantragReviewContainer: React.FC<HauptantragReviewContainerProps> = ({
             },
             persons: [
               normalizePersonData(userData),
-              ...(userData?.weitere_antragstellende_personen || []).map(normalizePersonData)
+              ...Object.values(userData?.weitere_antragstellende_personen || {}).map(normalizePersonData)
             ]
           },
           step2: {
@@ -468,7 +468,7 @@ const HauptantragReviewContainer: React.FC<HauptantragReviewContainerProps> = ({
       case 5:
         return <Step5_Kostenaufstellung formData={formData.step5} updateFormData={() => {}} foerderVariante={formData.step3.foerderVariante} showValidation={true} readOnly={true} />;
       case 6:
-        return <Step6_Finanzierungsmittel formData={formData.step6} updateFormData={() => {}} foerderVariante={formData.step3.foerderVariante} gesamtkosten={formData.step5.gesamtkosten} childCount={formData.step2.childCount} barrierefrei={formData.step3.objektDetailsAllgemein.barrierefrei} begEffizienzhaus40Standard={formData.step3.objektDetailsAllgemein.begEffizienzhaus40Standard} hasSupplementaryLoan={formData.step2.hasSupplementaryLoan} hasLocationCostLoan={formData.step3.objektDetailsAllgemein.hasLocationCostLoan} hasWoodConstructionLoan={formData.step3.objektDetailsAllgemein.hasWoodConstructionLoan} showValidation={true} readOnly={true} />;
+        return <Step6_Finanzierungsmittel formData={formData.step6} updateFormData={() => {}} foerderVariante={formData.step3.foerderVariante} gesamtkosten={formData.step5.gesamtkosten} childCount={formData.step2.childCount} barrierefrei={formData.step3.objektDetailsAllgemein.barrierefrei} begEffizienzhaus40Standard={formData.step3.objektDetailsAllgemein.begEffizienzhaus40Standard} hasSupplementaryLoan={formData.step2.hasSupplementaryLoan} hasLocationCostLoan={formData.step3.objektDetailsAllgemein.hasLocationCostLoan} hasWoodConstructionLoan={formData.step3.objektDetailsAllgemein.hasWoodConstructionLoan} showValidation={true} readOnly={true} selbsthilfeData={null} />;
       default:
         return null;
     }

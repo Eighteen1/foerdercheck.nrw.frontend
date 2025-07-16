@@ -200,8 +200,8 @@ export async function generateChecklistItems(applicationId: string, residentId: 
   }
 }
 
-// Helper function to get list of applicants
-function getApplicantList(userData: any, financialData: any): Array<{key: string, name: string, type: 'hauptantragsteller' | 'applicant', number?: number}> {
+// Helper function to get applicant list with UID-based naming
+function getApplicantList(userData: any, financialData: any): Array<{key: string, name: string, type: 'hauptantragsteller' | 'applicant', uuid?: string}> {
   const applicants = [];
   
   // Always include hauptantragsteller
@@ -211,15 +211,30 @@ function getApplicantList(userData: any, financialData: any): Array<{key: string
     type: 'hauptantragsteller' as const
   });
   
-  // Add additional applicants based on financial data
-  if (financialData?.additional_applicants_financials && Array.isArray(financialData.additional_applicants_financials)) {
-    financialData.additional_applicants_financials.forEach((applicant: any, index: number) => {
-      const applicantNumber = index + 2;
+  // Add additional applicants based on weitere_antragstellende_personen
+  if (userData?.weitere_antragstellende_personen) {
+    const weiterePersonen = userData.weitere_antragstellende_personen;
+    let personCount = 0;
+    
+    Object.entries(weiterePersonen).forEach(([uuid, person]: [string, any]) => {
+      personCount++;
+      const firstName = person.firstName || person.firstname || '';
+      const lastName = person.lastName || person.lastname || '';
+      
+      let name;
+      if (firstName && lastName) {
+        const firstTwo = firstName.substring(0, 2);
+        const lastOne = lastName.substring(0, 1);
+        name = `Person ${firstTwo}.${lastOne}.`;
+      } else {
+        name = `Person ${personCount + 1}`;
+      }
+      
       applicants.push({
-        key: `applicant_${applicantNumber}`,
-        name: `Antragsteller ${applicantNumber}`,
+        key: `applicant_${uuid}`,
+        name: name,
         type: 'applicant' as const,
-        number: applicantNumber
+        uuid: uuid
       });
     });
   }
@@ -229,7 +244,7 @@ function getApplicantList(userData: any, financialData: any): Array<{key: string
 
 // Generate applicant-specific checklist items
 function generateApplicantSpecificItems(
-  applicant: {key: string, name: string, type: 'hauptantragsteller' | 'applicant', number?: number},
+  applicant: {key: string, name: string, type: 'hauptantragsteller' | 'applicant', uuid?: string},
   userData: any,
   financialData: any,
   applicationType?: string
@@ -238,9 +253,11 @@ function generateApplicantSpecificItems(
   
   // Get relevant financial data for this applicant
   let applicantFinancialData = financialData;
-  if (applicant.type === 'applicant' && applicant.number) {
-    const index = applicant.number - 2;
-    applicantFinancialData = financialData?.additional_applicants_financials?.[index] || {};
+  if (applicant.type === 'applicant' && applicant.uuid) {
+    const weiterePersonen = userData?.weitere_antragstellende_personen;
+    if (weiterePersonen && weiterePersonen[applicant.uuid]) {
+      applicantFinancialData = weiterePersonen[applicant.uuid];
+    }
   }
   
   // Income Check for this applicant

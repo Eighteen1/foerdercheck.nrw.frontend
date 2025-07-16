@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Container, Button, Modal, Spinner, Form } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
+import { completelyRemovePerson } from '../../lib/personCleanup';
 import { formatCurrencyForDisplay, formatCurrencyForDatabase } from '../../utils/currencyUtils';
 import Step1_PersonalInfo from './Steps/Step1_PersonalInfo';
 import Step2_HouseholdInfo from './Steps/Step2_HouseholdInfo';
@@ -48,6 +49,8 @@ interface FormData {
         type: string;
         details: string;
       };
+      isApplicant?: boolean; // Add isApplicant field
+      originalPersonId?: string; // Add to track which existing person this came from
     }>;
   };
   step2: {
@@ -247,6 +250,7 @@ interface AdditionalPerson {
     type: string;
     details: string;
   };
+  isApplicant?: boolean; // Add isApplicant field
 }
 
 interface SearchResult {
@@ -257,12 +261,36 @@ interface SearchResult {
 const HauptantragContainer: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  
+  // All state declarations grouped together
   const [currentStep, setCurrentStep] = useState(1);
   const [showValidationModal, setShowValidationModal] = useState(false);
   const [validationErrors, setValidationErrors] = useState<{ [key: number]: string[] }>({});
   const [showValidation, setShowValidation] = useState(false);
   const [hasValidatedOnce, setHasValidatedOnce] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const loadingLockRef = useRef(false); // Use ref instead of state to prevent useCallback recreation
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [personToDelete, setPersonToDelete] = useState<{
+    index: number;
+    person: any;
+    hasHouseholdData: boolean;
+  } | null>(null);
+  const [showSearchModal, setShowSearchModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [selbsthilfeData, setSelbsthilfeData] = useState<{willProvideSelfHelp: boolean | null, totals: {totalSelbsthilfe: number}} | null>(null);
+
+  // Generate UUID helper function
+  const generateUUID = (): string => {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      const r = Math.random() * 16 | 0;
+      const v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  };
   const [formData, setFormData] = useState<FormData>({
     step1: {
       representative: {
@@ -296,7 +324,8 @@ const HauptantragContainer: React.FC = () => {
         employment: {
           type: '',
           details: ''
-        }
+        },
+        isApplicant: true // Main applicant is always an applicant
       }]
     },
     step2: {
@@ -479,13 +508,6 @@ const HauptantragContainer: React.FC = () => {
     }
   });
 
-  const [showSearchModal, setShowSearchModal] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
-
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-
   // Search terms for each step
   const stepSearchTerms = {
     1: [
@@ -603,9 +625,22 @@ const HauptantragContainer: React.FC = () => {
   // Load saved data from Supabase
   useEffect(() => {
     const loadSavedData = async () => {
-      if (!user?.id) return;
+      // Early return if no user - don't start loading
+      if (!user?.id) {
+        console.log('No user ID, skipping data load');
+        return;
+      }
 
+      // Prevent concurrent loading operations
+      if (loadingLockRef.current) {
+        console.log('Loading already in progress, skipping');
+        return;
+      }
+
+      console.log('Starting data load for user:', user.id);
+      loadingLockRef.current = true;
       setIsLoading(true);
+      
       try {
         // Load user data
         const { data: userData, error: userError } = await supabase
@@ -616,7 +651,7 @@ const HauptantragContainer: React.FC = () => {
 
         if (userError) {
           console.error('Error loading user data:', userError);
-          return; // Exit if we can't load user data
+          return; // This will go to finally block
         }
 
         console.log('Loaded user data:', userData);
@@ -648,6 +683,22 @@ const HauptantragContainer: React.FC = () => {
           .select('*')
           .eq('user_id', user.id)
           .single();
+
+        // Load selbsthilfe data
+        const { data: selbsthilfeObjectData, error: selbsthilfeError } = await supabase
+          .from('object_data')
+          .select('selbsthilfe_angaben')
+          .eq('user_id', user.id)
+          .single();
+
+        if (selbsthilfeError && selbsthilfeError.code !== 'PGRST116') {
+          console.error('Error loading selbsthilfe data:', selbsthilfeError);
+        }
+
+        // Set selbsthilfe data if available
+        if (selbsthilfeObjectData?.selbsthilfe_angaben) {
+          setSelbsthilfeData(selbsthilfeObjectData.selbsthilfe_angaben);
+        }
 
         // Calculate total costs from cost data
         let totalCosts = 0;
@@ -726,24 +777,28 @@ const HauptantragContainer: React.FC = () => {
                   details: userData?.branche || ''
                 }
               },
-              // Additional applicants
-              ...(userData?.weitere_antragstellende_personen || []).map((person: AdditionalPerson) => ({
-                title: person.title || '',
-                firstName: person.firstName || '',
-                lastName: person.lastName || '',
-                nationality: person.nationality || '',
-                birthDate: person.birthDate || '',
-                street: person.street || '',
-                houseNumber: person.houseNumber || '',
-                postalCode: person.postalCode || '',
-                city: person.city || '',
-                phone: person.phone || '',
-                email: person.email || '',
-                employment: {
-                  type: person.employment?.type || '',
-                  details: person.employment?.details || ''
-                }
-              }))
+              // Additional applicants - convert UUID-based object to array
+              ...Object.entries(userData?.weitere_antragstellende_personen || {})
+                .filter(([uuid, person]: [string, any]) => person.isApplicant === true)
+                .map(([uuid, person]: [string, any]) => ({
+                  title: person.title || '',
+                  firstName: person.firstName || '',
+                  lastName: person.lastName || '',
+                  nationality: person.nationality || '',
+                  birthDate: person.birthDate || '',
+                  street: person.street || '',
+                  houseNumber: person.houseNumber || '',
+                  postalCode: person.postalCode || '',
+                  city: person.city || '',
+                  phone: person.phone || '',
+                  email: person.email || '',
+                  employment: {
+                    type: person.employment?.type || '',
+                    details: person.employment?.details || ''
+                  },
+                  isApplicant: person.isApplicant, // Preserve isApplicant field
+                  originalPersonId: uuid // Store the UUID for tracking
+                }))
             ]
           },
           step2: {
@@ -930,10 +985,14 @@ const HauptantragContainer: React.FC = () => {
         };
 
         setFormData(loadedFormData);
+        console.log('Data load completed successfully');
       } catch (error) {
         console.error('Error loading saved data:', error);
       } finally {
+        // Always reset loading state
         setIsLoading(false);
+        loadingLockRef.current = false;
+        console.log('Loading state and lock reset');
       }
     };
 
@@ -997,25 +1056,97 @@ const HauptantragContainer: React.FC = () => {
       // Get the first person's data (main applicant)
       const mainApplicant = formData.step1.persons[0];
       
+      // Load existing user data to preserve non-applicant people
+      const { data: existingUserData, error: existingUserError } = await supabase
+        .from('user_data')
+        .select('weitere_antragstellende_personen')
+        .eq('id', user.id)
+        .single();
+      
+      if (existingUserError && existingUserError.code !== 'PGRST116') {
+        console.error('Error loading existing user data:', existingUserError);
+      }
+      
+      // Work with UUID-based structure
+      const existingPersonsObj = existingUserData?.weitere_antragstellende_personen || {};
+      const updatedPersonsObj = { ...existingPersonsObj };
+      
+      // Process each additional applicant (skip main applicant at index 0)
+      if (formData.step1.persons.length > 1) {
+        formData.step1.persons.slice(1).forEach(person => {
+          let personUUID: string;
+          
+          if (person.originalPersonId && existingPersonsObj[person.originalPersonId]) {
+            // This person already exists - update their data
+            personUUID = person.originalPersonId;
+            const existingPerson = existingPersonsObj[personUUID];
+            
+            // Merge existing data with new applicant data
+            updatedPersonsObj[personUUID] = {
+              ...existingPerson, // Keep all original household data
+              // Update with new applicant data
+              title: person.title,
+              firstName: person.firstName,
+              lastName: person.lastName,
+              nationality: person.nationality,
+              birthDate: person.birthDate,
+              street: person.street,
+              houseNumber: person.houseNumber,
+              postalCode: person.postalCode,
+              city: person.city,
+              phone: person.phone,
+              email: person.email,
+              employment: {
+                type: person.employment?.type,
+                details: person.employment?.details
+              },
+              isApplicant: true // Mark as applicant
+            };
+          } else {
+            // This is a completely new person - generate UUID
+            personUUID = person.originalPersonId || generateUUID();
+            
+            updatedPersonsObj[personUUID] = {
+              title: person.title,
+              firstName: person.firstName,
+              lastName: person.lastName,
+              nationality: person.nationality,
+              birthDate: person.birthDate,
+              street: person.street,
+              houseNumber: person.houseNumber,
+              postalCode: person.postalCode,
+              city: person.city,
+              phone: person.phone,
+              email: person.email,
+              employment: {
+                type: person.employment?.type,
+                details: person.employment?.details
+              },
+              isApplicant: true
+            };
+          }
+        });
+      }
+      
       console.log('Saving to Supabase...');
       // Save progress to Supabase user_data table
       const { error: userError } = await supabase
         .from('user_data')
         .update({
           // Main applicant data
-          title: mainApplicant.title || null,
-          firstname: mainApplicant.firstName || null,
-          lastname: mainApplicant.lastName || null,
-          nationality: mainApplicant.nationality || null,
-          birthDate: mainApplicant.birthDate || null,
-          person_street: mainApplicant.street || null,
-          person_housenumber: mainApplicant.houseNumber || null,
-          person_postalcode: mainApplicant.postalCode || null,
-          person_city: mainApplicant.city || null,
-          phone: mainApplicant.phone || null,
-          email: mainApplicant.email || null,
-          employment: mainApplicant.employment?.type || null,
-          branche: mainApplicant.employment?.details || null,
+          title: mainApplicant.title,
+          firstname: mainApplicant.firstName,
+          lastname: mainApplicant.lastName,
+          nationality: mainApplicant.nationality,
+          birthDate: mainApplicant.birthDate,
+          person_street: mainApplicant.street,
+          person_housenumber: mainApplicant.houseNumber,
+          person_postalcode: mainApplicant.postalCode,
+          person_city: mainApplicant.city,
+          phone: mainApplicant.phone,
+          email: mainApplicant.email,
+          employment: mainApplicant.employment?.type,
+          branche: mainApplicant.employment?.details,
           hasauthorizedperson: formData.step1.representative.hasRepresentative,
           iscompany: formData.step1.representative.hasRepresentative ? formData.step1.representative.isCompany : null,
           hauptantrag_progress: hauptantragProgress, // Renamed to be specific to hauptantrag
@@ -1036,25 +1167,8 @@ const HauptantragContainer: React.FC = () => {
             email: formData.step1.representative.email || null
           } : null,
           
-          // Additional applicants data
-          weitere_antragstellende_personen: formData.step1.persons.length > 1 ? 
-            formData.step1.persons.slice(1).map(person => ({
-              title: person.title || null,
-              firstName: person.firstName || null,
-              lastName: person.lastName || null,
-              nationality: person.nationality || null,
-              birthDate: person.birthDate || null,
-              street: person.street || null,
-              houseNumber: person.houseNumber || null,
-              postalCode: person.postalCode || null,
-              city: person.city || null,
-              phone: person.phone || null,
-              email: person.email || null,
-              employment: {
-                type: person.employment?.type || null,
-                details: person.employment?.details || null
-              }
-            })) : null,
+          // Additional applicants data - use UUID-based structure
+          weitere_antragstellende_personen: Object.keys(updatedPersonsObj).length > 0 ? updatedPersonsObj : null,
 
           // Step 2 data
           adult_count: formData.step2.adultCount || null,
@@ -1264,6 +1378,8 @@ const HauptantragContainer: React.FC = () => {
       // Don't navigate on error
     } finally {
       setIsLoading(false);
+      loadingLockRef.current = false;
+      console.log('Loading state and lock reset');
     }
   };
 
@@ -1274,6 +1390,178 @@ const HauptantragContainer: React.FC = () => {
     }));
     setHasUnsavedChanges(true);
   };
+
+
+
+  // Check if person has household data by looking for behinderungsgrad
+  const checkIfPersonHasHouseholdData = async (personId: string): Promise<boolean> => {
+    if (!user?.id) return false;
+    
+    try {
+      const { data: userData, error } = await supabase
+        .from('user_data')
+        .select('weitere_antragstellende_personen')
+        .eq('id', user.id)
+        .single();
+
+      if (error) {
+        console.error('Error checking household data:', error);
+        return false;
+      }
+
+      const weiterePersonen = userData?.weitere_antragstellende_personen || {};
+      const person = weiterePersonen[personId];
+      
+      // Check if person has behinderungsgrad set (indicates they were added to household)
+      return person && person.behinderungsgrad !== undefined && person.behinderungsgrad !== null;
+    } catch (error) {
+      console.error('Error checking household data:', error);
+      return false;
+    }
+  };
+
+  // Modified delete person function with useCallback
+  const deletePerson = useCallback(async (index: number) => {
+    const person = formData.step1.persons[index];
+    if (!person?.originalPersonId) {
+      // New person without originalPersonId - just remove directly from UI
+      const updatedPersons = formData.step1.persons.filter((_, i) => i !== index);
+      updateFormData('step1', {
+        ...formData.step1,
+        persons: updatedPersons
+      });
+      return;
+    }
+
+    // Check if person has household data
+    const hasHouseholdData = await checkIfPersonHasHouseholdData(person.originalPersonId);
+    
+    if (hasHouseholdData) {
+      // Show modal with options - add defensive check
+      try {
+        setPersonToDelete({
+          index,
+          person,
+          hasHouseholdData
+        });
+        setShowDeleteModal(true);
+      } catch (error) {
+        console.error('Error setting delete modal state:', error);
+        // Fallback: directly remove the person
+        const updatedPersons = formData.step1.persons.filter((_, i) => i !== index);
+        updateFormData('step1', {
+          ...formData.step1,
+          persons: updatedPersons
+        });
+      }
+    } else {
+      // No household data - remove completely from database and UI
+      if (!user?.id) return;
+      
+      setIsLoading(true);
+      try {
+        // Load current database data
+        const { data: userData, error } = await supabase
+          .from('user_data')
+          .select('weitere_antragstellende_personen')
+          .eq('id', user.id)
+          .single();
+
+        if (error) {
+          console.error('Error loading user data:', error);
+          return;
+        }
+
+        const weiterePersonen = userData?.weitere_antragstellende_personen || {};
+        const updatedPersonsObj = { ...weiterePersonen };
+
+        // Remove the person completely from the JSON
+        delete updatedPersonsObj[person.originalPersonId];
+
+        // Update the database
+        await supabase
+          .from('user_data')
+          .update({
+            weitere_antragstellende_personen: Object.keys(updatedPersonsObj).length > 0 ? updatedPersonsObj : null,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', user.id);
+
+        // Update the UI
+        const updatedPersons = formData.step1.persons.filter((_, i) => i !== index);
+        updateFormData('step1', {
+          ...formData.step1,
+          persons: updatedPersons
+        });
+
+        setHasUnsavedChanges(true);
+      } catch (error) {
+        console.error('Error removing person:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+  }, [formData.step1.persons, user?.id]); // Only include data dependencies, state setters are stable
+
+  // Handle deletion modal options with useCallback
+  const handleDeleteOption = useCallback(async (option: 'remove-applicant' | 'remove-completely') => {
+    if (!personToDelete || !user?.id) return;
+    
+    setIsLoading(true);
+    try {
+      const { data: userData, error } = await supabase
+        .from('user_data')
+        .select('weitere_antragstellende_personen')
+        .eq('id', user.id)
+        .single();
+
+      if (error) {
+        console.error('Error loading user data:', error);
+        return;
+      }
+
+      const weiterePersonen = userData?.weitere_antragstellende_personen || {};
+      const updatedPersonsObj = { ...weiterePersonen };
+
+      if (option === 'remove-applicant') {
+        // Set isApplicant to false but keep all other data
+        if (updatedPersonsObj[personToDelete.person.originalPersonId]) {
+          updatedPersonsObj[personToDelete.person.originalPersonId] = {
+            ...updatedPersonsObj[personToDelete.person.originalPersonId],
+            isApplicant: false
+          };
+        }
+      } else if (option === 'remove-completely') {
+        // Remove the person completely from the JSON and all related data
+        await completelyRemovePerson(user.id, personToDelete.person.originalPersonId);
+        delete updatedPersonsObj[personToDelete.person.originalPersonId];
+      }
+
+      // Update the database
+      await supabase
+        .from('user_data')
+        .update({
+          weitere_antragstellende_personen: Object.keys(updatedPersonsObj).length > 0 ? updatedPersonsObj : null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user.id);
+
+      // Update the form data by removing the person from the UI
+      const updatedPersons = formData.step1.persons.filter((_, i) => i !== personToDelete.index);
+      updateFormData('step1', {
+        ...formData.step1,
+        persons: updatedPersons
+      });
+
+      setShowDeleteModal(false);
+      setPersonToDelete(null);
+      setHasUnsavedChanges(true);
+    } catch (error) {
+      console.error('Error handling delete option:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [personToDelete, user?.id, formData.step1, updateFormData]);
 
   const validateForm = () => {
     setShowValidation(true);
@@ -1677,6 +1965,27 @@ const HauptantragContainer: React.FC = () => {
       errors[6].push('Bitte geben Sie den Wert vorhandener Gebäudeteile ein (0,00€ wenn nicht vorhanden)');
     }
 
+    // Validate Selbsthilfe consistency with Selbsthilfe form
+    if (selbsthilfeData && 
+        selbsthilfeData.willProvideSelfHelp === true && 
+        formData.step6.eigenleistung.selbsthilfe) {
+      const getNumericValue = (value: string) => Number(value.replace(/[^0-9]/g, ''));
+      const formatCurrency = (value: number): string => {
+        return new Intl.NumberFormat('de-DE', {
+          style: 'currency',
+          currency: 'EUR',
+          minimumFractionDigits: 2
+        }).format(value/100);
+      };
+      
+      const selbsthilfeInHauptantrag = getNumericValue(formData.step6.eigenleistung.selbsthilfe); // in cents
+      const selbsthilfeInSelbsthilfeForm = Math.round((selbsthilfeData.totals?.totalSelbsthilfe || 0) * 100); // convert euros to cents
+      
+      if (selbsthilfeInHauptantrag !== selbsthilfeInSelbsthilfeForm) {
+        errors[6].push(`Angegebener Selbsthilfe-Betrag (${formatCurrency(selbsthilfeInHauptantrag)}) stimmt nicht mit der angegebenen Selbsthilfeleistung im Selbsthilfe-Formular überein (${formatCurrency(selbsthilfeInSelbsthilfeForm)})`);
+      }
+    }
+
     // Filter out empty error arrays
     const filteredErrors = Object.fromEntries(
       Object.entries(errors).filter(([_, errorArray]) => errorArray.length > 0)
@@ -1810,7 +2119,7 @@ const HauptantragContainer: React.FC = () => {
       const validStartNumbers = ['32', '33', '34', '37', '40', '41', '42', '44', '45', '46', '47', '48', '49', '50', '51', '52', '53', '57', '58', '59'];
       
       if (!/^\d{5}$/.test(postalCode)){ actualErrors++;
-      }else if(!validStartNumbers.includes(postalCode.substring(0, 2))){  actualErrors++;
+      }else if(!validStartNumbers.includes(postalCode.substring(0, 2))) {  actualErrors++;
       }
     }
     if (!formData.step3.address.city) actualErrors++;
@@ -2033,7 +2342,22 @@ const HauptantragContainer: React.FC = () => {
     totalPotentialFields += 3;
     if (!formData.step6.eigenleistung.eigeneGeldmittel) actualErrors++;
     if (!formData.step6.eigenleistung.zuschüsse) actualErrors++;
-    if (!formData.step6.eigenleistung.selbsthilfe) actualErrors++;
+    
+    // Selbsthilfe field - check for either missing value OR mismatch with Selbsthilfe form
+    let selbsthilfeHasError = false;
+    if (!formData.step6.eigenleistung.selbsthilfe) {
+      selbsthilfeHasError = true;
+    } else if (selbsthilfeData && 
+               selbsthilfeData.willProvideSelfHelp === true) {
+      const getNumericValue = (value: string) => Number(value.replace(/[^0-9]/g, ''));
+      const selbsthilfeInHauptantrag = getNumericValue(formData.step6.eigenleistung.selbsthilfe); // in cents
+      const selbsthilfeInSelbsthilfeForm = Math.round((selbsthilfeData.totals?.totalSelbsthilfe || 0) * 100); // convert euros to cents
+      
+      if (selbsthilfeInHauptantrag !== selbsthilfeInSelbsthilfeForm) {
+        selbsthilfeHasError = true;
+      }
+    }
+    if (selbsthilfeHasError) actualErrors++;
 
     // Conditional Eigenleistung fields
     if (formData.step3.foerderVariante === 'neubau') {
@@ -2066,6 +2390,7 @@ const HauptantragContainer: React.FC = () => {
             formData={formData.step1}
             updateFormData={(data) => updateFormData('step1', data)}
             showValidation={showValidation}
+            deletePerson={deletePerson}
           />
         );
       case 2:
@@ -2115,6 +2440,7 @@ const HauptantragContainer: React.FC = () => {
             hasLocationCostLoan={formData.step3.objektDetailsAllgemein.hasLocationCostLoan}
             hasWoodConstructionLoan={formData.step3.objektDetailsAllgemein.hasWoodConstructionLoan}
             showValidation={showValidation}
+            selbsthilfeData={selbsthilfeData}
           />
         );
       default:
@@ -2166,9 +2492,9 @@ const HauptantragContainer: React.FC = () => {
         // Revert the state if the update failed
         setShowValidation(!newShowValidation);
       }
-    }
-  };
-
+          }
+    };
+ 
   return (
     <div className="hauptantrag-container">
       <style>
@@ -2235,7 +2561,7 @@ const HauptantragContainer: React.FC = () => {
       {isLoading && (
         <div className="position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center" 
              style={{ 
-               backgroundColor: 'rgba(255, 255, 255, 0.9)', 
+               backgroundColor: 'rgba(255, 255, 255, 1.0)', 
                zIndex: 9999 
              }}>
           <div className="text-center">
@@ -2486,7 +2812,7 @@ const HauptantragContainer: React.FC = () => {
               value={searchQuery}
               onChange={handleSearchInputChange}
               className="form-control"
-              style={{ fontSize: '0.9rem' }}
+                              style={{ fontSize: '0.9rem' }}
             />
             {searchQuery.length > 0 && searchQuery.length < 3 && (
               <Form.Text className="text-muted">
@@ -2532,6 +2858,101 @@ const HauptantragContainer: React.FC = () => {
             style={{ backgroundColor: '#064497', border: 'none' }}
           >
             Schließen
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Delete Person Modal */}
+      <Modal 
+        show={showDeleteModal === true} 
+        onHide={() => {
+          try {
+            setShowDeleteModal(false);
+          } catch (error) {
+            console.error('Error hiding delete modal:', error);
+          }
+        }} 
+        centered
+      >
+        <Modal.Header>
+          <Modal.Title>Antragsteller entfernen</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <div className="mb-4">
+            <p>
+              Sie möchten <strong>
+                {personToDelete?.person?.firstName || 'Unbekannte'} {personToDelete?.person?.lastName || 'Person'}
+              </strong> als Antragsteller entfernen.
+            </p>
+            <p>
+              Da diese Person bereits in der Haushaltsauskunft erfasst wurde, 
+              können Sie zwischen den folgenden Optionen wählen:
+            </p>
+          </div>
+          
+          <div className="d-flex flex-column gap-3">
+            <Button
+              variant="outline-primary"
+              onClick={() => {
+                try {
+                  handleDeleteOption('remove-applicant');
+                } catch (error) {
+                  console.error('Error in remove-applicant:', error);
+                }
+              }}
+              disabled={isLoading}
+              className="text-start p-3"
+              style={{ borderColor: '#064497', color: '#064497', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#D7DAEA'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+            >
+              <div className="fw-bold mb-1">
+                Nur als Antragsteller entfernen
+              </div>
+              <div className="text-muted small">
+                Die Person bleibt als Haushaltsmitglied erhalten und kann weiterhin 
+                in der Haushaltsauskunft und anderen Formularen verwendet werden.
+              </div>
+            </Button>
+            
+            <Button
+              variant="outline-danger"
+              onClick={() => {
+                try {
+                  handleDeleteOption('remove-completely');
+                } catch (error) {
+                  console.error('Error in remove-completely:', error);
+                }
+              }}
+              disabled={isLoading}
+              className="text-start p-3"
+              style={{ borderColor: '#dc3545', color: '#dc3545', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#D7DAEA'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+            >
+              <div className="fw-bold mb-1">
+                Komplett entfernen
+              </div>
+              <div className="text-muted small">
+                Die Person wird vollständig entfernt und ist nicht mehr in der 
+                Haushaltsauskunft, Einkommenserklärung oder anderen Formularen verfügbar.
+              </div>
+            </Button>
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button 
+            variant="secondary" 
+            onClick={() => {
+              try {
+                setShowDeleteModal(false);
+              } catch (error) {
+                console.error('Error closing delete modal:', error);
+              }
+            }}
+            disabled={isLoading}
+          >
+            Abbrechen
           </Button>
         </Modal.Footer>
       </Modal>

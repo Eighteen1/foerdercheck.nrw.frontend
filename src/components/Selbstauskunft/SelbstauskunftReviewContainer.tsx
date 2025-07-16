@@ -178,6 +178,23 @@ const SelbstauskunftReviewContainer: React.FC<SelbstauskunftReviewContainerProps
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollHintTimeout = useRef<any>(null);
 
+  // Helper function to get applicant display name
+  const getApplicantDisplayName = (applicant: MainFinancials | AdditionalApplicantFinancials, index: number): string => {
+    if (index === 0) {
+      return 'Hauptantragsteller';
+    }
+    
+    const firstName = applicant.firstName || '';
+    const lastName = applicant.lastName || '';
+    const fullName = `${firstName} ${lastName}`.trim();
+    
+    if (fullName) {
+      return `${fullName}`;
+    } else {
+      return `Person ${index + 1}`;
+    }
+  };
+
   useEffect(() => {
     loadSavedData();
   }, [residentId]);
@@ -212,9 +229,15 @@ const SelbstauskunftReviewContainer: React.FC<SelbstauskunftReviewContainerProps
   }, [showScrollHint]);
 
   const loadSavedData = async () => {
-    if (!residentId) return;
+    // Early return if no residentId - don't start loading
+    if (!residentId) {
+      console.log('No residentId, skipping data load');
+      return;
+    }
 
+    console.log('Starting data load for residentId:', residentId);
     setIsLoading(true);
+    
     try {
       // Ensure user_financials table exists for the user
       try {
@@ -233,8 +256,10 @@ const SelbstauskunftReviewContainer: React.FC<SelbstauskunftReviewContainerProps
 
       if (userError) {
         console.error('Error loading user data:', userError);
-        return;
+        return; // This will go to finally block
       }
+
+      console.log('Loaded user data:', userData);
       
       // Set showValidation based on shouldShowErrorSelbst from database
       setShowValidation(true);
@@ -248,7 +273,7 @@ const SelbstauskunftReviewContainer: React.FC<SelbstauskunftReviewContainerProps
 
       if (financialError) {
         console.error('Error loading financial data:', financialError);
-        return;
+        return; // This will go to finally block
       }
 
       // Set main applicant data (direct mapping like EK)
@@ -325,13 +350,95 @@ const SelbstauskunftReviewContainer: React.FC<SelbstauskunftReviewContainerProps
         incomeunterhalttaxable: financialData?.incomeunterhalttaxable ? formatCurrencyForDisplay(financialData.incomeunterhalttaxable) : ''
       });
 
-      // Load additional applicants data (similar to EK pattern)
+      // Load additional applicants data (UUID-based structure)
       if (userData?.weitere_antragstellende_personen) {
-        const weitere = userData.weitere_antragstellende_personen || [];
+       {/* const weitere = userData.weitere_antragstellende_personen || [];
         const additionalFinancials = financialData.additional_applicants_financials || [];
         
         const mergedApplicants = weitere.map((person: any, index: number) => {
           const fin = additionalFinancials?.[index] || {};
+          */}
+
+          const weiterePersonenData = userData.weitere_antragstellende_personen || {};
+          console.log('Loading weitere_antragstellende_personen:', weiterePersonenData);
+          let weiterePersonenObj: Record<string, any> = {};
+          
+          // Handle backwards compatibility: convert array to UUID-based object if needed
+          if (Array.isArray(weiterePersonenData)) {
+            console.log('Converting from legacy array format');
+            // Legacy array format - convert to UUID-based object
+            weiterePersonenData.forEach((person: any, index: number) => {
+              const uuid = person.id || `legacy_${index}`;
+              weiterePersonenObj[uuid] = { ...person, id: uuid };
+            });
+          } else {
+            console.log('Using UUID-based object format');
+            // Already UUID-based object format
+            weiterePersonenObj = weiterePersonenData;
+          }
+
+          console.log('Processed weiterePersonenObj:', weiterePersonenObj);
+
+          // Load financial data - also convert to UUID-based if needed
+          const additionalFinancialsData = financialData.additional_applicants_financials || {};
+          console.log('Loading additional_applicants_financials:', additionalFinancialsData);
+          let additionalFinancialsObj: Record<string, any> = {};
+          
+          if (Array.isArray(additionalFinancialsData)) {
+            console.log('Converting financial data from legacy array format');
+            // Legacy array format - match by index to UUID
+            const personUuids = Object.keys(weiterePersonenObj);
+            additionalFinancialsData.forEach((fin: any, index: number) => {
+              if (personUuids[index]) {
+                additionalFinancialsObj[personUuids[index]] = fin;
+              }
+            });
+          } else {
+            console.log('Using UUID-based financial data format');
+            // Already UUID-based object format
+            additionalFinancialsObj = additionalFinancialsData;
+          }
+          
+          console.log('Processed additionalFinancialsObj:', additionalFinancialsObj);
+
+          // Check for all persons and log their status
+          const allPersons = Object.entries(weiterePersonenObj);
+          console.log(`Found ${allPersons.length} total persons in weitere_antragstellende_personen`);
+          
+          allPersons.forEach(([uuid, person]: [string, any]) => {
+            console.log(`Person ${uuid}:`, {
+              name: `${person.firstName} ${person.lastName}`,
+              noIncome: person.noIncome,
+              notHousehold: person.notHousehold,
+              hasApplicantData: !!(person.title || person.firstName || person.lastName)
+            });
+          });
+
+          const applicantEntries = Object.entries(weiterePersonenObj).filter(([uuid, person]: [string, any]) => {
+            const noIncome = person.noIncome;
+            const notHousehold = person.notHousehold;
+            const shouldInclude = noIncome !== true && notHousehold !== true; // Exclude if noIncome or notHousehold is true
+            
+            console.log(`Person ${uuid} (${person.firstName} ${person.lastName}):`, {
+              noIncome: person.noIncome,
+              notHousehold: person.notHousehold,
+              shouldInclude,
+              reason: 
+                noIncome === true
+                  ? 'Excluded: noIncome is true'
+                  : notHousehold === true
+                    ? 'Excluded: notHousehold is true'
+                    : 'Included: neither noIncome nor notHousehold is true'
+            });
+            
+            return shouldInclude;
+          });
+
+          console.log('Filtered applicant entries:', applicantEntries);
+          
+          const mergedApplicants = applicantEntries.map(([uuid, person]: [string, any], index: number) => {
+              const fin = additionalFinancialsObj[uuid] || {};
+              console.log(`Creating merged applicant for ${uuid}:`, { person, fin });
           
           return {
             id: index + 2,
@@ -412,7 +519,9 @@ const SelbstauskunftReviewContainer: React.FC<SelbstauskunftReviewContainerProps
     } catch (error) {
       console.error('Error loading saved data:', error);
     } finally {
+      // Always reset loading state
       setIsLoading(false);
+      console.log('Loading state reset');
     }
   };
 
@@ -494,7 +603,7 @@ const SelbstauskunftReviewContainer: React.FC<SelbstauskunftReviewContainerProps
                 >
                     Hauptantragsteller
                 </button>
-                {additionalApplicants.map((_, index) => (
+                {additionalApplicants.map((applicant, index) => (
                     <button
                         key={index}
                         onClick={() => setCurrentApplicantIndex(index + 1)}
@@ -502,7 +611,7 @@ const SelbstauskunftReviewContainer: React.FC<SelbstauskunftReviewContainerProps
                             'applicant-switcher-button' + (currentApplicantIndex === index + 1 ? ' active' : '')
                         }
                     >
-                        {`Antragsteller ${index + 1}`}
+                        {getApplicantDisplayName(applicant, index + 1)}
                     </button>
                 ))}
               </div>

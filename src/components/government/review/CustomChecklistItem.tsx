@@ -10,19 +10,50 @@ type CustomChecklistItemProps = ChecklistItemProps & {
   userData?: any; // Add userData prop to access document_status
 };
 
-// Helper function to get applicant label
-const getApplicantLabel = (applicantKey: string): string => {
+// Helper function to get applicant label with UID-based naming
+const getApplicantLabel = (applicantKey: string, userData?: any): string => {
   if (applicantKey === 'general') return 'Allgemein';
   if (applicantKey === 'hauptantragsteller') return 'Hauptantragsteller';
+  
+  // Handle applicant categories with UIDs
   if (applicantKey.startsWith('applicant_')) {
-    const number = applicantKey.split('_')[1];
-    return `Antragsteller ${number}`;
+    const uuid = applicantKey.replace('applicant_', '');
+    const weiterePersonen = userData?.weitere_antragstellende_personen;
+    
+    if (weiterePersonen && weiterePersonen[uuid]) {
+      const person = weiterePersonen[uuid];
+      const firstName = person.firstName || person.firstname || '';
+      const lastName = person.lastName || person.lastname || '';
+      
+      if (firstName && lastName) {
+        const firstTwo = firstName.substring(0, 2);
+        const lastOne = lastName.substring(0, 1);
+        
+        // Count position in weitere_antragstellende_personen
+        const personEntries = Object.entries(weiterePersonen);
+        const personIndex = personEntries.findIndex(([key]) => key === uuid);
+        const personNumber = personIndex + 2; // +2 because main applicant is 1
+        
+        return `Person (${firstTwo}.${lastOne}.)`;
+      } else {
+        // Count position in weitere_antragstellende_personen
+        const personEntries = Object.entries(weiterePersonen);
+        const personIndex = personEntries.findIndex(([key]) => key === uuid);
+        const personNumber = personIndex + 2; // +2 because main applicant is 1
+        
+        return `Person ${personNumber}`;
+      }
+    }
+    
+    // Fallback if no name found
+    return `Person ${uuid.substring(0, 8)}`;
   }
+  
   return applicantKey;
 };
 
 // Helper function to generate available uploaded documents
-const getUploadedDocuments = (documentStatus: any): { id: string; label: string }[] => {
+const getUploadedDocuments = (documentStatus: any, userData?: any): { id: string; label: string }[] => {
   const uploadedDocs: { id: string; label: string }[] = [];
   
   if (!documentStatus || typeof documentStatus !== 'object') {
@@ -43,7 +74,7 @@ const getUploadedDocuments = (documentStatus: any): { id: string; label: string 
       uploadedFiles.forEach((file: any, index: number) => {
         const fullDocumentId = `${applicantKey}_${docTypeId}_${index}`;
         const baseLabel = DOCUMENT_LABELS[docTypeId] || docTypeId;
-        const applicantLabel = getApplicantLabel(applicantKey);
+        const applicantLabel = getApplicantLabel(applicantKey, userData);
         
         // Create label with applicant context and file numbering if multiple files
         let label;
@@ -79,7 +110,7 @@ const getUploadedDocuments = (documentStatus: any): { id: string; label: string 
 
 // Helper function to get document label from full document ID
 const getDocumentLabelFromFullId = (fullDocId: string, userData?: any): string => {
-  // Parse full document ID like "general_meldebescheinigung_0" or "applicant_2_arbeitslosengeldbescheid_0"
+  // Parse full document ID like "general_meldebescheinigung_0" or "applicant_UUID_arbeitslosengeldbescheid_0"
   const parts = fullDocId.split('_');
   if (parts.length < 3) {
     return DOCUMENT_LABELS[fullDocId] || fullDocId;
@@ -90,7 +121,7 @@ const getDocumentLabelFromFullId = (fullDocId: string, userData?: any): string =
   let index: number;
   
   if (parts[0] === 'applicant') {
-    // Format: applicant_X_documentType_index
+    // Format: applicant_UUID_documentType_index
     applicantKey = `${parts[0]}_${parts[1]}`;
     docTypeId = parts.slice(2, -1).join('_');
     index = parseInt(parts[parts.length - 1]);
@@ -102,7 +133,7 @@ const getDocumentLabelFromFullId = (fullDocId: string, userData?: any): string =
   }
   
   const baseLabel = DOCUMENT_LABELS[docTypeId] || docTypeId;
-  const applicantLabel = getApplicantLabel(applicantKey);
+  const applicantLabel = getApplicantLabel(applicantKey, userData);
   
   // Check if there are multiple files of this type for this applicant
   let hasMultipleFiles = false;
@@ -158,7 +189,7 @@ const CustomChecklistItem: React.FC<CustomChecklistItemProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Get available uploaded documents for editing
-  const availableUploadedDocs = getUploadedDocuments(userData?.document_status);
+  const availableUploadedDocs = getUploadedDocuments(userData?.document_status, userData);
 
   // Reset states when item changes
   useEffect(() => {

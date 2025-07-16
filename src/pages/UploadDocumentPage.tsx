@@ -8,6 +8,7 @@ interface DocumentRequest {
   document_type_id: string;
   applicant_type: string;
   applicant_number: number | null;
+  applicant_name?: string;
   custom_message: string;
   application_id: string;
   resident_id: string;
@@ -224,7 +225,9 @@ const UploadDocumentPage: React.FC = () => {
     } else if (documentRequest.applicant_type === 'hauptantragsteller') {
       return 'Hauptantragsteller';
     } else {
-      return `Antragsteller ${documentRequest.applicant_number}`;
+      // For applicant type, we need to get the full name from the backend
+      // The backend should now provide the full name in the response
+      return documentRequest.applicant_name || `Antragsteller ${documentRequest.applicant_number || 'Unbekannt'}`;
     }
   };
 

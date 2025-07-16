@@ -6,6 +6,7 @@ import { supabase, storeEligibilityData, checkDocumentCheckStatus, ensureUserFin
 import postcodeMap from '../utils/postcode_map.json';
 import { AssignmentRule } from '../types/city';
 import { sendMessage, sendNewApplicationNotification } from '../utils/messages';
+import { is } from "date-fns/locale";
 
 const STATUS_DISPLAY = {
   pending: 'Ausstehend',
@@ -42,6 +43,7 @@ const PersonalSpace: React.FC = () => {
   const [eligibilityData, setEligibilityData] = useState<any>(null);
   const [formProgress, setFormProgress] = useState<{ [key: string]: number }>({
     hauptantrag: 0,
+    haushaltsauskunft: 0,
     einkommenserklarung: 0,
     selbstauskunft: 0
   });
@@ -78,7 +80,7 @@ const PersonalSpace: React.FC = () => {
         try {
           const { data, error } = await supabase
             .from('user_data')
-            .select('hauptantrag_progress, einkommenserklarung_progress, selbstauskunft_progress, application_status')
+            .select('hauptantrag_progress, einkommenserklarung_progress, selbstauskunft_progress, haushaltsauskunft_progress, application_status')
             .eq('id', user.id)
             .single();
 
@@ -90,6 +92,7 @@ const PersonalSpace: React.FC = () => {
           if (data) {
             setFormProgress({
               hauptantrag: data.hauptantrag_progress || 0,
+              haushaltsauskunft: data.haushaltsauskunft_progress || 0,
               einkommenserklarung: data.einkommenserklarung_progress || 0,
               selbstauskunft: data.selbstauskunft_progress || 0
             });
@@ -264,23 +267,13 @@ const PersonalSpace: React.FC = () => {
     navigate('/selbstauskunft', { state: { from: 'personal-space' } });
   };
 
-  const formSections = [
-    { 
-      title: "HAUPTANTRAG", 
-      progress: formProgress.hauptantrag,
-      onClick: handleHauptantrag
-    },
-    { 
-      title: "EINKOMMENSERKLÄRUNG", 
-      progress: formProgress.einkommenserklarung,
-      onClick: handleEinkommenserklaerung
-    },
-    { 
-      title: "SELBSTAUSKUNFT", 
-      progress: formProgress.selbstauskunft,
-      onClick: handleSelbstauskunft
+  const handleHaushaltsauskunft = () => {
+    if (!isAuthenticated) {
+      setShowRegistrationModal(true);
+      return;
     }
-  ];
+    navigate('/haushaltsauskunft', { state: { from: 'personal-space' } });
+  };
 
   const handleValidate = () => {
     if (!isAuthenticated) {
@@ -651,7 +644,7 @@ const PersonalSpace: React.FC = () => {
       </div>
 
       {/* Main content */}
-      <Container className="pt-24">
+      <Container className="pt-24 pb-6">
         <div className="d-flex justify-content-end align-items-center mb-4">
           <h2 className="text-[#064497] text-3xl mb-0">Wilkommen In Ihrem Persönlichem Bereich</h2>
         </div>
@@ -660,97 +653,378 @@ const PersonalSpace: React.FC = () => {
           Hier können Sie die erforderlichen Dokumente hochladen, die Antragsformulare bearbeiten und abschicken.
         </p>
 
-        <Row className="mt-16">
-          <Col md={6}>
-            <h5 className="mb-4">Klicken Sie auf die Schaltflächen, um zu den jeweiligen Formularen zu gelangen:</h5>
-            
-            {formSections.map((section, index) => (
-              <div key={index} className="d-flex align-items-center mb-12">
+        {/* Account Section - Full Width */}
+        <div 
+          className="rounded p-4 mb-5" 
+          style={{ 
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+            backgroundColor: '#f8f9fa',
+            border: '1px solid #e9ecef'
+          }}
+        >
+          {isAuthenticated ? (
+            <Row className="align-items-center">
+              <Col md={8}>
+                <h6 className="mb-2 fw-medium" style={{ color: '#064497' }}>Ihr Konto</h6>
+                <p className="mb-0">
+                  Ihre E-Mail-Adresse: <strong>{email}</strong>
+                </p>
+              </Col>
+              <Col md={4} className="text-end">
                 <Button
-                  className="flex-grow-1 py-3 me-3"
-                  style={{ 
-                    backgroundColor: isAuthenticated ? '#064497' : '#808080', 
-                    border: 'none', 
-                    boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
-                    opacity: isAuthenticated ? 1 : 0.7
-                  }}
-                  onClick={section.onClick}
+                  onClick={logout}
+                  className="px-4 py-2"
+                  style={{ backgroundColor: '#D7DAEA', color: '#000000', border: 'none', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}
                 >
-                  {section.title}
+                  Abmelden
                 </Button>
-                <div className="border rounded-circle p-2 d-flex align-items-center justify-content-center" style={{ width: '55px', height: '55px', color: '#064497', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}>
-                  {section.progress}%
+              </Col>
+            </Row>
+          ) : (
+            <Row className="align-items-center">
+              <Col md={8}>
+                <h6 className="mb-2 fw-medium" style={{ color: '#064497' }}>
+                  {emailSubmitted ? 'Bestätigen Sie ihr Konto' : 'Konto erstellen'}
+                </h6>
+                <p className="mb-0">
+                  {emailSubmitted 
+                    ? 'Schauen Sie in ihr E-Mail postfach oder Spam Ordner um fortzufahren'
+                    : 'Erstellen Sie ein Konto, um alle Funktionen nutzen zu können.'}
+                </p>
+              </Col>
+              <Col md={4} className="text-end">
+                <Button
+                  onClick={handleModalOpen}
+                  className="px-4 py-2"
+                  style={{ 
+                    backgroundColor: '#064497',
+                    color: '#ffffff',
+                    border: 'none', 
+                    boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)'
+                  }}
+                >
+                  {emailSubmitted ? 'E-Mail Ändern / Erneut Versuchen' : 'Konto erstellen'}
+                </Button>
+              </Col>
+            </Row>
+          )}
+        </div>
+
+        {/* Form Cards - 2x2 Grid */}
+        <h5 className="mb-4">Füllen Sie die Formulare aus:</h5>
+        
+        <Row className="g-4">
+          {/* Card 1: Hauptantrag */}
+          <Col lg={6}>
+            <div className="h-100" style={{
+              background: '#f8f9fa',
+              border: isAuthenticated ? '1px solid #dee2e6' : '1px solid #dee2e6',
+              borderRadius: '12px',
+              padding: '1.5rem',
+              transition: 'all 0.3s ease',
+              boxShadow: isAuthenticated ? '0 4px 12px rgba(6, 68, 151, 0.1)' : '0 2px 4px rgba(0, 0, 0, 0.1)',
+              opacity: isAuthenticated ? 1 : 0.7
+            }}>
+              <div className="d-flex align-items-center mb-3">
+                <div className="me-3" style={{
+                  background: isAuthenticated ? '#064497' : '#6c757d',
+                  color: 'white',
+                  borderRadius: '50%',
+                  width: '35px',
+                  height: '35px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 'bold',
+                  fontSize: '1.1rem',
+                  boxShadow: isAuthenticated ? 'inset 0 3px 6px rgba(0, 0, 0, 0.1), inset 0 -1px 4px rgba(0, 0, 0, 0.4)' : 'inset 0 2px 4px rgba(0, 0, 0, 0.3)'
+                }}>1</div>
+                <div className="flex-grow-1">
+                  <h6 className="mb-1">Hauptantrag</h6>
+                  <small className="text-muted">Grundlegende Angaben zu Ihrem Förderantrag</small>
+                </div>
+                <div className="text-end">
+                  <div style={{
+                    background: '#ffffff',
+                    border: isAuthenticated ? '1px solid #064497' : '1px solid #dee2e6',
+                    borderRadius: '50%',
+                    width: '50px',
+                    height: '50px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 'regular',
+                    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
+                    color: isAuthenticated ? '#064497' : '#2d2d2d'
+                  }}>
+                    {formProgress.hauptantrag}%
+                  </div>
                 </div>
               </div>
-            ))}
+              <Button
+                className="w-100 py-2"
+                style={{ 
+                  backgroundColor: isAuthenticated ? '#064497' : '#808080', 
+                  border: 'none', 
+                  color: '#ffffff',
+                  fontSize: '0.85rem',
+                  fontWeight: '500',
+                  minHeight: '38px',
+                  opacity: isAuthenticated ? 1 : 0.7
+                }}
+                onClick={handleHauptantrag}
+                disabled={!isAuthenticated}
+              >
+                BEARBEITEN
+              </Button>
+            </div>
           </Col>
 
-          <Col md={6}>
-            <div className="text-center">
-              <h5 className="mb-4">Klicken Sie hier um ihre Dokumentente hochzuladen und zu verwalten:</h5>
-              <div className="d-flex align-items-center justify-content-center mb-12">
-                <Button
-                  className="flex-grow-1 py-3 me-3"
-                  style={{ 
-                    backgroundColor: isAuthenticated ? '#064497' : '#808080', 
-                    border: 'none', 
-                    boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
-                    opacity: isAuthenticated ? 1 : 0.7
-                  }}
-                  onClick={handleDocumentUpload}
-                >
-                  DOKUMENTE HOCHLADEN
-                </Button>
-                <div className="border rounded-circle p-2 d-flex align-items-center justify-content-center" style={{ width: '55px', height: '55px', color: '#064497', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}>
-                  0%
+          {/* Card 2: Haushaltszusammensetzung */}
+          <Col lg={6}>
+            <div className="h-100" style={{
+              background: '#f8f9fa',
+              border: isAuthenticated ? '1px solid #dee2e6' : '1px solid #dee2e6',
+              borderRadius: '12px',
+              padding: '1.5rem',
+              transition: 'all 0.3s ease',
+              boxShadow: isAuthenticated ? '0 4px 12px rgba(6, 68, 151, 0.1)' : '0 2px 4px rgba(0, 0, 0, 0.1)',
+              opacity: isAuthenticated ? 1 : 0.7
+            }}>
+              <div className="d-flex align-items-center mb-3">
+                <div className="me-3" style={{
+                  background: isAuthenticated ? '#064497' : '#6c757d',
+                  color: 'white',
+                  borderRadius: '50%',
+                  width: '35px',
+                  height: '35px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 'bold',
+                  fontSize: '1.1rem',
+                  boxShadow: isAuthenticated ? 'inset 0 3px 6px rgba(0, 0, 0, 0.1), inset 0 -1px 4px rgba(0, 0, 0, 0.4)' : 'inset 0 2px 4px rgba(0, 0, 0, 0.3)'
+                }}>2</div>
+                <div className="flex-grow-1">
+                  <h6 className="mb-1">Haushaltsauskunft</h6>
+                  <small className="text-muted">Angaben zu allen Haushaltsmitgliedern</small>
+                </div>
+                <div className="text-end">
+                  <div style={{
+                    background: '#ffffff',
+                    border: isAuthenticated ? '1px solid #064497' : '1px solid #dee2e6',
+                    borderRadius: '50%',
+                    width: '50px',
+                    height: '50px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 'regular',
+                    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
+                    color: isAuthenticated ? '#064497' : '#2d2d2d'
+                  }}>
+                    {formProgress.haushaltsauskunft}%
+                  </div>
+                </div>
+              </div>
+              <Button
+                className="w-100 py-2"
+                style={{ 
+                  backgroundColor: isAuthenticated ? '#064497' : '#808080', 
+                  border: 'none', 
+                  color: '#ffffff',
+                  fontSize: '0.85rem',
+                  fontWeight: '500',
+                  minHeight: '38px',
+                  opacity: isAuthenticated ? 1 : 0.7
+                }}
+                onClick={handleHaushaltsauskunft}
+                disabled={!isAuthenticated}
+              >
+                BEARBEITEN
+              </Button>
+            </div>
+          </Col>
+
+          {/* Card 3: Financial Forms */}
+          <Col lg={6}>
+            <div className="h-100" style={{
+              background: '#f8f9fa',
+              border: isAuthenticated ? '1px solid #dee2e6' : '1px solid #dee2e6',
+              borderRadius: '12px',
+              padding: '1.5rem',
+              transition: 'all 0.3s ease',
+              boxShadow: (isAuthenticated && formProgress.haushaltsauskunft === 100) ? '0 4px 12px rgba(6, 68, 151, 0.1)' : '0 2px 4px rgba(0, 0, 0, 0.1)',
+              opacity: (isAuthenticated) ? 1 : 0.6
+            }}>
+              <div className="d-flex align-items-center mb-3">
+                <div className="me-3" style={{
+                  background: (isAuthenticated && formProgress.haushaltsauskunft === 100) ? '#064497' : '#6c757d',
+                  color: 'white',
+                  borderRadius: '50%',
+                  width: '35px',
+                  height: '35px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 'bold',
+                  fontSize: '1.1rem',
+                  boxShadow: isAuthenticated ? 'inset 0 3px 6px rgba(0, 0, 0, 0.1), inset 0 -1px 4px rgba(0, 0, 0, 0.4)' : 'inset 0 2px 4px rgba(0, 0, 0, 0.3)'
+                }}>3</div>
+                <div className="flex-grow-1">
+                  <h6 className="mb-1">Einkommenserklärung & Selbstauskunft</h6>
+                  <small className="text-muted">Detaillierte Finanzangaben</small>
+                </div>
+                <div className="text-end">
+                  {formProgress.haushaltsauskunft === 100 && (
+                  <div className="d-flex gap-2">
+                    <div style={{
+                      background: '#ffffff',
+                      border: isAuthenticated ? '1px solid #064497' : '1px solid #dee2e6',
+                      borderRadius: '50%',
+                      width: '50px',
+                      height: '50px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: 'regular',
+                      boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
+                      color: isAuthenticated ? '#064497' : '#2d2d2d'
+                    }}>
+                      {formProgress.einkommenserklarung}%
+                    </div>
+                    <div style={{
+                      background: isAuthenticated ? '#D7DAEA' : '#ffffff',
+                      border: isAuthenticated ? '1px solidrgb(90, 90, 90)' : '1px solid #dee2e6',
+                      borderRadius: '50%',
+                      width: '50px',
+                      height: '50px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: 'regular',
+                      boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+                      color: '#2d2d2d'
+                    }}>
+                      {formProgress.selbstauskunft}%
+                    </div>
+                  </div>
+                         )}
                 </div>
               </div>
 
-              <div 
-                className="rounded p-4 mb-4" 
-                style={{ 
-                  boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.1)',
-                  backgroundColor: '#f8f9fa',
-                }}
-              >
-                {isAuthenticated ? (
-                  <>
-                    <h6 className="text-start mb-3 fw-medium" style={{ color: '#064497' }}>Ihr Konto</h6>
-                    <p className="text-start mb-3">
-                      Ihre E-Mail-Adresse: <strong>{email}</strong>
-                    </p>
-                    <Button
-                      onClick={logout}
-                      className="w-100 py-2"
-                      style={{ backgroundColor: '#D7DAEA', color: '#000000', border: 'none', boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.2)' }}
-                    >
-                      Abmelden
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <h6 className="text-start mb-3 fw-medium" style={{ color: '#064497' }}>
-                      {emailSubmitted ? 'Bestätigen Sie ihr Konto' : 'Konto erstellen'}
-                    </h6>
-                    <p className="text-start mb-3">
-                      {emailSubmitted 
-                        ? 'Schauen Sie in ihr E-Mail postfach oder Spam Ordner um fortzufahren'
-                        : 'Erstellen Sie ein Konto, um alle Funktionen nutzen zu können.'}
-                    </p>
-                    <Button
-                      onClick={handleModalOpen}
-                      className="w-100 py-2"
-                      style={{ 
-                        backgroundColor: '#064497',
-                        border: 'none', 
-                        boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)'
-                      }}
-                    >
-                      {emailSubmitted ? 'E-Mail Ändern / Erneut Versuchen' : 'Konto erstellen'}
-                    </Button>
-                  </>
-                )}
+              {isAuthenticated && formProgress.haushaltsauskunft < 100 ? (
+                <div className="alert alert-warning d-flex align-items-center justify-content-center" style={{ 
+                  fontSize: '0.8rem',
+                  minHeight: '38px',
+                  paddingTop: '0.5rem',
+                  paddingBottom: '0.5rem',
+                  margin: 0
+                }}>
+                  Bitte vervollständigen Sie zuerst die Haushaltsauskunft (2.)
+                </div>
+              ) : (
+                <div className="d-flex gap-2">
+                  <Button
+                    className="flex-fill py-2"
+                    style={{ 
+                      backgroundColor: (isAuthenticated && formProgress.haushaltsauskunft === 100) ? '#064497' : '#808080', 
+                      border: 'none', 
+                      color: '#ffffff',
+                      fontSize: '0.85rem',
+                      fontWeight: '500',
+                      minHeight: '38px',
+                      opacity: (isAuthenticated && formProgress.haushaltsauskunft === 100) ? 1 : 0.7
+                    }}
+                    onClick={handleEinkommenserklaerung}
+                    disabled={!isAuthenticated || formProgress.haushaltsauskunft < 100}
+                  >
+                    Einkommenserklärung
+                  </Button>
+                  <Button
+                    className="flex-fill py-2"
+                    style={{ 
+                      backgroundColor: (isAuthenticated && formProgress.haushaltsauskunft === 100) ? '#D7DAEA' : '#808080', 
+                      border: 'none', 
+                      color: isAuthenticated ? 'black' : '#ffffff',
+                      fontSize: '0.85rem',
+                      fontWeight: '500',
+                      minHeight: '38px',
+                      opacity: (isAuthenticated && formProgress.haushaltsauskunft === 100) ? 1 : 0.7
+                    }}
+                    onClick={handleSelbstauskunft}
+                    disabled={!isAuthenticated || formProgress.haushaltsauskunft < 100}
+                  >
+                    Selbstauskunft
+                  </Button>
+                </div>
+              )}
+            </div>
+          </Col>
+
+          {/* Card 4: Documents */}
+          <Col lg={6}>
+            <div className="h-100" style={{
+              background: '#f8f9fa',
+              border: isAuthenticated ? '1px solid #dee2e6' : '1px solid #dee2e6',
+              borderRadius: '12px',
+              padding: '1.5rem',
+              transition: 'all 0.3s ease',
+              boxShadow: isAuthenticated ? '0 4px 12px rgba(6, 68, 151, 0.1)' : '0 2px 4px rgba(0, 0, 0, 0.1)',
+              opacity: isAuthenticated ? 1 : 0.7
+            }}>
+              <div className="d-flex align-items-center mb-3">
+                <div className="me-3" style={{
+                  background: isAuthenticated ? '#064497' : '#6c757d',
+                  color: 'white',
+                  borderRadius: '50%',
+                  width: '35px',
+                  height: '35px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 'bold',
+                  fontSize: '1.1rem',
+                  boxShadow: isAuthenticated ? 'inset 0 3px 6px rgba(0, 0, 0, 0.1), inset 0 -1px 4px rgba(0, 0, 0, 0.4)' : 'inset 0 2px 4px rgba(0, 0, 0, 0.3)'
+                }}>4</div>
+                <div className="flex-grow-1">
+                  <h6 className="mb-1">Dokumente Hochladen</h6>
+                  <small className="text-muted">Erforderliche Unterlagen verwalten</small>
+                </div>
+                <div className="text-end">
+                  <div style={{
+                    background: '#ffffff',
+                    border: isAuthenticated ? '1px solid #064497' : '1px solid #dee2e6',
+                    borderRadius: '50%',
+                    width: '50px',
+                    height: '50px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 'regular',
+                    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
+                    color: isAuthenticated ? '#064497' : '#2d2d2d'
+                  }}>
+                    0%
+                  </div>
+                </div>
               </div>
+              <Button
+                className="w-100 py-2"
+                style={{ 
+                  backgroundColor: isAuthenticated ? '#064497' : '#808080', 
+                  border: 'none', 
+                  color: '#ffffff',
+                  fontSize: '0.85rem',
+                  fontWeight: '500',
+                  minHeight: '38px',
+                  opacity: isAuthenticated ? 1 : 0.7
+                }}
+                onClick={handleDocumentUpload}
+                disabled={!isAuthenticated}
+              >
+                BEARBEITEN
+              </Button>
             </div>
           </Col>
         </Row>

@@ -34,6 +34,7 @@ interface AdditionalIncomeChange {
 }
 
 interface AdditionalApplicantFinancials {
+  originalPersonId?: string; // Add UUID tracking field
   title: string;
   firstName: string;
   lastName: string;
@@ -208,12 +209,21 @@ interface EinkommenserklaerungContainerProps {
   residentId?: string;
 }
 
-const EinkommenserklaerungContainer: React.FC<EinkommenserklaerungContainerProps> = ({ residentId }) => {
-  const initialAdditionalIncomeChanges: AdditionalIncomeChange = {
-    selectedTypes: [],
-    changes: {},
-  };
+const initialAdditionalIncomeChanges: AdditionalIncomeChange = {
+  selectedTypes: [],
+  changes: {},
+};
 
+// Generate UUID helper function
+const generateUUID = (): string => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+};
+
+const EinkommenserklaerungContainer: React.FC<EinkommenserklaerungContainerProps> = ({ residentId }) => {
   const initialMainFinancials: MainFinancials = {
     title: '',
     firstName: '',
@@ -268,22 +278,40 @@ const EinkommenserklaerungContainer: React.FC<EinkommenserklaerungContainerProps
   const [additionalApplicants, setAdditionalApplicants] = useState<AdditionalApplicantFinancials[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+  const [showValidation, setShowValidation] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
-  const [showValidation, setShowValidation] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [pendingSection, setPendingSection] = useState<string | null>(null);
+
+  // Validation state variables
   const [validationErrors, setValidationErrors] = useState<ApplicantErrors>({});
   const [showValidationModal, setShowValidationModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [hasValidatedOnce, setHasValidatedOnce] = useState(false);
+  const [sonderzuwendungenFieldErrors, setSonderzuwendungenFieldErrors] = useState<Record<number, string[]>>({});
+
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [hasValidatedOnce, setHasValidatedOnce] = useState(false);
-  const [sonderzuwendungenFieldErrors, setSonderzuwendungenFieldErrors] = useState<Record<number, any>>({
-    0: {vergangen: {}, kommend: {}} // Main applicant
-  });
-  const [pendingSection, setPendingSection] = useState<string | null>(null);
+
+  // Helper function to get applicant display name
+  const getApplicantDisplayName = (applicant: MainFinancials | AdditionalApplicantFinancials, index: number): string => {
+    if (index === 0) {
+      return 'Hauptantragsteller';
+    }
+    
+    const firstName = applicant.firstName || '';
+    const lastName = applicant.lastName || '';
+    const fullName = `${firstName} ${lastName}`.trim();
+    
+    if (fullName) {
+      return `${fullName}`;
+    } else {
+      return `Person ${index + 1}`;
+    }
+  };
 
   useEffect(() => {
     if (pendingSection !== null) {
@@ -451,27 +479,148 @@ const EinkommenserklaerungContainer: React.FC<EinkommenserklaerungContainerProps
 
         // Load additional applicants data
         if (userData?.weitere_antragstellende_personen) {
-          // First, get the personal data from user_data
-          const additionalApplicantsData = userData.weitere_antragstellende_personen.map((person: any) => ({
-            title: person.title || '',
-            firstName: person.firstName || '',
-            lastName: person.lastName || '',
-            street: person.street || '',
-            houseNumber: person.houseNumber || '',
-            postalCode: person.postalCode || '',
-            city: person.city || ''
-          }));
+          // Load additional applicants data (UUID-based structure)
+          const weiterePersonenData = userData.weitere_antragstellende_personen || {};
+          console.log('Loading weitere_antragstellende_personen:', weiterePersonenData);
+          let weiterePersonenObj: Record<string, any> = {};
+          
+          // Handle backwards compatibility: convert array to UUID-based object if needed
+          if (Array.isArray(weiterePersonenData)) {
+            console.log('Converting from legacy array format');
+            // Legacy array format - convert to UUID-based object
+            weiterePersonenData.forEach((person: any, index: number) => {
+              const uuid = person.id || `legacy_${index}`;
+              weiterePersonenObj[uuid] = { ...person, id: uuid };
+            });
+          } else {
+            console.log('Using UUID-based object format');
+            // Already UUID-based object format
+            weiterePersonenObj = weiterePersonenData;
+          }
 
-          // Get additional applicants financial data from user_financials
-          const additionalFinancials = financialData?.additional_applicants_financials || [];
+          console.log('Processed weiterePersonenObj:', weiterePersonenObj);
 
+          // Load financial data - also convert to UUID-based if needed
+          const additionalFinancialsData = financialData?.additional_applicants_financials || {};
+          console.log('Loading additional_applicants_financials:', additionalFinancialsData);
+          let additionalFinancialsObj: Record<string, any> = {};
+          
+          if (Array.isArray(additionalFinancialsData)) {
+            console.log('Converting financial data from legacy array format');
+            // Legacy array format - match by index to UUID
+            const personUuids = Object.keys(weiterePersonenObj);
+            additionalFinancialsData.forEach((fin: any, index: number) => {
+              if (personUuids[index]) {
+                additionalFinancialsObj[personUuids[index]] = fin;
+              }
+            });
+          } else {
+            console.log('Using UUID-based financial data format');
+            // Already UUID-based object format
+            additionalFinancialsObj = additionalFinancialsData;
+          }
+          
+          console.log('Processed additionalFinancialsObj:', additionalFinancialsObj);
+
+          // Check for all persons and log their status
+          const allPersons = Object.entries(weiterePersonenObj);
+          console.log(`Found ${allPersons.length} total persons in weitere_antragstellende_personen`);
+          
+          allPersons.forEach(([uuid, person]: [string, any]) => {
+            console.log(`Person ${uuid}:`, {
+              name: `${person.firstName} ${person.lastName}`,
+              noIncome: person.noIncome,
+              notHousehold: person.notHousehold,
+              hasApplicantData: !!(person.title || person.firstName || person.lastName)
+            });
+          });
+
+          const applicantEntries = Object.entries(weiterePersonenObj).filter(([uuid, person]: [string, any]) => {
+            const noIncome = person.noIncome;
+            const notHousehold = person.notHousehold;
+            const shouldInclude = noIncome !== true && notHousehold !== true; // Exclude if noIncome or notHousehold is true
+            
+            console.log(`Person ${uuid} (${person.firstName} ${person.lastName}):`, {
+              noIncome: person.noIncome,
+              notHousehold: person.notHousehold,
+              shouldInclude,
+              reason: 
+                noIncome === true
+                  ? 'Excluded: noIncome is true'
+                  : notHousehold === true
+                    ? 'Excluded: notHousehold is true'
+                    : 'Included: neither noIncome nor notHousehold is true'
+            });
+            
+            return shouldInclude;
+          });
+
+          console.log('Filtered applicant entries:', applicantEntries);
           // Merge personal and financial data
-          const mergedApplicants = additionalApplicantsData.map((applicant: AdditionalApplicantFinancials, index: number) => {
-            const financialData = additionalFinancials?.[index];
-            if (!financialData) return applicant;
+          const mergedApplicants: AdditionalApplicantFinancials[] = applicantEntries.map(([uuid, person]: [string, any], index: number) => {
+            const financialData = additionalFinancialsObj[uuid] || {};
+            console.log(`Creating merged applicant for ${uuid}:`, { person, financialData });
+            
+            if (!financialData) return {
+              originalPersonId: uuid,
+              title: person.title || '',
+              firstName: person.firstName || '',
+              lastName: person.lastName || '',
+              street: person.street || '',
+              houseNumber: person.houseNumber || '',
+              postalCode: person.postalCode || '',
+              city: person.city || '',
+              hasEmploymentIncome: null,
+              incomeYear: '',
+              incomeYearAmount: '',
+              incomeEndMonth: '',
+              incomeEndYear: '',
+              monthlyIncome: {},
+              sonderzuwendungenVergangen: {},
+              sonderzuwendungenKommend: {},
+              willChangeIncome: null,
+              incomeChangeDate: '',
+              willChangeIncrease: null,
+              newIncome: '',
+              isNewIncomeMonthly: null,
+              newIncomeReason: '',
+              startEmployment: '',
+              isContractLimited: null,
+              endOfContract: '',
+              weitereEinkuenfte: {
+                selectedTypes: [],
+                renten: undefined,
+                vermietung: undefined,
+                gewerbe: undefined,
+                landforst: undefined,
+                sonstige: undefined,
+                unterhaltsteuerfrei: undefined,
+                unterhaltsteuerpflichtig: undefined,
+                ausland: undefined,
+                pauschal: undefined,
+                arbeitslosengeld: undefined,
+              },
+              werbungskosten: '',
+              kinderbetreuungskosten: '',
+              ispayingincometax: null,
+              ispayinghealthinsurance: null,
+              ispayingpension: null,
+              ispayingunterhalt: null,
+              unterhaltszahlungen: [],
+              additionalIncomeChanges: initialAdditionalIncomeChanges,
+              finanzamt: '',
+              steuerid: '',
+            };
 
             return {
-              ...applicant,
+              originalPersonId: uuid,
+              title: person.title || '',
+              firstName: person.firstName || '',
+              lastName: person.lastName || '',
+              street: person.street || '',
+              houseNumber: person.houseNumber || '',
+              postalCode: person.postalCode || '',
+              city: person.city || '',
               hasEmploymentIncome: financialData.isEarningRegularIncome,
               incomeYear: financialData.prior_year || '',
               incomeYearAmount: financialData.prior_year_earning ? formatCurrencyForDisplay(financialData.prior_year_earning) : '',
@@ -552,19 +701,19 @@ const EinkommenserklaerungContainer: React.FC<EinkommenserklaerungContainerProps
                   financialData?.haspauschalincome ? 'pauschal' : null,
                   financialData?.hasablgincome ? 'arbeitslosengeld' : null,
                 ].filter(Boolean)) as string[],
-                renten: financialData?.haspensionincome ? { betrag: financialData.incomepension ? formatCurrencyForDisplay(financialData.incomepension) : '', turnus: 'monatlich' } : undefined,
+                renten: financialData?.haspensionincome ? { betrag: financialData.incomepension ? formatCurrencyForDisplay(financialData.incomepension) : '', turnus: 'monatlich' as const } : undefined,
                 vermietung: financialData?.hasrentincome ? { betrag: financialData.incomerent ? formatCurrencyForDisplay(financialData.incomerent) : '', jahr: financialData.incomerentyear ? String(financialData.incomerentyear) : '' } : undefined,
                 gewerbe: financialData?.hasbusinessincome ? { betrag: financialData.incomebusiness ? formatCurrencyForDisplay(financialData.incomebusiness) : '', jahr: financialData.incomebusinessyear ? String(financialData.incomebusinessyear) : '' } : undefined,
                 landforst: financialData?.hasagricultureincome ? { betrag: financialData.incomeagriculture ? formatCurrencyForDisplay(financialData.incomeagriculture) : '', jahr: financialData.incomeagricultureyear ? String(financialData.incomeagricultureyear) : '' } : undefined,
                 sonstige: financialData?.hasothercome ? { betrag: financialData.incomeothers ? formatCurrencyForDisplay(financialData.incomeothers) : '', jahr: financialData.incomeothersyear ? String(financialData.incomeothersyear) : '' } : undefined,
                 unterhaltsteuerfrei: financialData?.hastaxfreeunterhaltincome ? { betrag: financialData.incomeunterhalttaxfree ? formatCurrencyForDisplay(financialData.incomeunterhalttaxfree) : '' } : undefined,
                 unterhaltsteuerpflichtig: financialData?.hastaxableunterhaltincome ? { betrag: financialData.incomeunterhalttaxable ? formatCurrencyForDisplay(financialData.incomeunterhalttaxable) : '' } : undefined,
-                ausland: financialData?.hasforeignincome ? { betrag: financialData.incomeforeign ? formatCurrencyForDisplay(financialData.incomeforeign) : '', jahr: financialData.incomeforeignyear ? String(financialData.incomeforeignyear) : '', turnus: financialData.incomeforeignmonthly ? 'monatlich' : 'jährlich' } : undefined,
-                pauschal: financialData?.haspauschalincome ? { betrag: financialData.incomepauschal ? formatCurrencyForDisplay(financialData.incomepauschal) : '', turnus: 'monatlich' } : undefined,
+                ausland: financialData?.hasforeignincome ? { betrag: financialData.incomeforeign ? formatCurrencyForDisplay(financialData.incomeforeign) : '', jahr: financialData.incomeforeignyear ? String(financialData.incomeforeignyear) : '', turnus: (financialData.incomeforeignmonthly ? 'monatlich' : 'jährlich') as 'monatlich' | 'jährlich' } : undefined,
+                pauschal: financialData?.haspauschalincome ? { betrag: financialData.incomepauschal ? formatCurrencyForDisplay(financialData.incomepauschal) : '', turnus: 'monatlich' as const } : undefined,
                 arbeitslosengeld: financialData?.hasablgincome && (financialData.incomealbgtype === 0 || financialData.incomealbgtype === 1 || financialData.incomealbgtype === 2)
                   ? {
                       betrag: financialData.incomeablg ? formatCurrencyForDisplay(financialData.incomeablg) : '',
-                      turnus: financialData.incomealbgtype === 0 ? 'täglich' : financialData.incomealbgtype === 1 ? 'monatlich' : 'jährlich',
+                      turnus: (financialData.incomealbgtype === 0 ? 'täglich' : financialData.incomealbgtype === 1 ? 'monatlich' : 'jährlich') as 'täglich' | 'monatlich' | 'jährlich',
                     }
                   : undefined,
               },
@@ -573,6 +722,7 @@ const EinkommenserklaerungContainer: React.FC<EinkommenserklaerungContainerProps
             };
           });
 
+          console.log('Final mergedApplicants:', mergedApplicants);
           setAdditionalApplicants(mergedApplicants);
         }
 
@@ -638,33 +788,50 @@ const EinkommenserklaerungContainer: React.FC<EinkommenserklaerungContainerProps
         .from('user_data')
         .update({
           // Main applicant data
-          title: mainFinancials.title || null,
-          firstname: mainFinancials.firstName || null,
-          lastname: mainFinancials.lastName || null,
-          person_street: mainFinancials.street || null,
-          person_housenumber: mainFinancials.houseNumber || null,
-          person_postalcode: mainFinancials.postalCode || null,
-          person_city: mainFinancials.city || null,
+          title: mainFinancials.title,
+          firstname: mainFinancials.firstName,
+          lastname: mainFinancials.lastName,
+          person_street: mainFinancials.street,
+          person_housenumber: mainFinancials.houseNumber,
+          person_postalcode: mainFinancials.postalCode,
+          person_city: mainFinancials.city,
           einkommenserklarung_progress: einkommenserklarungProgress,
           
           // Additional applicants data - preserve existing data and only update address fields
-          weitere_antragstellende_personen: additionalApplicants.map((applicant, index) => {
-            // Get existing person data if available
-            const existingPerson = existingUserData?.weitere_antragstellende_personen?.[index] || {};
+          weitere_antragstellende_personen: (() => {
+            // Work with UUID-based structure
+            const existingPersonsObj = existingUserData?.weitere_antragstellende_personen || {};
+            const updatedPersonsObj = { ...existingPersonsObj };
             
-            return {
-              ...existingPerson, // Preserve all existing fields
-              title: applicant.title || existingPerson.title || null,
-              firstName: applicant.firstName || existingPerson.firstName || null,
-              lastName: applicant.lastName || existingPerson.lastName || null,
-              street: applicant.street || existingPerson.street || null,
-              houseNumber: applicant.houseNumber || existingPerson.houseNumber || null,
-              postalCode: applicant.postalCode || existingPerson.postalCode || null,
-              city: applicant.city || existingPerson.city || null,
-              finanzamt: applicant.finanzamt || existingPerson.finanzamt || null,
-              steuerid: applicant.steuerid || existingPerson.steuerid || null,
-            };
-          })
+            // Handle backwards compatibility: convert array to UUID-based object if needed
+            if (Array.isArray(existingPersonsObj)) {
+              // Legacy array format - convert to UUID-based object
+              existingPersonsObj.forEach((person: any, index: number) => {
+                const uuid = person.id || `legacy_${index}`;
+                updatedPersonsObj[uuid] = { ...person, id: uuid };
+              });
+            }
+
+            // Update with current additional applicants data
+            additionalApplicants.forEach(applicant => {
+              const uuid = applicant.originalPersonId || generateUUID();
+              const existingPerson = updatedPersonsObj[uuid] || {};
+              
+              updatedPersonsObj[uuid] = {
+                ...existingPerson, // Preserve all existing fields
+                id: uuid,
+                title: applicant.title,
+                firstName: applicant.firstName,
+                lastName: applicant.lastName,
+                street: applicant.street,
+                houseNumber: applicant.houseNumber,
+                postalCode: applicant.postalCode,
+                city: applicant.city,
+              };
+            });
+
+            return Object.keys(updatedPersonsObj).length > 0 ? updatedPersonsObj : null;
+          })()
         })
         .eq('id', user.id);
 
@@ -919,13 +1086,41 @@ const EinkommenserklaerungContainer: React.FC<EinkommenserklaerungContainerProps
       const updateData = {
         ...existingFinancialData, // Preserve all existing data
         ...mainApplicantData, // Override with Einkommenserklaerung data
-        additional_applicants_financials: additionalApplicantsData.map((newData, index) => {
-          const existingAdditionalData = existingFinancialData?.additional_applicants_financials?.[index] || {};
-          return {
-            ...existingAdditionalData, // Preserve existing additional applicant data
-            ...newData // Override with new Einkommenserklaerung data
-          };
-        })
+        additional_applicants_financials: (() => {
+          // Prepare UUID-based additional_applicants_financials object
+          const existingAdditionalFinancials = existingFinancialData?.additional_applicants_financials || {};
+          let updatedAdditionalFinancials: Record<string, any> = {};
+          
+          // Handle backwards compatibility: convert array to UUID-based object if needed
+          if (Array.isArray(existingAdditionalFinancials)) {
+            // Legacy array format - convert to UUID-based object using person UUIDs
+            const personUuids = Object.keys(existingUserData?.weitere_antragstellende_personen || {});
+            existingAdditionalFinancials.forEach((fin: any, index: number) => {
+              if (personUuids[index]) {
+                updatedAdditionalFinancials[personUuids[index]] = fin;
+              }
+            });
+          } else {
+            // Already UUID-based object format
+            updatedAdditionalFinancials = { ...existingAdditionalFinancials };
+          }
+
+          // Update with current additional applicants financial data
+          additionalApplicants.forEach(applicant => {
+            const uuid = applicant.originalPersonId || generateUUID();
+            const existingFinancialData = updatedAdditionalFinancials[uuid] || {};
+            const newFinancialData = additionalApplicantsData.find((_, index) => 
+              additionalApplicants[index].originalPersonId === uuid
+            ) || {};
+            
+            updatedAdditionalFinancials[uuid] = {
+              ...existingFinancialData, // Preserve existing financial data from other forms
+              ...newFinancialData // Override with new Einkommenserklaerung data
+            };
+          });
+
+          return Object.keys(updatedAdditionalFinancials).length > 0 ? updatedAdditionalFinancials : null;
+        })()
       };
 
       // Save main applicant data and additional applicants financial data
@@ -957,10 +1152,15 @@ const EinkommenserklaerungContainer: React.FC<EinkommenserklaerungContainerProps
     }
   };
 
+   // State for info modal
+   const [showInfoModal, setShowInfoModal] = useState(false);
+   const [infoModalType, setInfoModalType] = useState<'add' | 'remove'>('add');
+
   const handleAddApplicant = () => {
-    setAdditionalApplicants([
+   /* setAdditionalApplicants([
       ...additionalApplicants,
       {
+        originalPersonId: generateUUID(),
         title: '',
         firstName: '',
         lastName: '',
@@ -1010,13 +1210,17 @@ const EinkommenserklaerungContainer: React.FC<EinkommenserklaerungContainerProps
         steuerid: '',
       }
     ]);
-    setSelectedIndex(additionalApplicants.length + 1);
+    setSelectedIndex(additionalApplicants.length + 1);*/
+    setInfoModalType('add');
+    setShowInfoModal(true);
   };
 
   const handleRemoveApplicant = (index: number) => {
-    const updated = additionalApplicants.filter((_, i) => i !== index);
+    /*const updated = additionalApplicants.filter((_, i) => i !== index);
     setAdditionalApplicants(updated);
-    setSelectedIndex(0);
+    setSelectedIndex(0);*/
+    setInfoModalType('remove');
+    setShowInfoModal(true);
   };
 
   const validateSonderzuwendungen = (applicant: MainFinancials | AdditionalApplicantFinancials, isMainApplicant: boolean) => {
@@ -1288,7 +1492,7 @@ const EinkommenserklaerungContainer: React.FC<EinkommenserklaerungContainerProps
     if (!mainFinancials.finanzamt) mainSectionErrors.legal.push('Zuständiges Finanzamt ist erforderlich');
     if (!mainFinancials.steuerid) mainSectionErrors.legal.push('Steuer-ID ist erforderlich');
 
-    errors['Antragstellende Person 1'] = mainSectionErrors;
+    errors[getApplicantDisplayName(mainFinancials, 0)] = mainSectionErrors;
 
     // --- Additional Applicants ---
     additionalApplicants.forEach((applicant, index) => {
@@ -1417,7 +1621,7 @@ const EinkommenserklaerungContainer: React.FC<EinkommenserklaerungContainerProps
       // Section: legal
       if (!applicant.finanzamt) applicantSectionErrors.legal.push('Zuständiges Finanzamt ist erforderlich');
       if (!applicant.steuerid) applicantSectionErrors.legal.push('Steuer-ID ist erforderlich');
-      errors[`Antragstellende Person ${index + 2}`] = applicantSectionErrors;
+      errors[getApplicantDisplayName(applicant, index + 1)] = applicantSectionErrors;
     });
 
     setValidationErrors(errors);
@@ -1448,12 +1652,18 @@ const EinkommenserklaerungContainer: React.FC<EinkommenserklaerungContainerProps
     }
   };
 
+  // Force re-render when applicant names change to update button labels
+  useEffect(() => {
+    // This effect will trigger a re-render when any applicant's firstName or lastName changes
+    // The getApplicantDisplayName function will be called again with updated names
+  }, [mainFinancials.firstName, mainFinancials.lastName, ...additionalApplicants.map(a => [a.firstName, a.lastName]).flat()]);
+
   const handleMainFinancialsChange = (data: MainFinancials) => {
     setMainFinancials(data);
   };
 
   const getCurrentApplicantSectionErrors = () => {
-    const applicantKey = selectedIndex === 0 ? 'Antragstellende Person 1' : `Antragstellende Person ${selectedIndex + 1}`;
+    const applicantKey = selectedIndex === 0 ? 'Hauptantragsteller' : `Person ${selectedIndex + 1}`;
     const sectionErrors = validationErrors[applicantKey] || {};
     return Object.values(sectionErrors).flat();
   };
@@ -2001,11 +2211,11 @@ const EinkommenserklaerungContainer: React.FC<EinkommenserklaerungContainerProps
                 }}
                 onClick={() => setSelectedIndex(0)}
               >
-                Antragstellende Person 1
+                Hauptantragsteller
               </Button>
 
               {/* Additional Applicants Buttons */}
-              {additionalApplicants.map((_, index) => (
+              {additionalApplicants.map((applicant, index) => (
                 <div key={index} className="d-flex align-items-center gap-3 flex-shrink-0">
                   <Button
                     variant={selectedIndex === index + 1 ? 'primary' : 'outline-primary'}
@@ -2019,7 +2229,7 @@ const EinkommenserklaerungContainer: React.FC<EinkommenserklaerungContainerProps
                     }}
                     onClick={() => setSelectedIndex(index + 1)}
                   >
-                    Antragstellende Person {index + 2}
+                    {getApplicantDisplayName(applicant, index + 1)}
                   </Button>
                   <Button
                     variant="link"
@@ -2168,6 +2378,32 @@ const EinkommenserklaerungContainer: React.FC<EinkommenserklaerungContainerProps
               // Only show if this applicant has any errors
               const hasErrors = Object.values(sectionErrors).some(arr => arr.length > 0);
               if (!hasErrors) return null;
+              
+              // Find the applicant index based on the display name
+              const findApplicantIndex = (displayName: string): number => {
+                if (displayName === 'Hauptantragsteller') {
+                  return 0;
+                }
+                
+                // For additional applicants, find by matching the display name
+                for (let i = 0; i < additionalApplicants.length; i++) {
+                  const applicantDisplayName = getApplicantDisplayName(additionalApplicants[i], i + 1);
+                  if (applicantDisplayName === displayName) {
+                    return i + 1;
+                  }
+                }
+                
+                // Fallback: try to extract from "Person X" format if still using old format
+                const match = displayName.match(/Person (\d+)/);
+                if (match) {
+                  return parseInt(match[1]) - 1;
+                }
+                
+                return 0; // Default fallback
+              };
+              
+              const applicantIndex = findApplicantIndex(applicant);
+              
               return (
                 <div key={applicant} className="mb-3">
                   {/* Person Headline and Button (outside red background) */}
@@ -2178,7 +2414,6 @@ const EinkommenserklaerungContainer: React.FC<EinkommenserklaerungContainerProps
                       size="sm"
                       onClick={() => {
                         setShowValidationModal(false);
-                        const applicantIndex = parseInt(applicant.split(' ')[2]) - 1;
                         setSelectedIndex(applicantIndex);
                         setPendingSection(null);
                       }}
@@ -2199,7 +2434,6 @@ const EinkommenserklaerungContainer: React.FC<EinkommenserklaerungContainerProps
                               size="sm"
                               onClick={() => {
                                 setShowValidationModal(false);
-                                const applicantIndex = parseInt(applicant.split(' ')[2]) - 1;
                                 setSelectedIndex(applicantIndex);
                                 setPendingSection(section);
                               }}
@@ -2281,6 +2515,76 @@ const EinkommenserklaerungContainer: React.FC<EinkommenserklaerungContainerProps
         </Modal.Body>
         <Modal.Footer>
           <Button onClick={() => setShowModal(false)} style={{ backgroundColor: '#064497', border: 'none' }}>Schließen</Button>
+        </Modal.Footer>
+      </Modal>
+
+        {/* Info Modal for Add/Remove Applicants */}
+        <Modal show={showInfoModal} onHide={() => setShowInfoModal(false)} centered>
+        <Modal.Header>
+          <Modal.Title>
+            {infoModalType === 'add' ? 'Person hinzufügen' : 'Person entfernen'}
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <div className="mb-4">
+            <p>
+              Alle Mitglieder Ihres Haushalts, die ein eigenes Einkommen haben, 
+              müssen die Einkommenserklärung und Selbstauskunft ausfüllen.
+            </p>
+            <div className="my-3" />
+            <p>
+              Falls Sie Ihre Haushaltsangaben ändern möchten, können Sie diese 
+              im Schritt 2 des persönlichen Bereichs unter "Haushaltsauskunft" anpassen.
+            </p>
+          </div>
+          
+          <div className="d-flex flex-column gap-3">
+            <Button
+              variant="outline-primary"
+              onClick={() => {
+                setShowInfoModal(false);
+                navigate('/personal-space');
+              }}
+              className="text-start p-3"
+              style={{ borderColor: '#064497', color: '#064497', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#D7DAEA'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+            >
+              <div className="fw-bold mb-1">
+                Zum persönlichen Bereich
+              </div>
+              <div className="text-muted small">
+                Hier können Sie alle Ihre Formulare einsehen und verwalten.
+              </div>
+            </Button>
+            
+            <Button
+              variant="outline-secondary"
+              onClick={() => {
+                setShowInfoModal(false);
+                navigate('/haushaltsauskunft');
+              }}
+              className="text-start p-3"
+              style={{ borderColor: '#064497', color: '#064497', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#D7DAEA'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+            >
+              <div className="fw-bold mb-1">
+                Zur Haushaltsauskunft
+              </div>
+              <div className="text-muted small">
+                Hier können Sie Ihre Haushaltsmitglieder verwalten und deren Einkommensstatus anpassen.
+              </div>
+            </Button>
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button 
+            variant="secondary" 
+            onClick={() => setShowInfoModal(false)}
+          >
+            Abbrechen
+          </Button>
         </Modal.Footer>
       </Modal>
     </div>

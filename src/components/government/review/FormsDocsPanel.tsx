@@ -5,6 +5,8 @@ import HauptantragReviewContainer from '../../Hauptantrag/HauptantragReviewConta
 import SelbstauskunftReviewContainer from '../../Selbstauskunft/SelbstauskunftReviewContainer';
 import WoFIVReviewContainer from '../../WoFIV/WoFIVReviewContainer';
 import Din277ReviewContainer from '../../DIN277/Din277ReviewContainer';
+import SelbsthilfeReviewContainer from '../../Selbsthilfe/SelbsthilfeReviewContainer';
+import HaushaltReviewContainer from '../../Haushaltsauskunft/HaushaltReviewContainer';
 
 type DocumentStatus = {
   fileName: string;
@@ -79,32 +81,27 @@ export const DOCUMENT_LABELS: Record<string, string> = {
 const CATEGORY_LABELS: Record<string, string> = {
   'general': 'Allgemeine Dokumente',
   'hauptantragsteller': 'Hauptantragsteller',
-  'applicant_2': 'Antragsteller 2',
-  'applicant_3': 'Antragsteller 3',
-  'applicant_4': 'Antragsteller 4',
-  'applicant_5': 'Antragsteller 5',
-  'applicant_6': 'Antragsteller 6',
-  'applicant_7': 'Antragsteller 7',
-  'applicant_8': 'Antragsteller 8',
-  'applicant_9': 'Antragsteller 9',
-  'applicant_10': 'Antragsteller 10'
-
+  // Remove the hardcoded applicant_2, applicant_3, etc. as they will be generated dynamically
 };
 
 export const availableForms = [
   { id: 'hauptantrag', label: 'Hauptantrag' },
   { id: 'einkommenserklaerung', label: 'Einkommenserklärung' },
   { id: 'selbstauskunft', label: 'Selbstauskunft' },
+  { id: 'haushaltsauskunft', label: 'Anlage zur Einkommenserklärung' },
   { id: 'berechnungwofiv', label: 'Berechnung der Wohn- und Nutzfläche nach WoFIV' },
   { id: 'berechnungrauminhalt', label: 'Berechnung des Brutto-Rauminhalts des Gebäudes' },
+  { id: 'selbsthilfeleistungen', label: 'Selbsthilfeleistungen Eigentumsmaßnahmen' },
 ];
 
 const FORM_COMPONENTS: Record<string, React.FC<{ residentId: string }>> = {
   'einkommenserklaerung': EinkommenserklaerungReviewContainer,
   'hauptantrag': HauptantragReviewContainer,
   'selbstauskunft': SelbstauskunftReviewContainer,
+  'haushaltsauskunft': HaushaltReviewContainer,
   'berechnungwofiv': WoFIVReviewContainer,
   'berechnungrauminhalt': Din277ReviewContainer,
+  'selbsthilfeleistungen': SelbsthilfeReviewContainer,
 };
 
 // Inject Material Icons font if not already present
@@ -128,8 +125,38 @@ const FormsDocsPanel: React.FC<FormsDocsPanelProps> = ({
   const [userData, setUserData] = useState<any>(null);
   const [documentUrls, setDocumentUrls] = useState<{[key: string]: string}>({});
   const [menuOpenFor, setMenuOpenFor] = useState<string | null>(null);
+  const [formMenuOpenFor, setFormMenuOpenFor] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const formMenuRef = useRef<HTMLDivElement | null>(null);
   const [sidebarVisible, setSidebarVisible] = useState(sidebarInitiallyVisible);
+  const [applicantNames, setApplicantNames] = useState<Record<string, string>>({});
+  const [isDownloadingForm, setIsDownloadingForm] = useState<string | null>(null);
+
+  // Function to get person name abbreviation
+  const getPersonNameAbbreviation = (firstName: string, lastName: string): string => {
+    const firstTwo = firstName?.substring(0, 2) || '';
+    const lastOne = lastName?.substring(0, 1) || '';
+    return `${firstTwo}.${lastOne}.`;
+  };
+
+  // Function to get category label with name abbreviation
+  const getCategoryLabel = (categoryKey: string): string => {
+    if (categoryKey === 'general') return 'Allgemeine Dokumente';
+    if (categoryKey === 'hauptantragsteller') return 'Hauptantragsteller';
+    
+    // Handle applicant categories with UIDs
+    if (categoryKey.startsWith('applicant_')) {
+      const uuid = categoryKey.replace('applicant_', '');
+      const personName = applicantNames[uuid];
+      if (personName) {
+        return personName;
+      }
+      // Fallback if no name found
+      return `Person ${uuid.substring(0, 8)}`;
+    }
+    
+    return categoryKey;
+  };
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -147,6 +174,26 @@ const FormsDocsPanel: React.FC<FormsDocsPanelProps> = ({
       }
 
       setUserData(data);
+
+      // Process applicant names from weitere_antragstellende_personen
+      if (data?.weitere_antragstellende_personen) {
+        const weiterePersonen = data.weitere_antragstellende_personen;
+        const names: Record<string, string> = {};
+        
+        Object.entries(weiterePersonen).forEach(([uuid, person]: [string, any]) => {
+          const firstName = person.firstName || person.firstname || '';
+          const lastName = person.lastName || person.lastname || '';
+          
+          if (firstName && lastName) {
+            const abbreviation = getPersonNameAbbreviation(firstName, lastName);
+            names[uuid] = `Person (${abbreviation})`;
+          } else {
+            names[uuid] = `Person ${Object.keys(names).length + 2}`;
+          }
+        });
+        
+        setApplicantNames(names);
+      }
 
       // Generate signed URLs for all uploaded documents (private bucket)
       if (data?.document_status) {
@@ -184,8 +231,11 @@ const FormsDocsPanel: React.FC<FormsDocsPanelProps> = ({
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setMenuOpenFor(null);
       }
+      if (formMenuRef.current && !formMenuRef.current.contains(event.target as Node)) {
+        setFormMenuOpenFor(null);
+      }
     }
-    if (menuOpenFor) {
+    if (menuOpenFor || formMenuOpenFor) {
       document.addEventListener('mousedown', handleClickOutside);
     } else {
       document.removeEventListener('mousedown', handleClickOutside);
@@ -193,7 +243,7 @@ const FormsDocsPanel: React.FC<FormsDocsPanelProps> = ({
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [menuOpenFor]);
+  }, [menuOpenFor, formMenuOpenFor]);
 
   const handleOpenInsideApp = (uniqueId: string) => {
     setMenuOpenFor(null);
@@ -223,6 +273,68 @@ const FormsDocsPanel: React.FC<FormsDocsPanelProps> = ({
         link.click();
         document.body.removeChild(link);
       }
+    }
+  };
+
+  const handleFormOpen = (formId: string) => {
+    setFormMenuOpenFor(null);
+    if (!openForms.includes(formId)) {
+      onPopOut(formId, 'form');
+    }
+  };
+
+  const handleFormDownload = async (formId: string) => {
+    if (!residentId) return;
+    
+    setFormMenuOpenFor(null);
+    setIsDownloadingForm(formId);
+    
+    try {
+      // Get the current session token from Supabase
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error || !session) {
+        throw new Error('No valid session found');
+      }
+
+      // Get the API base URL from environment or use relative path
+      const apiBaseUrl = process.env.REACT_APP_BACKEND_URL || '';
+      
+      // Make API call to generate PDF for agent
+      const response = await fetch(`${apiBaseUrl}/pdf/generate-haushalt-agent`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ resident_id: residentId }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      // Get the PDF blob
+      const pdfBlob = await response.blob();
+      
+      // Create download link
+      const url = window.URL.createObjectURL(pdfBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `haushalt_form_${residentId}.pdf`;
+      
+      // Trigger download
+      document.body.appendChild(link);
+      link.click();
+      
+      // Cleanup
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+    } catch (error) {
+      console.error('Error downloading PDF:', error);
+      alert('Fehler beim Herunterladen der PDF. Bitte versuchen Sie es erneut.');
+    } finally {
+      setIsDownloadingForm(null);
     }
   };
 
@@ -360,10 +472,10 @@ const FormsDocsPanel: React.FC<FormsDocsPanelProps> = ({
                       
                       // Handle different ID formats
                       if (parts[0] === 'applicant') {
-                        // Format: applicant_X_documentType_index
-                        // Skip first two parts (applicant, number) and last part (index)
+                        // Format: applicant_UUID_documentType_index
+                        // Skip first two parts (applicant, UUID) and last part (index)
                         docTypeId = parts.slice(2, -1).join('_');
-                        categoryKey = `${parts[0]}_${parts[1]}`; // applicant_3, applicant_2, etc.
+                        categoryKey = `${parts[0]}_${parts[1]}`; // applicant_UUID
                       } else {
                         // Format: category_documentType_index (general, hauptantragsteller)
                         // Skip first part (category) and last part (index)
@@ -500,7 +612,7 @@ const FormsDocsPanel: React.FC<FormsDocsPanelProps> = ({
           }}
         >
           {/* Hide sidebar button - always visible at the top inside sidebar */}
-          <div style={{ width: '100%', display: 'flex', justifyContent: 'flex-end', padding: '10px 10px 0 0' }}>
+          <div style={{ width: '100%', display: 'flex', justifyContent: 'flex-end', padding: '10px 10px 5px 0' }}>
             <button
               onClick={() => setSidebarVisible(false)}
               style={{
@@ -554,10 +666,13 @@ const FormsDocsPanel: React.FC<FormsDocsPanelProps> = ({
             </h4>
             {availableForms.map(form => {
               const isSelected = openForms.includes(form.id);
+              const showMenu = form.id === 'haushaltsauskunft';
+              const isDownloading = isDownloadingForm === form.id;
+              
               return (
-                <div key={form.id} style={{ marginBottom: 6 }}>
+                <div key={form.id} style={{ marginBottom: 6, position: 'relative' }}>
                   <button
-                    onClick={() => onPopOut(form.id, 'form')}
+                    onClick={() => showMenu ? setFormMenuOpenFor(form.id) : onPopOut(form.id, 'form')}
                     style={{
                       width: '100%',
                       height: 64,
@@ -581,10 +696,52 @@ const FormsDocsPanel: React.FC<FormsDocsPanelProps> = ({
                       maxHeight: 64,
                       overflow: 'hidden',
                       whiteSpace: 'normal',
+                      opacity: isDownloading ? 0.7 : 1,
                     }}
+                    disabled={isDownloading}
                   >
-                    {form.label}
+                    {isDownloading ? (
+                      <>
+                        <span style={{ marginRight: 8 }}>⏳</span>
+                        PDF wird erstellt...
+                      </>
+                    ) : (
+                      form.label
+                    )}
                   </button>
+                  {showMenu && formMenuOpenFor === form.id && (
+                    <div
+                      ref={formMenuRef}
+                      style={{
+                        position: 'absolute',
+                        top: 70,
+                        left: 0,
+                        background: '#fff',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                        borderRadius: 6,
+                        zIndex: 10,
+                        minWidth: 180,
+                        padding: 8,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 4,
+                      }}
+                    >
+                      <button
+                        style={{ width: '100%', padding: '8px 0', border: 'none', background: '#f7f8fa', borderRadius: 4, cursor: 'pointer' }}
+                        onClick={() => handleFormOpen(form.id)}
+                      >
+                        Öffnen
+                      </button>
+                      <button
+                        style={{ width: '100%', padding: '8px 0', border: 'none', background: '#f7f8fa', borderRadius: 4, cursor: 'pointer' }}
+                        onClick={() => handleFormDownload(form.id)}
+                        disabled={isDownloading}
+                      >
+                        {isDownloading ? 'PDF wird erstellt...' : 'Herunterladen'}
+                      </button>
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -605,16 +762,27 @@ const FormsDocsPanel: React.FC<FormsDocsPanelProps> = ({
             </h4>
             {userData?.document_status && (() => {
               // Define the desired order of categories
-              const categoryOrder = ['general', 'hauptantragsteller', 'applicant_2', 'applicant_3', 'applicant_4', 'applicant_5', 'applicant_6', 'applicant_7', 'applicant_8', 'applicant_9', 'applicant_10'];
+              const categoryOrder = ['general', 'hauptantragsteller'];
               
+              // Add applicant categories dynamically based on available data
               const documentStatus = userData.document_status as CategoryDocuments;
+              const applicantCategories = Object.keys(documentStatus)
+                .filter(key => key.startsWith('applicant_'))
+                .sort((a, b) => {
+                  // Sort by the UUID part for consistent ordering
+                  const uuidA = a.replace('applicant_', '');
+                  const uuidB = b.replace('applicant_', '');
+                  return uuidA.localeCompare(uuidB);
+                });
+              
+              const allCategoryOrder = [...categoryOrder, ...applicantCategories];
               
               // Sort categories according to our desired order
               const sortedCategories = Object.entries(documentStatus)
                 .filter(([categoryKey, categoryDocs]) => Object.keys(categoryDocs).length > 0)
                 .sort(([a], [b]) => {
-                  const indexA = categoryOrder.indexOf(a);
-                  const indexB = categoryOrder.indexOf(b);
+                  const indexA = allCategoryOrder.indexOf(a);
+                  const indexB = allCategoryOrder.indexOf(b);
                   
                   // If both are in the order array, sort by their position
                   if (indexA !== -1 && indexB !== -1) {
@@ -641,18 +809,18 @@ const FormsDocsPanel: React.FC<FormsDocsPanelProps> = ({
                       letterSpacing: 0.1,
                     }}
                   >
-                    {CATEGORY_LABELS[categoryKey] || categoryKey}
+                    {getCategoryLabel(categoryKey)}
                   </h5>
                   
-                                     {/* Documents in this category */}
-                   {Object.entries(categoryDocs).map(([docTypeId, files]) =>
-                     files.map((file: DocumentStatus, index: number) =>
-                       renderDocumentButton(docTypeId, file, index, categoryKey, files.length)
-                     )
-                   )}
-                 </div>
-               ));
-             })()}
+                  {/* Documents in this category */}
+                  {Object.entries(categoryDocs).map(([docTypeId, files]) =>
+                    files.map((file: DocumentStatus, index: number) =>
+                      renderDocumentButton(docTypeId, file, index, categoryKey, files.length)
+                    )
+                  )}
+                </div>
+              ));
+            })()}
           </div>
         </div>
       )}

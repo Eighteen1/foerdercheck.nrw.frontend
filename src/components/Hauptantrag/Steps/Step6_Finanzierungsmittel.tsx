@@ -70,6 +70,7 @@ interface Step6Props {
   hasWoodConstructionLoan: boolean | null;
   showValidation?: boolean;
   readOnly?: boolean;
+  selbsthilfeData?: {willProvideSelfHelp: boolean | null, totals: {totalSelbsthilfe: number}} | null;
 }
 
 const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
@@ -84,7 +85,8 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
   hasLocationCostLoan,
   hasWoodConstructionLoan,
   showValidation = false,
-  readOnly = false
+  readOnly = false,
+  selbsthilfeData = null
 }) => {
   const [eigenleistungError, setEigenleistungError] = useState<string | null>(null);
   const [gesamtbetraegeError, setGesamtbetraegeError] = useState<string | null>(null);
@@ -473,6 +475,18 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
     // Validate wertVorhandenerGebaeudeteile if foerderVariante is "neubau" or "nutzungsaenderung"
     if ((foerderVariante === 'neubau' || foerderVariante === 'nutzungsaenderung') && !formData.eigenleistung.wertVorhandenerGebaeudeteile) {
       errors.push('Bitte geben Sie den Wert vorhandener Gebäudeteile ein (0,00€ wenn nicht vorhanden)');
+    }
+
+    // Validate Selbsthilfe consistency with Selbsthilfe form
+    if (selbsthilfeData && 
+        selbsthilfeData.willProvideSelfHelp === true && 
+        formData.eigenleistung.selbsthilfe) {
+      const selbsthilfeInHauptantrag = getNumericValue(formData.eigenleistung.selbsthilfe); // in cents
+      const selbsthilfeInSelbsthilfeForm = Math.round((selbsthilfeData.totals?.totalSelbsthilfe || 0) * 100); // convert euros to cents
+      
+      if (selbsthilfeInHauptantrag !== selbsthilfeInSelbsthilfeForm) {
+        errors.push(`Angegebener Selbsthilfe-Betrag (${formatCurrency(selbsthilfeInHauptantrag)}) stimmt nicht mit der angegebenen Selbsthilfeleistung im Selbsthilfe-Formular überein (${formatCurrency(selbsthilfeInSelbsthilfeForm)})`);
+      }
     }
 
     return errors;
@@ -984,12 +998,17 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
               onChange={(value) => handleEigenleistungChange('selbsthilfe', value)}
               placeholder="Selbsthilfe"
               label="Selbsthilfe"
-              isInvalid={getFieldError('Bitte geben Sie die Selbsthilfe ein')}
+              isInvalid={getFieldError('Bitte geben Sie die Selbsthilfe ein') || getFieldError('Angegebener Selbsthilfe-Betrag')}
               disabled={readOnly}
             />
             {getFieldError('Bitte geben Sie die Selbsthilfe ein') && (
               <div className="text-danger mt-1">
                 Bitte geben Sie die Selbsthilfe ein (0,00€ wenn nicht vorhanden)
+              </div>
+            )}
+            {getFieldError('Angegebener Selbsthilfe-Betrag') && (
+              <div className="text-danger mt-1">
+                {validationErrors.find(error => error.includes('Angegebener Selbsthilfe-Betrag'))}
               </div>
             )}
           </div>
