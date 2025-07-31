@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Button, OverlayTrigger, Tooltip, Row, Col } from 'react-bootstrap';
+import { Form, Button, OverlayTrigger, Tooltip, Row, Col, Alert } from 'react-bootstrap';
 import CurrencyInput from '../../common/CurrencyInput';
 import AddressInput from '../../common/AddressInput';
+import AreaInput from '../../common/AreaInput';
+import GeneralDatePicker from '../../common/GeneralDatePicker';
+import postcodeMap from '../../../utils/postcode_map.json';
 
 interface Step3Data {
   address: {
@@ -56,6 +59,7 @@ interface Step3Data {
   objektDetailsBestandserwerb: {
     baujahr: string;
   };
+  objektart: string;
 }
 
 interface Step3Props {
@@ -68,6 +72,23 @@ interface Step3Props {
 const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, showValidation = false, readOnly = false }) => {
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+
+  // Check if postal code is supported
+  const isPostalCodeSupported = (postalCode: string): boolean => {
+    if (!postalCode) return true; // Don't show warning if no postal code entered
+    return postalCode in postcodeMap;
+  };
+
+  // Date validation helper function
+  const isValidDate = (date: string): boolean => {
+    if (!date) return false;
+    
+    const inputDate = new Date(date);
+    const now = new Date();
+    const minDate = new Date(now.getFullYear() - 20, now.getMonth(), now.getDate());
+    
+    return inputDate <= now && inputDate >= minDate;
+  };
 
   const validateStep3 = () => {
     const errors: string[] = [];
@@ -95,7 +116,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
 
     // ObjektDetailsAllgemein validation
     if (!formData.objektDetailsAllgemein.wohnflaecheSelbstgenutzt) errors.push('Bitte geben Sie die selbstgenutzte Wohnfläche ein');
-    if (!formData.objektDetailsAllgemein.gesamtWohnflaeche) errors.push('Bitte geben Sie die Gesamtwohnfläche ein');
+    if (!formData.objektDetailsAllgemein.gesamtWohnflaeche) errors.push('Bitte geben Sie die Wohnfläche der zweiten Wohneinheit ein, bzw. 0, wenn keine zweite Wohneinheit vorhanden ist');
     if (!formData.objektDetailsAllgemein.anzahlZimmer) errors.push('Bitte geben Sie die Anzahl der Zimmer ein');
     if (!formData.objektDetailsAllgemein.anzahlGaragen) errors.push('Bitte geben Sie die Anzahl der Garagen ein');
 
@@ -114,6 +135,25 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
     if (formData.objektDetailsAllgemein.ertraege.hasErtraege === true) {
       if (!formData.objektDetailsAllgemein.ertraege.vermieteteWohnung && !formData.objektDetailsAllgemein.ertraege.vermieteteGarage) {
         errors.push('Bitte geben Sie mindestens einen Ertragswert ein (vermietete Wohnung oder Garage)');
+      } else {
+        // Check if both values are not null and sum is greater than 0
+        const wohnungValue = formData.objektDetailsAllgemein.ertraege.vermieteteWohnung || '';
+        const garageValue = formData.objektDetailsAllgemein.ertraege.vermieteteGarage || '';
+        
+        if (wohnungValue || garageValue) {
+          const parseCurrencyValue = (value: string): number => {
+            if (!value) return 0;
+            return parseFloat(value.replace(/[^\d.,]/g, '').replace(',', '.')) || 0;
+          };
+          
+          const wohnungAmount = parseCurrencyValue(wohnungValue);
+          const garageAmount = parseCurrencyValue(garageValue);
+          const totalAmount = wohnungAmount + garageAmount;
+          
+          if (totalAmount <= 0) {
+            errors.push('Die Summe der Ertragswerte muss größer als 0,00 € sein');
+          }
+        }
       }
     }
     if (formData.objektDetailsAllgemein.hasWoodConstructionLoan === null) {
@@ -149,7 +189,11 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
         }
 
         if (formData.objektDetailsNeubauErsterwerb.baugenehmigung.wurdeErteilt === true) {
-          if (!formData.objektDetailsNeubauErsterwerb.baugenehmigung.erteilungsDatum) errors.push('Bitte geben Sie das Erteilungsdatum der Baugenehmigung ein');
+          if (!formData.objektDetailsNeubauErsterwerb.baugenehmigung.erteilungsDatum) {
+            errors.push('Bitte geben Sie das Erteilungsdatum der Baugenehmigung ein');
+          } else if (!isValidDate(formData.objektDetailsNeubauErsterwerb.baugenehmigung.erteilungsDatum)) {
+            errors.push('Das Erteilungsdatum darf weder in der Zukunft noch mehr als 20 Jahre in der Vergangenheit liegen');
+          }
           if (!formData.objektDetailsNeubauErsterwerb.baugenehmigung.aktenzeichen) errors.push('Bitte geben Sie das Aktenzeichen der Baugenehmigung ein');
           if (!formData.objektDetailsNeubauErsterwerb.baugenehmigung.erteilungsBehoerde) errors.push('Bitte geben Sie die erteilende Behörde der Baugenehmigung ein');
         }
@@ -159,22 +203,35 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
         errors.push('Bitte geben Sie an, ob eine Bauanzeige eingereicht wurde');
       }
 
-      if (formData.objektDetailsNeubauErsterwerb.bauanzeige.wurdeEingereicht === true && !formData.objektDetailsNeubauErsterwerb.bauanzeige.einreichungsDatum) {
-        errors.push('Bitte geben Sie das Einreichungsdatum der Bauanzeige ein');
+      if (formData.objektDetailsNeubauErsterwerb.bauanzeige.wurdeEingereicht === true) {
+        if (!formData.objektDetailsNeubauErsterwerb.bauanzeige.einreichungsDatum) {
+          errors.push('Bitte geben Sie das Einreichungsdatum der Bauanzeige ein');
+        } else if (!isValidDate(formData.objektDetailsNeubauErsterwerb.bauanzeige.einreichungsDatum)) {
+          errors.push('Das Einreichungsdatum darf weder in der Zukunft noch mehr als 20 Jahre in der Vergangenheit liegen');
+        }
       }
 
       if (formData.objektDetailsNeubauErsterwerb.bauarbeiten.wurdeBegonnen === null) {
         errors.push('Bitte geben Sie an, ob die Bauarbeiten begonnen wurden');
       }
 
-      if (formData.objektDetailsNeubauErsterwerb.bauarbeiten.wurdeBegonnen === true && !formData.objektDetailsNeubauErsterwerb.bauarbeiten.beginnDatum) {
-        errors.push('Bitte geben Sie das Datum des Baubeginns ein');
+      if (formData.objektDetailsNeubauErsterwerb.bauarbeiten.wurdeBegonnen === true) {
+        if (!formData.objektDetailsNeubauErsterwerb.bauarbeiten.beginnDatum) {
+          errors.push('Bitte geben Sie das Datum des Baubeginns ein');
+        } else if (!isValidDate(formData.objektDetailsNeubauErsterwerb.bauarbeiten.beginnDatum)) {
+          errors.push('Das Datum des Baubeginns darf weder in der Zukunft noch mehr als 20 Jahre in der Vergangenheit liegen');
+        }
       }
     }
 
     // Bestandserwerb validation
     if (formData.foerderVariante?.includes('bestandserwerb') && !formData.objektDetailsBestandserwerb.baujahr) {
       errors.push('Bitte geben Sie das Baujahr ein');
+    }
+
+    // Objektart validation
+    if (!formData.objektart) {
+      errors.push('Bitte wählen Sie eine Objektart aus');
     }
 
     return errors;
@@ -190,6 +247,12 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
 
   const getFieldError = (fieldName: string): boolean => {
     return showValidation && validationErrors.some(error => error.includes(fieldName));
+  };
+
+  const getFieldErrorMessage = (fieldName: string): string => {
+    if (!showValidation) return '';
+    const error = validationErrors.find(error => error.includes(fieldName));
+    return error || '';
   };
 
   const handleInputChange = (section: keyof Step3Data, field: string, value: any) => {
@@ -303,6 +366,13 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
           state="NRW"
           disabled={readOnly}
         />
+        
+        {/* Warning for unsupported postal codes */}
+        {formData.address.postalCode && !isPostalCodeSupported(formData.address.postalCode) && (
+          <Alert variant="warning" className="mt-3">
+            Das Förderobjekt befindet sich in einem Kreis oder einer Stadt die noch nicht von Fördercheck.NRW unterstützt wird, bitte wenden Sie sich an ihre Bewilligungsbehörde
+          </Alert>
+        )}
       </div>
 
       {/* Fördervariante Section */}
@@ -336,6 +406,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
             { id: 'bestandserwerb-eigenheim', label: 'Bestandserwerb Eigenheim' },
             { id: 'bestandserwerb-wohnung', label: 'Bestandserwerb Eigentumswohnung' },
             { id: 'ersterwerb-wohnung', label: 'Ersterwerb Eigentumswohnung' },
+            { id: 'neubau-wohnung', label: 'Neubau Eigentumswohnung' },
             { id: 'nutzungsaenderung', label: 'Nutzungsänderung' }
           ].map((option) => (
             <Col md={4} key={option.id}>
@@ -360,6 +431,96 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
           </div>
         )}
       </div>
+
+      {/* Objektart  Section */}
+      {(formData.foerderVariante &&
+        formData.foerderVariante !== 'bestandserwerb-wohnung' &&
+        formData.foerderVariante !== 'neubau-wohnung' &&
+        formData.foerderVariante !== 'ersterwerb-wohnung') && (
+        <div className="mb-5">
+          <div className="d-flex align-items-center gap-2 mb-4">
+            <h4 className="mb-0 text-[#000000] font-semibold italic">Objektart</h4>
+            <OverlayTrigger
+              placement="right"
+              overlay={renderTooltip("Bitte machen Sie Angaben zur Art des Objekts: Handelt es sich um ein Doppelhaus, Reihenhaus, freistehendes Einfamilienhaus oder beispielsweise eine Wohnung (relevant bei einer Nutzungsänderung)")}
+            >
+              <Button
+                variant="outline-secondary"
+                className="rounded-circle p-0 d-flex align-items-center justify-content-center"
+                style={{
+                  width: '20px',
+                  height: '20px',
+                  color: '#064497',
+                  borderColor: '#D7DAEA',
+                  backgroundColor: '#D7DAEA'
+                }}
+              >
+                ?
+              </Button>
+            </OverlayTrigger>
+          </div>
+          <Row className="g-3">
+            {/* Wohnung only for nutzungsaenderung */}
+            {formData.foerderVariante === 'nutzungsaenderung' && (
+              <Col md={4} key="wohnung">
+                <Form.Check
+                  type="checkbox"
+                  id="objektart-wohnung"
+                  label="Wohnung"
+                  checked={formData.objektart === 'wohnung'}
+                  onChange={() => updateFormData({
+                    ...formData,
+                    objektart: formData.objektart === 'wohnung' ? '' : 'wohnung'
+                  })}
+                  className="custom-checkbox"
+                  disabled={readOnly}
+                />
+              </Col>
+            )}
+            {/* Doppelhaus/Reihenhaus and Freistehend for certain foerderVariante */}
+            {(formData.foerderVariante === 'nutzungsaenderung' ||
+              formData.foerderVariante === 'ersterwerb-eigenheim' ||
+              formData.foerderVariante === 'neubau' ||
+              formData.foerderVariante === 'bestandserwerb-eigenheim') && (
+              <>
+                <Col md={4} key="doppelhaus">
+                  <Form.Check
+                    type="checkbox"
+                    id="objektart-doppelhaus"
+                    label="Doppel-/Reihenhaus"
+                    checked={formData.objektart === 'doppelhaus'}
+                    onChange={() => updateFormData({
+                      ...formData,
+                      objektart: formData.objektart === 'doppelhaus' ? '' : 'doppelhaus'
+                    })}
+                    className="custom-checkbox"
+                    disabled={readOnly}
+                  />
+                </Col>
+                <Col md={4} key="freistehend">
+                  <Form.Check
+                    type="checkbox"
+                    id="objektart-freistehend"
+                    label="Einfamilienhaus freistehend"
+                    checked={formData.objektart === 'freistehend'}
+                    onChange={() => updateFormData({
+                      ...formData,
+                      objektart: formData.objektart === 'freistehend' ? '' : 'freistehend'
+                    })}
+                    className="custom-checkbox"
+                    disabled={readOnly}
+                  />
+                </Col>
+              </>
+            )}
+          </Row>
+          {showValidation && getFieldError('Objektart') && (
+            <div className="text-danger mt-2">
+              Bitte wählen Sie eine Objektart aus
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Objektdetails allgemein Section */}
       <div className="mb-5">
@@ -387,36 +548,26 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
 
         <div className="row g-3">
           <div className="col-md-6">
-            <Form.Floating>
-              <Form.Control
-                type="number"
-                placeholder="Wohnfläche selbstgenutzte Wohneinheit"
-                value={formData.objektDetailsAllgemein.wohnflaecheSelbstgenutzt}
-                onChange={(e) => handleNestedInputChange('objektDetailsAllgemein', '', 'wohnflaecheSelbstgenutzt', e.target.value)}
-                isInvalid={getFieldError('selbstgenutzte Wohnfläche')}
-                disabled={readOnly}
-              />
-              <label>Wohnfläche selbstgenutzte Wohneinheit (m²)</label>
-              <Form.Control.Feedback type="invalid">
-                Bitte geben Sie die selbstgenutzte Wohnfläche ein
-              </Form.Control.Feedback>
-            </Form.Floating>
+            <AreaInput
+              value={formData.objektDetailsAllgemein.wohnflaecheSelbstgenutzt}
+              onChange={(value) => handleNestedInputChange('objektDetailsAllgemein', '', 'wohnflaecheSelbstgenutzt', value)}
+              placeholder="Wohnfläche selbstgenutzte Wohneinheit"
+              label="Wohnfläche selbstgenutzte Wohneinheit (m²)"
+              isInvalid={getFieldError('selbstgenutzte Wohnfläche')}
+              errorMessage="Bitte geben Sie die selbstgenutzte Wohnfläche ein"
+              disabled={readOnly}
+            />
           </div>
           <div className="col-md-6">
-            <Form.Floating>
-              <Form.Control
-                type="number"
-                placeholder="Gesamtwohnfläche bei zwei Wohnungen im Objekt"
-                value={formData.objektDetailsAllgemein.gesamtWohnflaeche}
-                onChange={(e) => handleNestedInputChange('objektDetailsAllgemein', '', 'gesamtWohnflaeche', e.target.value)}
-                isInvalid={getFieldError('Gesamtwohnfläche')}
-                disabled={readOnly}
-              />
-              <label>Gesamtwohnfläche bei zwei Wohnungen im Objekt (m²)</label>
-              <Form.Control.Feedback type="invalid">
-                Bitte geben Sie die Gesamtwohnfläche ein
-              </Form.Control.Feedback>
-            </Form.Floating>
+            <AreaInput
+              value={formData.objektDetailsAllgemein.gesamtWohnflaeche}
+              onChange={(value) => handleNestedInputChange('objektDetailsAllgemein', '', 'gesamtWohnflaeche', value)}
+              placeholder="Wohnfläche zweite Wohneinheit im Objekt"
+              label="Wohnfläche zweite Wohneinheit im Objekt (m²)"
+              isInvalid={getFieldError('zweiten Wohneinheit')}
+              errorMessage="Bitte geben Sie die Wohnfläche der zweiten Wohneinheit ein, bzw. 0, wenn keine zweite Wohneinheit vorhanden ist"
+              disabled={readOnly}
+            />
           </div>
         </div>
 
@@ -511,20 +662,15 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
           {formData.objektDetailsAllgemein.gewerbeflaeche.hasGewerbeflaeche && (
             <div className="row g-3">
               <div className="col-12">
-                <Form.Floating>
-                  <Form.Control
-                    type="number"
-                    placeholder="Größe der Gewerbefläche"
-                    value={formData.objektDetailsAllgemein.gewerbeflaeche.flaeche}
-                    onChange={(e) => handleNestedInputChange('objektDetailsAllgemein', 'gewerbeflaeche', 'flaeche', e.target.value)}
-                    isInvalid={getFieldError('Größe der Gewerbefläche')}
-                    disabled={readOnly}
-                  />
-                  <label>Größe der Gewerbefläche (m²)</label>
-                  <Form.Control.Feedback type="invalid">
-                    Bitte geben Sie die Größe der Gewerbefläche ein
-                  </Form.Control.Feedback>
-                </Form.Floating>
+                <AreaInput
+                  value={formData.objektDetailsAllgemein.gewerbeflaeche.flaeche}
+                  onChange={(value) => handleNestedInputChange('objektDetailsAllgemein', 'gewerbeflaeche', 'flaeche', value)}
+                  placeholder="Größe der Gewerbefläche"
+                  label="Größe der Gewerbefläche (m²)"
+                  isInvalid={getFieldError('Größe der Gewerbefläche')}
+                  errorMessage="Bitte geben Sie die Größe der Gewerbefläche ein"
+                  disabled={readOnly}
+                />
               </div>
             </div>
           )}
@@ -605,11 +751,11 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
                   disabled={readOnly}
                 />
               </div>
-              {showValidation && getFieldError('Ertragswert') && (
-                <div className="text-danger mt-1">
-                  Bitte geben Sie mindestens einen Ertragswert ein (vermietete Wohnung oder Garage)
-                </div>
-              )}
+                              {showValidation && getFieldError('Ertragswert') && (
+                  <div className="text-danger mt-1">
+                    {getFieldErrorMessage('Ertragswert')}
+                  </div>
+                )}
             </div>
           )}
 
@@ -667,7 +813,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
       </div>
 
       {/* Objektdetails Neubau/Ersterwerb */}
-      {(formData.foerderVariante === 'neubau' || 
+      {(formData.foerderVariante.includes('neubau') || 
         formData.foerderVariante === 'ersterwerb-eigenheim' ||
         formData.foerderVariante === 'ersterwerb-wohnung') && (
         <div className="mb-5">
@@ -790,6 +936,9 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
                   style={{
                     width: '20px',
                     height: '20px',
+                    minWidth: '20px',
+                    minHeight: '20px',
+                    marginRight: '10px',
                     color: '#064497',
                     borderColor: '#D7DAEA',
                     backgroundColor: '#D7DAEA'
@@ -910,20 +1059,18 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
               {formData.objektDetailsNeubauErsterwerb.baugenehmigung.wurdeErteilt && (
                 <div className="row g-3 mt-3">
                   <div className="col-md-4">
-                    <Form.Floating>
-                      <Form.Control
-                        type="date"
-                        placeholder="Erteilungsdatum"
-                        value={formData.objektDetailsNeubauErsterwerb.baugenehmigung.erteilungsDatum}
-                        onChange={(e) => handleNestedInputChange('objektDetailsNeubauErsterwerb', 'baugenehmigung', 'erteilungsDatum', e.target.value)}
-                        isInvalid={getFieldError('Erteilungsdatum der Baugenehmigung')}
-                        disabled={readOnly}
-                      />
-                      <label>Erteilungsdatum</label>
-                      <Form.Control.Feedback type="invalid">
-                        Bitte geben Sie das Erteilungsdatum der Baugenehmigung ein
-                      </Form.Control.Feedback>
-                    </Form.Floating>
+                    <GeneralDatePicker
+                      value={formData.objektDetailsNeubauErsterwerb.baugenehmigung.erteilungsDatum}
+                      onChange={(date) => handleNestedInputChange('objektDetailsNeubauErsterwerb', 'baugenehmigung', 'erteilungsDatum', date)}
+                      disabled={readOnly}
+                      isInvalid={getFieldError('Erteilungsdatum')}
+                      label="Erteilungsdatum"
+                    />
+                    {showValidation && getFieldError('Erteilungsdatum') && (
+                      <div className="text-danger mt-1">
+                        {getFieldErrorMessage('Erteilungsdatum')}
+                      </div>
+                    )}
                   </div>
                   <div className="col-md-4">
                     <Form.Floating>
@@ -1016,20 +1163,18 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
           {formData.objektDetailsNeubauErsterwerb.bauanzeige.wurdeEingereicht && (
             <div className="row g-3">
               <div className="col-12">
-                <Form.Floating>
-                  <Form.Control
-                    type="date"
-                    placeholder="Einreichungsdatum"
-                    value={formData.objektDetailsNeubauErsterwerb.bauanzeige.einreichungsDatum}
-                    onChange={(e) => handleNestedInputChange('objektDetailsNeubauErsterwerb', 'bauanzeige', 'einreichungsDatum', e.target.value)}
-                    isInvalid={getFieldError('Einreichungsdatum der Bauanzeige')}
-                    disabled={readOnly}
-                  />
-                  <label>Einreichungsdatum</label>
-                  <Form.Control.Feedback type="invalid">
-                    Bitte geben Sie das Einreichungsdatum der Bauanzeige ein
-                  </Form.Control.Feedback>
-                </Form.Floating>
+                <GeneralDatePicker
+                  value={formData.objektDetailsNeubauErsterwerb.bauanzeige.einreichungsDatum}
+                  onChange={(date) => handleNestedInputChange('objektDetailsNeubauErsterwerb', 'bauanzeige', 'einreichungsDatum', date)}
+                  disabled={readOnly}
+                  isInvalid={getFieldError('Einreichungsdatum')}
+                  label="Einreichungsdatum"
+                />
+                {showValidation && getFieldError('Einreichungsdatum') && (
+                  <div className="text-danger mt-1">
+                    {getFieldErrorMessage('Einreichungsdatum')}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -1088,20 +1233,18 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
           {formData.objektDetailsNeubauErsterwerb.bauarbeiten.wurdeBegonnen && (
             <div className="row g-3">
               <div className="col-12">
-                <Form.Floating>
-                  <Form.Control
-                    type="date"
-                    placeholder="Datum Baubeginn"
-                    value={formData.objektDetailsNeubauErsterwerb.bauarbeiten.beginnDatum}
-                    onChange={(e) => handleNestedInputChange('objektDetailsNeubauErsterwerb', 'bauarbeiten', 'beginnDatum', e.target.value)}
-                    isInvalid={getFieldError('Datum des Baubeginns')}
-                    disabled={readOnly}
-                  />
-                  <label>Datum Baubeginn</label>
-                  <Form.Control.Feedback type="invalid">
-                    Bitte geben Sie das Datum des Baubeginns ein
-                  </Form.Control.Feedback>
-                </Form.Floating>
+                <GeneralDatePicker
+                  value={formData.objektDetailsNeubauErsterwerb.bauarbeiten.beginnDatum}
+                  onChange={(date) => handleNestedInputChange('objektDetailsNeubauErsterwerb', 'bauarbeiten', 'beginnDatum', date)}
+                  disabled={readOnly}
+                  isInvalid={getFieldError('Datum des Baubeginns')}
+                  label="Datum Baubeginn"
+                />
+                {showValidation && getFieldError('Datum des Baubeginns') && (
+                  <div className="text-danger mt-1">
+                    {getFieldErrorMessage('Datum des Baubeginns')}
+                  </div>
+                )}
               </div>
             </div>
           )}

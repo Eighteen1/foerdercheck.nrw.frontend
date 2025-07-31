@@ -56,8 +56,22 @@ const TYPE_LABELS: Record<string, string> = {
   "bestandserwerb-eigenheim": "Bestandserwerb Eigenheim",
   "bestandserwerb-wohnung": "Bestandserwerb Eigentumswohnung",
   "ersterwerb-wohnung": "Ersterwerb Eigentumswohnung",
+  "neubau-wohnung": "Neubau Eigentumswohnung",
   "nutzungsaenderung": "Nutzungsänderung"
 };
+
+// Date formatting function
+function formatDate(dateString: string) {
+  if (!dateString) return "-";
+  const d = new Date(dateString);
+  if (isNaN(d.getTime())) return "-";
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  const hours = String(d.getHours()).padStart(2, '0');
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  return `${day}.${month}.${year} ${hours}:${minutes}`;
+}
 
 // Interface for outstanding document requests
 interface OutstandingDocumentRequest {
@@ -1083,8 +1097,8 @@ const ReviewActionsPanel: React.FC<ReviewActionsPanelProps> = ({
               <div><b>Objektadresse:</b> {infoData.obj ? `${infoData.obj.obj_street || ''} ${infoData.obj.obj_house_number || ''}, ${infoData.obj.obj_postal_code || ''} ${infoData.obj.obj_city || ''}` : '-'}</div>
               <div><b>Zugewiesener Sachbearbeiter:</b> {infoData.assignedAgent ? `${infoData.assignedAgent.name || ''} (${infoData.assignedAgent.email || '-'})` : '-'}</div>
               <div><b>Letzter Bearbeiter:</b> {infoData.lastEditAgent ? `${infoData.lastEditAgent.name || ''} (${infoData.lastEditAgent.email || '-'})` : '-'}</div>
-              <div><b>Antragsdatum:</b> {infoData.app?.submitted_at ? new Date(infoData.app.submitted_at).toLocaleString() : '-'}</div>
-              <div><b>Letzte Änderung:</b> {infoData.app?.updated_at ? new Date(infoData.app.updated_at).toLocaleString() : '-'}</div>
+              <div><b>Antragsdatum:</b> {infoData.app?.submitted_at ? formatDate(infoData.app.submitted_at) : '-'}</div>
+              <div><b>Letzte Änderung:</b> {infoData.app?.updated_at ? formatDate(infoData.app.updated_at) : '-'}</div>
             </div>
           ) : (
             <div>Keine Daten gefunden.</div>
@@ -1634,10 +1648,10 @@ const ReviewActionsPanel: React.FC<ReviewActionsPanelProps> = ({
                     </div>
                     <div className="row mb-2" style={{ fontSize: 14 }}>
                       <div className="col-md-6">
-                        <strong>Angefragt am:</strong> {new Date(request.requested_at).toLocaleDateString()}
+                        <strong>Angefragt am:</strong> {formatDate(request.requested_at)}
                       </div>
                       <div className="col-md-6">
-                        <strong>Gültig bis:</strong> {new Date(request.expires_at).toLocaleDateString()}
+                        <strong>Gültig bis:</strong> {formatDate(request.expires_at)}
                       </div>
                     </div>
                     {request.custom_message && (

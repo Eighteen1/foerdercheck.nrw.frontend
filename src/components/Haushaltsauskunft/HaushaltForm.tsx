@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Form, Button, OverlayTrigger, Tooltip, Spinner, Modal } from 'react-bootstrap';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import BirthDatePicker from '../common/BirthDatePicker';
+import GeneralDatePicker from '../common/GeneralDatePicker';
 
 // Add styles
 const styles = `
@@ -149,6 +151,50 @@ const HaushaltForm: React.FC<Props> = ({ data, onChange, showValidation, isReadO
     });
   };
 
+  // Validation helper functions
+  const isValidBirthDate = (birthDate: string): boolean => {
+    if (!birthDate) return false;
+    
+    const date = new Date(birthDate);
+    const now = new Date();
+    const minDate = new Date(now.getFullYear() - 115, now.getMonth(), now.getDate());
+    const maxDate = new Date(now.getFullYear(), now.getMonth() + 10, now.getDate());
+    
+    return date >= minDate && date <= maxDate;
+  };
+
+  const isValidEntryDate = (entryDate: string): boolean => {
+    if (!entryDate) return false;
+    
+    const date = new Date(entryDate);
+    const now = new Date();
+    const minDate = new Date(now.getFullYear() - 115, now.getMonth(), now.getDate());
+    const maxDate = new Date(now.getFullYear() + 3, now.getMonth(), now.getDate());
+    
+    return date >= minDate && date <= maxDate;
+  };
+
+  const isValidBehinderungsgrad = (behinderungsgrad: string): boolean => {
+    if (!behinderungsgrad) return false;
+    
+    const value = parseInt(behinderungsgrad, 10);
+    if (isNaN(value)) return false;
+    
+    // Valid values: 0, 20, 30, 40, 50, 60, 70, 80, 90, 100
+    const validValues = [0, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+    return validValues.includes(value);
+  };
+
+  const isValidPflegegrad = (pflegegrad: string): boolean => {
+    if (!pflegegrad) return false;
+    
+    const value = parseFloat(pflegegrad);
+    if (isNaN(value)) return false;
+    
+    // Must be a whole number between 0 and 5 (inclusive)
+    return Number.isInteger(value) && value >= 0 && value <= 5;
+  };
+
   // Add new person
   const addPerson = () => {
     const newPerson: Person = {
@@ -249,15 +295,15 @@ const HaushaltForm: React.FC<Props> = ({ data, onChange, showValidation, isReadO
       case 'lastName':
         return !String(data.mainApplicant.lastName || '').trim();
       case 'birthDate':
-        return !String(data.mainApplicant.birthDate || '').trim();
+        return !String(data.mainApplicant.birthDate || '').trim() || !isValidBirthDate(data.mainApplicant.birthDate);
       case 'employment_title':
         return !String(data.mainApplicant.employment_title || '').trim();
       case 'entrydate':
-        return !String(data.mainApplicant.entrydate || '').trim();
+        return !String(data.mainApplicant.entrydate || '').trim() || !isValidEntryDate(data.mainApplicant.entrydate);
       case 'behinderungsgrad':
-        return !String(data.mainApplicant.behinderungsgrad || '').trim();
+        return !String(data.mainApplicant.behinderungsgrad || '').trim() || !isValidBehinderungsgrad(data.mainApplicant.behinderungsgrad);
       case 'pflegegrad':
-        return !String(data.mainApplicant.pflegegrad || '').trim();
+        return !String(data.mainApplicant.pflegegrad || '').trim() || !isValidPflegegrad(data.mainApplicant.pflegegrad);
       default:
         return false;
     }
@@ -272,15 +318,15 @@ const HaushaltForm: React.FC<Props> = ({ data, onChange, showValidation, isReadO
       case 'lastName':
         return !String(person.lastName || '').trim();
       case 'birthDate':
-        return !String(person.birthDate || '').trim();
+        return !String(person.birthDate || '').trim() || !isValidBirthDate(person.birthDate);
       case 'employment_title':
         return !String(person.employment_title || '').trim();
       case 'entrydate':
-        return !String(person.entrydate || '').trim();
+        return !String(person.entrydate || '').trim() || !isValidEntryDate(person.entrydate);
       case 'behinderungsgrad':
-        return !String(person.behinderungsgrad || '').trim();
+        return !String(person.behinderungsgrad || '').trim() || !isValidBehinderungsgrad(person.behinderungsgrad);
       case 'pflegegrad':
-        return !String(person.pflegegrad || '').trim();
+        return !String(person.pflegegrad || '').trim() || !isValidPflegegrad(person.pflegegrad);
       default:
         return false;
     }
@@ -306,15 +352,15 @@ const HaushaltForm: React.FC<Props> = ({ data, onChange, showValidation, isReadO
       case 'lastName':
         return 'Nachname ist erforderlich';
       case 'birthDate':
-        return 'Geburtsdatum ist erforderlich';
+        return 'Geburtsdatum ist erforderlich oder liegt außerhalb des gültigen Bereichs (nicht mehr als 115 Jahre in der Vergangenheit oder mehr als 10 Monate in der Zukunft)';
       case 'employment_title':
         return 'Beruf ist erforderlich';
       case 'entrydate':
-        return 'Aufnahme in den Haushalt ist erforderlich';
+        return 'Aufnahme in den Haushalt ist erforderlich oder liegt außerhalb des gültigen Bereichs (nicht mehr als 115 Jahre in der Vergangenheit oder mehr als 3 Jahre in der Zukunft)';
       case 'behinderungsgrad':
-        return 'Grad der Behinderung ist erforderlich';
+        return 'Grad der Behinderung ist erforderlich. Gültige Werte sind: 0, 20, 30, 40, 50, 60, 70, 80, 90, 100';
       case 'pflegegrad':
-        return 'Pflegegrad ist erforderlich';
+        return 'Pflegegrad ist erforderlich. Gültige Werte sind ganze Zahlen von 0 bis 5';
       case 'ispregnant':
         return 'Bitte geben Sie an, ob die Geburt eines Kindes erwartet wird';
       default:
@@ -497,20 +543,16 @@ const HaushaltForm: React.FC<Props> = ({ data, onChange, showValidation, isReadO
         {/* Birth Date and Employment */}
         <div className="row g-3 mb-3">
           <div className="col-md-6">
-            <Form.Floating>
-              <Form.Control
-                type="date"
-                placeholder="Geburtsdatum"
-                value={data.mainApplicant.birthDate}
-                onChange={(e) => updatePerson('main_applicant', { birthDate: e.target.value })}
-                disabled={isReadOnly}
-                isInvalid={validateMainApplicantField('birthDate')}
-              />
-              <label>Geburtsdatum</label>
-              <Form.Control.Feedback type="invalid">
-                {getFieldErrorMessage('birthDate')}
-              </Form.Control.Feedback>
-            </Form.Floating>
+            <BirthDatePicker
+              value={data.mainApplicant.birthDate}
+              onChange={(date) => updatePerson('main_applicant', { birthDate: date })}
+              disabled={isReadOnly}
+              isInvalid={validateMainApplicantField('birthDate')}
+              label="Geburtsdatum"
+            />
+            {validateMainApplicantField('birthDate') && (
+              <div className="text-danger mt-1">{getFieldErrorMessage('birthDate')}</div>
+            )}
           </div>
           <div className="col-md-6">
             <Form.Floating>
@@ -533,20 +575,16 @@ const HaushaltForm: React.FC<Props> = ({ data, onChange, showValidation, isReadO
         {/* Entry Date, Disability and Care Level */}
         <div className="row g-3 mb-3">
           <div className="col-md-4">
-            <Form.Floating>
-              <Form.Control
-                type="date"
-                placeholder="Aufnahme in den Haushalt"
-                value={data.mainApplicant.entrydate}
-                onChange={(e) => updatePerson('main_applicant', { entrydate: e.target.value })}
-                disabled={isReadOnly}
-                isInvalid={validateMainApplicantField('entrydate')}
-              />
-              <label>Aufnahme in den Haushalt</label>
-              <Form.Control.Feedback type="invalid">
-                {getFieldErrorMessage('entrydate')}
-              </Form.Control.Feedback>
-            </Form.Floating>
+            <GeneralDatePicker
+              value={data.mainApplicant.entrydate}
+              onChange={(date) => updatePerson('main_applicant', { entrydate: date })}
+              disabled={isReadOnly}
+              isInvalid={validateMainApplicantField('entrydate')}
+              label="Aufnahme in den Haushalt"
+            />
+            {validateMainApplicantField('entrydate') && (
+              <div className="text-danger mt-1">{getFieldErrorMessage('entrydate')}</div>
+            )}
           </div>
           <div className="col-md-4">
             <Form.Floating>
@@ -659,20 +697,16 @@ const HaushaltForm: React.FC<Props> = ({ data, onChange, showValidation, isReadO
           {/* Birth Date and Employment */}
           <div className="row g-3 mb-3">
             <div className="col-md-6">
-              <Form.Floating>
-                <Form.Control
-                  type="date"
-                  placeholder="Geburtsdatum"
-                  value={person.birthDate}
-                  onChange={(e) => updatePerson(person.id, { birthDate: e.target.value })}
-                  disabled={isReadOnly}
-                  isInvalid={validatePersonField(person, 'birthDate')}
-                />
-                <label>Geburtsdatum</label>
-                <Form.Control.Feedback type="invalid">
-                  {getFieldErrorMessage('birthDate')}
-                </Form.Control.Feedback>
-              </Form.Floating>
+              <BirthDatePicker
+                value={person.birthDate}
+                onChange={(date) => updatePerson(person.id, { birthDate: date })}
+                disabled={isReadOnly}
+                isInvalid={validatePersonField(person, 'birthDate')}
+                label="Geburtsdatum"
+              />
+              {validatePersonField(person, 'birthDate') && (
+                <div className="text-danger mt-1">{getFieldErrorMessage('birthDate')}</div>
+              )}
             </div>
             <div className="col-md-6">
               <Form.Floating>
@@ -695,20 +729,16 @@ const HaushaltForm: React.FC<Props> = ({ data, onChange, showValidation, isReadO
           {/* Entry Date, Disability and Care Level */}
           <div className="row g-3 mb-3">
             <div className="col-md-4">
-              <Form.Floating>
-                <Form.Control
-                  type="date"
-                  placeholder="Aufnahme in den Haushalt"
-                  value={person.entrydate}
-                  onChange={(e) => updatePerson(person.id, { entrydate: e.target.value })}
-                  disabled={isReadOnly}
-                  isInvalid={validatePersonField(person, 'entrydate')}
-                />
-                <label>Aufnahme in den Haushalt</label>
-                <Form.Control.Feedback type="invalid">
-                  {getFieldErrorMessage('entrydate')}
-                </Form.Control.Feedback>
-              </Form.Floating>
+              <GeneralDatePicker
+                value={person.entrydate}
+                onChange={(date) => updatePerson(person.id, { entrydate: date })}
+                disabled={isReadOnly}
+                isInvalid={validatePersonField(person, 'entrydate')}
+                label="Aufnahme in den Haushalt"
+              />
+              {validatePersonField(person, 'entrydate') && (
+                <div className="text-danger mt-1">{getFieldErrorMessage('entrydate')}</div>
+              )}
             </div>
             <div className="col-md-4">
               <Form.Floating>

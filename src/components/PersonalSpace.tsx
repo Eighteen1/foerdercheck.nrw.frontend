@@ -28,6 +28,7 @@ const TYPE_LABELS: Record<string, string> = {
   "bestandserwerb-eigenheim": "Bestandserwerb Eigenheim",
   "bestandserwerb-wohnung": "Bestandserwerb Eigentumswohnung",
   "ersterwerb-wohnung": "Ersterwerb Eigentumswohnung",
+  "neubau-wohnung": "Neubau Eigentumswohnung",
   "nutzungsaenderung": "Nutzungsänderung"
 };
 

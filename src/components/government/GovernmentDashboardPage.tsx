@@ -21,6 +21,7 @@ const TYPE_LABELS: Record<string, string> = {
   "bestandserwerb-eigenheim": "Bestandserwerb Eigenheim",
   "bestandserwerb-wohnung": "Bestandserwerb Eigentumswohnung",
   "ersterwerb-wohnung": "Ersterwerb Eigentumswohnung",
+  "neubau-wohnung": "Neubau Eigentumswohnung",
   "nutzungsaenderung": "Nutzungsänderung"
 };
 
@@ -30,7 +31,7 @@ const formatDate = (date: Date): string => {
   const day = String(date.getDate()).padStart(2, '0');
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const year = date.getFullYear();
-  return `${day}/${month}/${year}`;
+  return `${day}.${month}.${year}`;
 };
 
 interface DashboardData {

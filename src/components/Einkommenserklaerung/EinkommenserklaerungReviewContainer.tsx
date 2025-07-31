@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Container, Modal, Form, Button } from 'react-bootstrap';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase, ensureUserFinancialsExists } from '../../lib/supabase';
-import { formatCurrencyForDisplay } from '../../utils/currencyUtils';
+import { safeFormatCurrencyForDisplay } from '../../utils/currencyUtils';
 import EinkommenserklaerungForm from './Steps/EinkommenserklaerungForm';
 import './EinkommenserklaerungContainer.css';
 
@@ -403,31 +403,31 @@ const EinkommenserklaerungReviewContainer: React.FC<EinkommenserklaerungReviewCo
           city: userData?.person_city || '',
           hasEmploymentIncome: emptyFinancialData.isEarningRegularIncome,
           incomeYear: emptyFinancialData.prior_year,
-          incomeYearAmount: emptyFinancialData.prior_year_earning ? formatCurrencyForDisplay(emptyFinancialData.prior_year_earning) : '',
+          incomeYearAmount: safeFormatCurrencyForDisplay(emptyFinancialData.prior_year_earning),
           incomeEndMonth: emptyFinancialData.end_month_past12,
           incomeEndYear: emptyFinancialData.end_year_past12,
           monthlyIncome: {},
           sonderzuwendungenVergangen: {
-            weihnachtsgeld: emptyFinancialData.wheinachtsgeld_last12 ? formatCurrencyForDisplay(emptyFinancialData.wheinachtsgeld_last12) : '',
-            urlaubsgeld: emptyFinancialData.urlaubsgeld_last12 ? formatCurrencyForDisplay(emptyFinancialData.urlaubsgeld_last12) : '',
-            sonstige: emptyFinancialData.otherincome_last12 ? formatCurrencyForDisplay(emptyFinancialData.otherincome_last12) : ''
+            weihnachtsgeld: safeFormatCurrencyForDisplay(emptyFinancialData.wheinachtsgeld_last12),
+            urlaubsgeld: safeFormatCurrencyForDisplay(emptyFinancialData.urlaubsgeld_last12),
+            sonstige: safeFormatCurrencyForDisplay(emptyFinancialData.otherincome_last12)
           },
           sonderzuwendungenKommend: {
-            weihnachtsgeld: emptyFinancialData.wheinachtsgeld_next12 ? formatCurrencyForDisplay(emptyFinancialData.wheinachtsgeld_next12) : '',
-            urlaubsgeld: emptyFinancialData.urlaubsgeld_next12 ? formatCurrencyForDisplay(emptyFinancialData.urlaubsgeld_next12) : '',
-            sonstige: emptyFinancialData.otherincome_next12 ? formatCurrencyForDisplay(emptyFinancialData.otherincome_next12) : ''
+            weihnachtsgeld: safeFormatCurrencyForDisplay(emptyFinancialData.wheinachtsgeld_next12),
+            urlaubsgeld: safeFormatCurrencyForDisplay(emptyFinancialData.urlaubsgeld_next12),
+            sonstige: safeFormatCurrencyForDisplay(emptyFinancialData.otherincome_next12)
           },
           willChangeIncome: emptyFinancialData.willchangeincome,
           incomeChangeDate: emptyFinancialData.incomechangedate,
           willChangeIncrease: emptyFinancialData.willchangeincrease,
-          newIncome: emptyFinancialData.newincome ? formatCurrencyForDisplay(emptyFinancialData.newincome) : '',
+          newIncome: safeFormatCurrencyForDisplay(emptyFinancialData.newincome),
           isNewIncomeMonthly: emptyFinancialData.isnewincomemonthly,
           newIncomeReason: emptyFinancialData.newincomereason,
           startEmployment: emptyFinancialData.startemployment,
           isContractLimited: emptyFinancialData.iscontractlimited,
           endOfContract: emptyFinancialData.endofcontract,
-          werbungskosten: emptyFinancialData.werbungskosten ? formatCurrencyForDisplay(emptyFinancialData.werbungskosten) : '',
-          kinderbetreuungskosten: emptyFinancialData.kinderbetreuungskosten ? formatCurrencyForDisplay(emptyFinancialData.kinderbetreuungskosten) : '',
+          werbungskosten: safeFormatCurrencyForDisplay(emptyFinancialData.werbungskosten),
+          kinderbetreuungskosten: safeFormatCurrencyForDisplay(emptyFinancialData.kinderbetreuungskosten),
           ispayingincometax: emptyFinancialData.ispayingincometax,
           ispayinghealthinsurance: emptyFinancialData.ispayinghealthinsurance,
           ispayingpension: emptyFinancialData.ispayingpension,
@@ -541,9 +541,9 @@ const EinkommenserklaerungReviewContainer: React.FC<EinkommenserklaerungReviewCo
         houseNumber: userData?.person_housenumber || '',
         postalCode: userData?.person_postalcode || '',
         city: userData?.person_city || '',
-        hasEmploymentIncome: financialData?.isEarningRegularIncome || null,
+        hasEmploymentIncome: financialData?.isEarningRegularIncome ?? null,
         incomeYear: financialData?.prior_year || '',
-        incomeYearAmount: financialData?.prior_year_earning ? formatCurrencyForDisplay(financialData.prior_year_earning) : '',
+        incomeYearAmount: safeFormatCurrencyForDisplay(financialData?.prior_year_earning),
         incomeEndMonth: financialData?.end_month_past12 || '',
         incomeEndYear: financialData?.end_year_past12 || '',
         monthlyIncome: (() => {
@@ -574,34 +574,33 @@ const EinkommenserklaerungReviewContainer: React.FC<EinkommenserklaerungReviewCo
                 '11': financialData?.income_month12
               }[11 - i];
 
-              if (monthData) {
-                monthlyIncome[key] = formatCurrencyForDisplay(monthData);
-              }
+              monthlyIncome[key] = safeFormatCurrencyForDisplay(monthData);
+              
             }
           }
           return monthlyIncome;
         })(),
         sonderzuwendungenVergangen: {
-          weihnachtsgeld: financialData?.wheinachtsgeld_last12 ? formatCurrencyForDisplay(financialData.wheinachtsgeld_last12) : '',
-          urlaubsgeld: financialData?.urlaubsgeld_last12 ? formatCurrencyForDisplay(financialData.urlaubsgeld_last12) : '',
-          sonstige: financialData?.otherincome_last12 ? formatCurrencyForDisplay(financialData.otherincome_last12) : ''
+          weihnachtsgeld: safeFormatCurrencyForDisplay(financialData?.wheinachtsgeld_last12),
+          urlaubsgeld: safeFormatCurrencyForDisplay(financialData?.urlaubsgeld_last12),
+          sonstige: safeFormatCurrencyForDisplay(financialData?.otherincome_last12)
         },
         sonderzuwendungenKommend: {
-          weihnachtsgeld: financialData?.wheinachtsgeld_next12 ? formatCurrencyForDisplay(financialData.wheinachtsgeld_next12) : '',
-          urlaubsgeld: financialData?.urlaubsgeld_next12 ? formatCurrencyForDisplay(financialData.urlaubsgeld_next12) : '',
-          sonstige: financialData?.otherincome_next12 ? formatCurrencyForDisplay(financialData.otherincome_next12) : ''
+          weihnachtsgeld: safeFormatCurrencyForDisplay(financialData?.wheinachtsgeld_next12),
+          urlaubsgeld: safeFormatCurrencyForDisplay(financialData?.urlaubsgeld_next12),
+          sonstige: safeFormatCurrencyForDisplay(financialData?.otherincome_next12)
         },
         willChangeIncome: financialData?.willchangeincome ?? null,
         incomeChangeDate: financialData?.incomechangedate || '',
         willChangeIncrease: financialData?.willchangeincrease ?? null,
-        newIncome: financialData?.newincome ? formatCurrencyForDisplay(financialData.newincome) : '',
+        newIncome: safeFormatCurrencyForDisplay(financialData?.newincome),
         isNewIncomeMonthly: financialData?.isnewincomemonthly ?? null,
         newIncomeReason: financialData?.newincomereason || '',
         startEmployment: financialData?.startemployment || '',
         isContractLimited: financialData?.iscontractlimited ?? null,
         endOfContract: financialData?.endofcontract || '',
-        werbungskosten: financialData?.werbungskosten ? formatCurrencyForDisplay(financialData.werbungskosten) : '',
-        kinderbetreuungskosten: financialData?.kinderbetreuungskosten ? formatCurrencyForDisplay(financialData.kinderbetreuungskosten) : '',
+        werbungskosten: safeFormatCurrencyForDisplay(financialData?.werbungskosten),
+        kinderbetreuungskosten: safeFormatCurrencyForDisplay(financialData?.kinderbetreuungskosten),
         ispayingincometax: financialData?.ispayingincometax,
         ispayinghealthinsurance: financialData?.ispayinghealthinsurance,
         ispayingpension: financialData?.ispayingpension,
@@ -621,18 +620,18 @@ const EinkommenserklaerungReviewContainer: React.FC<EinkommenserklaerungReviewCo
             financialData?.haspauschalincome ? 'pauschal' : null,
             financialData?.hasablgincome ? 'arbeitslosengeld' : null,
           ].filter(Boolean)) as string[],
-          renten: financialData?.haspensionincome ? { betrag: financialData.incomepension ? formatCurrencyForDisplay(financialData.incomepension) : '', turnus: 'monatlich' } : undefined,
-          vermietung: financialData?.hasrentincome ? { betrag: financialData.incomerent ? formatCurrencyForDisplay(financialData.incomerent) : '', jahr: financialData.incomerentyear ? String(financialData.incomerentyear) : '' } : undefined,
-          gewerbe: financialData?.hasbusinessincome ? { betrag: financialData.incomebusiness ? formatCurrencyForDisplay(financialData.incomebusiness) : '', jahr: financialData.incomebusinessyear ? String(financialData.incomebusinessyear) : '' } : undefined,
-          landforst: financialData?.hasagricultureincome ? { betrag: financialData.incomeagriculture ? formatCurrencyForDisplay(financialData.incomeagriculture) : '', jahr: financialData.incomeagricultureyear ? String(financialData.incomeagricultureyear) : '' } : undefined,
-          sonstige: financialData?.hasothercome ? { betrag: financialData.incomeothers ? formatCurrencyForDisplay(financialData.incomeothers) : '', jahr: financialData.incomeothersyear ? String(financialData.incomeothersyear) : '' } : undefined,
-          unterhaltsteuerfrei: financialData?.hastaxfreeunterhaltincome ? { betrag: financialData.incomeunterhalttaxfree ? formatCurrencyForDisplay(financialData.incomeunterhalttaxfree) : '' } : undefined,
-          unterhaltsteuerpflichtig: financialData?.hastaxableunterhaltincome ? { betrag: financialData.incomeunterhalttaxable ? formatCurrencyForDisplay(financialData.incomeunterhalttaxable) : '' } : undefined,
-          ausland: financialData?.hasforeignincome ? { betrag: financialData.incomeforeign ? formatCurrencyForDisplay(financialData.incomeforeign) : '', jahr: financialData.incomeforeignyear ? String(financialData.incomeforeignyear) : '', turnus: financialData.incomeforeignmonthly ? 'monatlich' : 'jährlich' } : undefined,
-          pauschal: financialData?.haspauschalincome ? { betrag: financialData.incomepauschal ? formatCurrencyForDisplay(financialData.incomepauschal) : '', turnus: 'monatlich' } : undefined,
+          renten: financialData?.haspensionincome ? { betrag: safeFormatCurrencyForDisplay(financialData.incomepension), turnus: 'monatlich' } : undefined,
+          vermietung: financialData?.hasrentincome ? { betrag: safeFormatCurrencyForDisplay(financialData.incomerent), jahr: financialData.incomerentyear ? String(financialData.incomerentyear) : '' } : undefined,
+          gewerbe: financialData?.hasbusinessincome ? { betrag: safeFormatCurrencyForDisplay(financialData.incomebusiness), jahr: financialData.incomebusinessyear ? String(financialData.incomebusinessyear) : '' } : undefined,
+          landforst: financialData?.hasagricultureincome ? { betrag: safeFormatCurrencyForDisplay(financialData.incomeagriculture), jahr: financialData.incomeagricultureyear ? String(financialData.incomeagricultureyear) : '' } : undefined,
+          sonstige: financialData?.hasothercome ? { betrag: safeFormatCurrencyForDisplay(financialData.incomeothers), jahr: financialData.incomeothersyear ? String(financialData.incomeothersyear) : '' } : undefined,
+          unterhaltsteuerfrei: financialData?.hastaxfreeunterhaltincome ? { betrag: safeFormatCurrencyForDisplay(financialData.incomeunterhalttaxfree) } : undefined,
+          unterhaltsteuerpflichtig: financialData?.hastaxableunterhaltincome ? { betrag: safeFormatCurrencyForDisplay(financialData.incomeunterhalttaxable) } : undefined,
+          ausland: financialData?.hasforeignincome ? { betrag: safeFormatCurrencyForDisplay(financialData.incomeforeign), jahr: financialData.incomeforeignyear ? String(financialData.incomeforeignyear) : '', turnus: financialData.incomeforeignmonthly ? 'monatlich' : 'jährlich' } : undefined,
+          pauschal: financialData?.haspauschalincome ? { betrag: safeFormatCurrencyForDisplay(financialData.incomepauschal), turnus: 'monatlich' } : undefined,
           arbeitslosengeld: financialData?.hasablgincome && (financialData.incomealbgtype === 0 || financialData.incomealbgtype === 1 || financialData.incomealbgtype === 2)
             ? {
-                betrag: financialData.incomeablg ? formatCurrencyForDisplay(financialData.incomeablg) : '',
+                betrag: safeFormatCurrencyForDisplay(financialData.incomeablg),
                 turnus: financialData.incomealbgtype === 0 ? 'täglich' : financialData.incomealbgtype === 1 ? 'monatlich' : 'jährlich',
               }
             : undefined,
@@ -785,9 +784,9 @@ const EinkommenserklaerungReviewContainer: React.FC<EinkommenserklaerungReviewCo
             houseNumber: person.houseNumber || '',
             postalCode: person.postalCode || '',
             city: person.city || '',
-            hasEmploymentIncome: financialData.isEarningRegularIncome,
+            hasEmploymentIncome: financialData.isEarningRegularIncome ?? null,
             incomeYear: financialData.prior_year || '',
-            incomeYearAmount: financialData.prior_year_earning ? formatCurrencyForDisplay(financialData.prior_year_earning) : '',
+            incomeYearAmount: safeFormatCurrencyForDisplay(financialData.prior_year_earning),
             incomeEndMonth: financialData.end_month_past12 || '',
             incomeEndYear: financialData.end_year_past12 || '',
             monthlyIncome: (() => {
@@ -818,34 +817,33 @@ const EinkommenserklaerungReviewContainer: React.FC<EinkommenserklaerungReviewCo
                     '11': financialData?.income_month12
                   }[11 - i];
 
-                  if (monthData) {
-                    monthlyIncome[key] = formatCurrencyForDisplay(monthData);
-                  }
+                  monthlyIncome[key] = safeFormatCurrencyForDisplay(monthData);
+                  
                 }
               }
               return monthlyIncome;
             })(),
             sonderzuwendungenVergangen: {
-              weihnachtsgeld: financialData.wheinachtsgeld_last12 ? formatCurrencyForDisplay(financialData.wheinachtsgeld_last12) : '',
-              urlaubsgeld: financialData.urlaubsgeld_last12 ? formatCurrencyForDisplay(financialData.urlaubsgeld_last12) : '',
-              sonstige: financialData.otherincome_last12 ? formatCurrencyForDisplay(financialData.otherincome_last12) : ''
+              weihnachtsgeld: safeFormatCurrencyForDisplay(financialData.wheinachtsgeld_last12),
+              urlaubsgeld: safeFormatCurrencyForDisplay(financialData.urlaubsgeld_last12),
+              sonstige: safeFormatCurrencyForDisplay(financialData.otherincome_last12)
             },
             sonderzuwendungenKommend: {
-              weihnachtsgeld: financialData.wheinachtsgeld_next12 ? formatCurrencyForDisplay(financialData.wheinachtsgeld_next12) : '',
-              urlaubsgeld: financialData.urlaubsgeld_next12 ? formatCurrencyForDisplay(financialData.urlaubsgeld_next12) : '',
-              sonstige: financialData.otherincome_next12 ? formatCurrencyForDisplay(financialData.otherincome_next12) : ''
+              weihnachtsgeld: safeFormatCurrencyForDisplay(financialData.wheinachtsgeld_next12),
+              urlaubsgeld: safeFormatCurrencyForDisplay(financialData.urlaubsgeld_next12),
+              sonstige: safeFormatCurrencyForDisplay(financialData.otherincome_next12)
             },
             willChangeIncome: financialData?.willchangeincome ?? null,
             incomeChangeDate: financialData?.incomechangedate || '',
             willChangeIncrease: financialData?.willchangeincrease ?? null,
-            newIncome: financialData?.newincome ? formatCurrencyForDisplay(financialData.newincome) : '',
+            newIncome: safeFormatCurrencyForDisplay(financialData?.newincome),
             isNewIncomeMonthly: financialData?.isnewincomemonthly ?? null,
             newIncomeReason: financialData?.newincomereason || '',
             startEmployment: financialData?.startemployment || '',
             isContractLimited: financialData?.iscontractlimited ?? null,
             endOfContract: financialData?.endofcontract || '',
-            werbungskosten: financialData?.werbungskosten ? formatCurrencyForDisplay(financialData?.werbungskosten) : '',
-            kinderbetreuungskosten: financialData?.kinderbetreuungskosten ? formatCurrencyForDisplay(financialData?.kinderbetreuungskosten) : '',
+            werbungskosten: safeFormatCurrencyForDisplay(financialData?.werbungskosten),
+            kinderbetreuungskosten: safeFormatCurrencyForDisplay(financialData?.kinderbetreuungskosten),
             ispayingincometax: financialData?.ispayingincometax,
             ispayinghealthinsurance: financialData?.ispayinghealthinsurance,
             ispayingpension: financialData?.ispayingpension,
@@ -865,18 +863,18 @@ const EinkommenserklaerungReviewContainer: React.FC<EinkommenserklaerungReviewCo
                 financialData?.haspauschalincome ? 'pauschal' : null,
                 financialData?.hasablgincome ? 'arbeitslosengeld' : null,
               ].filter(Boolean)) as string[],
-              renten: financialData?.haspensionincome ? { betrag: financialData.incomepension ? formatCurrencyForDisplay(financialData.incomepension) : '', turnus: 'monatlich' as const } : undefined,
-              vermietung: financialData?.hasrentincome ? { betrag: financialData.incomerent ? formatCurrencyForDisplay(financialData.incomerent) : '', jahr: financialData.incomerentyear ? String(financialData.incomerentyear) : '' } : undefined,
-              gewerbe: financialData?.hasbusinessincome ? { betrag: financialData.incomebusiness ? formatCurrencyForDisplay(financialData.incomebusiness) : '', jahr: financialData.incomebusinessyear ? String(financialData.incomebusinessyear) : '' } : undefined,
-              landforst: financialData?.hasagricultureincome ? { betrag: financialData.incomeagriculture ? formatCurrencyForDisplay(financialData.incomeagriculture) : '', jahr: financialData.incomeagricultureyear ? String(financialData.incomeagricultureyear) : '' } : undefined,
-              sonstige: financialData?.hasothercome ? { betrag: financialData.incomeothers ? formatCurrencyForDisplay(financialData.incomeothers) : '', jahr: financialData.incomeothersyear ? String(financialData.incomeothersyear) : '' } : undefined,
-              unterhaltsteuerfrei: financialData?.hastaxfreeunterhaltincome ? { betrag: financialData.incomeunterhalttaxfree ? formatCurrencyForDisplay(financialData.incomeunterhalttaxfree) : '' } : undefined,
-              unterhaltsteuerpflichtig: financialData?.hastaxableunterhaltincome ? { betrag: financialData.incomeunterhalttaxable ? formatCurrencyForDisplay(financialData.incomeunterhalttaxable) : '' } : undefined,
-              ausland: financialData?.hasforeignincome ? { betrag: financialData.incomeforeign ? formatCurrencyForDisplay(financialData.incomeforeign) : '', jahr: financialData.incomeforeignyear ? String(financialData.incomeforeignyear) : '', turnus: (financialData.incomeforeignmonthly ? 'monatlich' : 'jährlich') as 'monatlich' | 'jährlich' } : undefined,
-              pauschal: financialData?.haspauschalincome ? { betrag: financialData.incomepauschal ? formatCurrencyForDisplay(financialData.incomepauschal) : '', turnus: 'monatlich' as const } : undefined,
+              renten: financialData?.haspensionincome ? { betrag: safeFormatCurrencyForDisplay(financialData.incomepension), turnus: 'monatlich' as const } : undefined,
+              vermietung: financialData?.hasrentincome ? { betrag: safeFormatCurrencyForDisplay(financialData.incomerent), jahr: financialData.incomerentyear ? String(financialData.incomerentyear) : '' } : undefined,
+              gewerbe: financialData?.hasbusinessincome ? { betrag: safeFormatCurrencyForDisplay(financialData.incomebusiness), jahr: financialData.incomebusinessyear ? String(financialData.incomebusinessyear) : '' } : undefined,
+              landforst: financialData?.hasagricultureincome ? { betrag: safeFormatCurrencyForDisplay(financialData.incomeagriculture), jahr: financialData.incomeagricultureyear ? String(financialData.incomeagricultureyear) : '' } : undefined,
+              sonstige: financialData?.hasothercome ? { betrag: safeFormatCurrencyForDisplay(financialData.incomeothers), jahr: financialData.incomeothersyear ? String(financialData.incomeothersyear) : '' } : undefined,
+              unterhaltsteuerfrei: financialData?.hastaxfreeunterhaltincome ? { betrag: safeFormatCurrencyForDisplay(financialData.incomeunterhalttaxfree) } : undefined,
+              unterhaltsteuerpflichtig: financialData?.hastaxableunterhaltincome ? { betrag: safeFormatCurrencyForDisplay(financialData.incomeunterhalttaxable) } : undefined,
+              ausland: financialData?.hasforeignincome ? { betrag: safeFormatCurrencyForDisplay(financialData.incomeforeign), jahr: financialData.incomeforeignyear ? String(financialData.incomeforeignyear) : '', turnus: (financialData.incomeforeignmonthly ? 'monatlich' : 'jährlich') as 'monatlich' | 'jährlich' } : undefined,
+              pauschal: financialData?.haspauschalincome ? { betrag: safeFormatCurrencyForDisplay(financialData.incomepauschal), turnus: 'monatlich' as const } : undefined,
               arbeitslosengeld: financialData?.hasablgincome && (financialData.incomealbgtype === 0 || financialData.incomealbgtype === 1 || financialData.incomealbgtype === 2)
                 ? {
-                    betrag: financialData.incomeablg ? formatCurrencyForDisplay(financialData.incomeablg) : '',
+                    betrag: safeFormatCurrencyForDisplay(financialData.incomeablg),
                     turnus: (financialData.incomealbgtype === 0 ? 'täglich' : financialData.incomealbgtype === 1 ? 'monatlich' : 'jährlich') as 'täglich' | 'monatlich' | 'jährlich',
                   }
                 : undefined,

@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Form, Button, OverlayTrigger, Tooltip } from 'react-bootstrap';
+import AreaInput from '../../common/AreaInput';
+import GeneralDatePicker from '../../common/GeneralDatePicker';
 
 interface Step4Data {
   eigentumsverhaeltnis: boolean | null;
@@ -38,6 +40,17 @@ interface Step4Props {
 }
 
 const Step4_Eigentumsverhaeltnisse: React.FC<Step4Props> = ({ formData, updateFormData, showValidation = false, readOnly = false }) => {
+  // Date validation helper function
+  const isValidDate = (date: string): boolean => {
+    if (!date) return false;
+    
+    const inputDate = new Date(date);
+    const now = new Date();
+    const minDate = new Date(now.getFullYear() - 20, now.getMonth(), now.getDate());
+    
+    return inputDate <= now && inputDate >= minDate;
+  };
+
   const handleInputChange = (field: keyof Step4Data | string, value: any) => {
     if (readOnly) return;
     if (field.includes('.')) {
@@ -82,6 +95,8 @@ const Step4_Eigentumsverhaeltnisse: React.FC<Step4Props> = ({ formData, updateFo
       }
       if (formData.kaufvertrag.wurdeAbgeschlossen === true && !formData.kaufvertrag.abschlussDatum) {
         errors.push('Bitte geben Sie das Abschlussdatum des Kaufvertrags ein');
+      } else if (formData.kaufvertrag.wurdeAbgeschlossen === true && formData.kaufvertrag.abschlussDatum && !isValidDate(formData.kaufvertrag.abschlussDatum)) {
+        errors.push('Das Abschlussdatum des Kaufvertrags darf weder in der Zukunft noch mehr als 20 Jahre in der Vergangenheit liegen');
       }
     }
 
@@ -95,7 +110,7 @@ const Step4_Eigentumsverhaeltnisse: React.FC<Step4Props> = ({ formData, updateFo
       }
     }
 
-    // Grundbuch validation - only if eigentumsverhaeltnis is false or erbbaurecht is true
+    // Grundbuch validation - only if eigentumsverhaeltnis is true
     if (formData.eigentumsverhaeltnis === true) {
       if (!formData.grundbuch.type) {
         errors.push('Bitte wählen Sie einen Grundbuchtyp aus');
@@ -382,20 +397,15 @@ const Step4_Eigentumsverhaeltnisse: React.FC<Step4Props> = ({ formData, updateFo
             </Form.Floating>
           </div>
           <div className="col-md-6">
-            <Form.Floating>
-              <Form.Control
-                type="number"
-                placeholder="Grundstücksgröße"
-                value={formData.grundbuch.grundstuecksgroesse}
-                onChange={(e) => handleInputChange('grundbuch.grundstuecksgroesse', e.target.value)}
-                isInvalid={getFieldError('Grundstücksgröße')}
-                disabled={readOnly}
-              />
-              <label>Grundstücksgröße (m²)</label>
-              <Form.Control.Feedback type="invalid">
-                Bitte geben Sie die Grundstücksgröße ein
-              </Form.Control.Feedback>
-            </Form.Floating>
+            <AreaInput
+              value={formData.grundbuch.grundstuecksgroesse}
+              onChange={(value) => handleInputChange('grundbuch.grundstuecksgroesse', value)}
+              placeholder="Grundstücksgröße"
+              label="Grundstücksgröße (m²)"
+              isInvalid={getFieldError('Grundstücksgröße')}
+              errorMessage="Bitte geben Sie die Grundstücksgröße ein"
+              disabled={readOnly}
+            />
           </div>
         </div>
       </div>
@@ -468,7 +478,7 @@ const Step4_Eigentumsverhaeltnisse: React.FC<Step4Props> = ({ formData, updateFo
                 <Form.Check
                   type="radio"
                   id="kaufvertrag-wird"
-                  label="Kaufvertrag wird abgeschlossen"
+                  label="Notarieller Kaufvertrag wird abgeschlossen"
                   checked={formData.kaufvertrag.wurdeAbgeschlossen === false}
                   onChange={() => {
                     handleInputChange('kaufvertrag', {
@@ -484,7 +494,7 @@ const Step4_Eigentumsverhaeltnisse: React.FC<Step4Props> = ({ formData, updateFo
                   <Form.Check
                     type="radio"
                     id="kaufvertrag-wurde"
-                    label="Kaufvertrag wurde abgeschlossen am"
+                    label="Notarieller Kaufvertrag wurde abgeschlossen am"
                     checked={formData.kaufvertrag.wurdeAbgeschlossen === true}
                     onChange={() => {
                       handleInputChange('kaufvertrag', {
@@ -496,17 +506,19 @@ const Step4_Eigentumsverhaeltnisse: React.FC<Step4Props> = ({ formData, updateFo
                     disabled={readOnly}
                   />
                   {formData.kaufvertrag.wurdeAbgeschlossen === true && (
-                    <Form.Control
-                      type="date"
-                      value={formData.kaufvertrag.abschlussDatum}
-                      onChange={(e) => handleInputChange('kaufvertrag', {
-                        ...formData.kaufvertrag,
-                        abschlussDatum: e.target.value
-                      })}
-                      style={{ width: '200px' }}
-                      isInvalid={getFieldError('Abschlussdatum des Kaufvertrags')}
-                      disabled={readOnly}
-                    />
+                    <div className="col-md-4">
+                      <GeneralDatePicker
+                        value={formData.kaufvertrag.abschlussDatum}
+                        onChange={(date) => handleInputChange('kaufvertrag', {
+                          ...formData.kaufvertrag,
+                          abschlussDatum: date
+                        })}
+                        isInvalid={getFieldError('Abschlussdatum des Kaufvertrags')}
+                        disabled={readOnly}
+                        label="Abschlussdatum"
+                        placeholder="Datum auswählen"
+                      />
+                    </div>
                   )}
                 </div>
                 {showValidation && getFieldError('Kaufvertrag abgeschlossen') && (
@@ -514,9 +526,14 @@ const Step4_Eigentumsverhaeltnisse: React.FC<Step4Props> = ({ formData, updateFo
                     Bitte geben Sie an, ob der Kaufvertrag abgeschlossen wurde
                   </div>
                 )}
-                {showValidation && getFieldError('Abschlussdatum des Kaufvertrags') && (
+                {showValidation && getFieldError('Bitte geben Sie das Abschlussdatum des Kaufvertrags ein') && (
                   <div className="text-danger mt-1">
                     Bitte geben Sie das Abschlussdatum des Kaufvertrags ein
+                  </div>
+                )}
+                {showValidation && getFieldError('Das Abschlussdatum des Kaufvertrags darf weder in der Zukunft noch mehr als 20 Jahre in der Vergangenheit liegen') && (
+                  <div className="text-danger mt-1">
+                    Das Abschlussdatum des Kaufvertrags darf weder in der Zukunft noch mehr als 20 Jahre in der Vergangenheit liegen
                   </div>
                 )}
               </div>

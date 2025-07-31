@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Form, Button, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import CurrencyInput from '../../common/CurrencyInput';
+import CurrencyInput_disabled from '../../common/CurrencyInput_disabled';
+import { getPostcodeValidation, formatCurrency as formatCurrencyUtil, getNumericValue as getNumericValueUtil } from '../../../utils/postcodeValidation';
+
 
 export interface Fremddarlehen {
   id: string;
@@ -63,6 +66,7 @@ interface Step6Props {
   foerderVariante: string;
   gesamtkosten: string;
   childCount: string;
+  disabledAdultsCount?: string; // Add this prop
   barrierefrei: boolean | null;
   begEffizienzhaus40Standard: boolean | null;
   hasSupplementaryLoan: boolean | null;
@@ -71,6 +75,7 @@ interface Step6Props {
   showValidation?: boolean;
   readOnly?: boolean;
   selbsthilfeData?: {willProvideSelfHelp: boolean | null, totals: {totalSelbsthilfe: number}} | null;
+  postcode?: string; // Add postcode prop
 }
 
 const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
@@ -79,6 +84,7 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
   foerderVariante,
   gesamtkosten,
   childCount,
+  disabledAdultsCount = '0',
   barrierefrei,
   begEffizienzhaus40Standard,
   hasSupplementaryLoan,
@@ -86,7 +92,8 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
   hasWoodConstructionLoan,
   showValidation = false,
   readOnly = false,
-  selbsthilfeData = null
+  selbsthilfeData = null,
+  postcode = ''
 }) => {
   const [eigenleistungError, setEigenleistungError] = useState<string | null>(null);
   const [gesamtbetraegeError, setGesamtbetraegeError] = useState<string | null>(null);
@@ -111,6 +118,66 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
     }).format(value/100);
   };
 
+  // Helper function to check if a currency value is greater than 0
+  const isValueGreaterThanZero = (value: string): boolean => {
+    const numericValue = getNumericValue(value);
+    return numericValue > 0;
+  };
+
+  // Helper function to render info field
+  const renderInfoField = (message: string) => (
+    <div className="row mt-3 mb-3">
+      <div className="col-12">
+        <div 
+          className="d-flex align-items-start gap-3" 
+          style={{ 
+            fontSize: '15px', 
+            padding: '16px 20px',
+            backgroundColor: '#F2F6FF',
+            border: '1px solid #e9ecef',
+            borderRadius: '8px',
+            color: '#2d2d2d'
+          }}
+        >
+          <div 
+            style={{ 
+              width: '20px',
+              height: '20px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: '#ffffff',
+              borderRadius: '50%',
+              color: '#064497',
+              fontSize: '14px',
+              fontWeight: 'bold',
+              flexShrink: 0,
+              marginTop: '1px'
+            }}
+          >
+            ℹ
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ marginBottom: '12px', lineHeight: '1.5' }}>{message}</div>
+            <a 
+              href="https://lzdodhbbwvdyciglfwjw.supabase.co/storage/v1/object/sign/documents/leitfaden_nrw_bank/2024-04-02-mhkbd-final-frl-off-wohnen-2024.pdf?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV84ZWE2ZjFhOC02ZmFkLTQ5NWYtODQyMy05OThlZTg3N2I2MzciLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJkb2N1bWVudHMvbGVpdGZhZGVuX25yd19iYW5rLzIwMjQtMDQtMDItbWhrYmQtZmluYWwtZnJsLW9mZi13b2huZW4tMjAyNC5wZGYiLCJpYXQiOjE3NTM4NjE3MjAsImV4cCI6MTkxMTU0MTcyMH0.4abRrDtiUTLlgv8jALcIHYcJW7T26j1xtZaDb9osBoE"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ 
+                color: '#064497', 
+                textDecoration: 'underline',
+                fontWeight: 500,
+                fontSize: '14px'
+              }}
+            >
+              Förderrichtlinie ansehen
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   const handleFremddarlehenChange = (id: string, field: keyof Fremddarlehen, value: string) => {
     //if (readOnly) return;
     const updatedDarlehen = formData.fremddarlehen.map(darlehen => {
@@ -131,6 +198,11 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
 
   const addFremddarlehen = () => {
     //if (readOnly) return;
+    // Check if maximum number of Fremddarlehen is reached
+    if (formData.fremddarlehen.length >= 3) {
+      return;
+    }
+    
     const newDarlehen: Fremddarlehen = {
       id: Date.now().toString(),
       darlehenGeber: '',
@@ -175,7 +247,7 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
         zusatzdarlehen.nennbetrag = value;
         // Apply different Tilgungsnachlass rates based on the type
         const nennbetragValue = value.replace(/[^0-9]/g, '');
-        const tilgungsRate = field === 'begEffizienzhaus40Standard' ? 0.5 : 0.1;
+        const tilgungsRate = (field === 'begEffizienzhaus40Standard' || field === 'standortbedingteMehrkosten' || field === 'bauenMitHolz') ? 0.5 : 0.1;
         const tilgungsnachlassValue = Math.round(Number(nennbetragValue) * tilgungsRate);
         zusatzdarlehen.tilgungsnachlass = new Intl.NumberFormat('de-DE', {
           style: 'currency',
@@ -219,7 +291,7 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
     }
 
     // Check if we're in neubau or ersterwerb
-    const isNeubauOrErsterwerb = foerderVariante === 'neubau' || foerderVariante.includes('ersterwerb');
+    const isNeubauOrErsterwerb = foerderVariante.includes('neubau') || foerderVariante.includes('ersterwerb');
 
     // Add Barrierefreiheit if applicable
     if (isNeubauOrErsterwerb && barrierefrei) {
@@ -248,10 +320,10 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
     eigenleistungSum += getNumericValue(formData.eigenleistung.selbsthilfe);
 
     // Only include these values if foerderVariante is "neubau"
-    if (foerderVariante === 'neubau' || foerderVariante === 'nutzungsaenderung') {
+    if (foerderVariante.includes('neubau') || foerderVariante === 'nutzungsaenderung') {
       eigenleistungSum += getNumericValue(formData.eigenleistung.wertVorhandenerGebaeudeteile);
     }
-    if (foerderVariante === 'neubau') {
+    if (foerderVariante.includes('neubau')) {
       eigenleistungSum += getNumericValue(formData.eigenleistung.wertBaugrundstück);
     }
 
@@ -317,7 +389,7 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
     Object.entries(updatedFormData.darlehenNRWBank.zusatzdarlehen).forEach(([key, darlehen]) => {
       if (darlehen.nennbetrag) {
         const nennbetragValue = darlehen.nennbetrag.replace(/[^0-9]/g, '');
-        const tilgungsRate = key === 'begEffizienzhaus40Standard' ? 0.5 : 0.1;
+        const tilgungsRate = (key === 'begEffizienzhaus40Standard' || key === 'standortbedingteMehrkosten' || key === 'bauenMitHolz') ? 0.5 : 0.1;
         const tilgungsnachlassValue = Math.round(Number(nennbetragValue) * tilgungsRate);
         darlehen.tilgungsnachlass = new Intl.NumberFormat('de-DE', {
           style: 'currency',
@@ -365,7 +437,7 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
       nrwBankNennbetrag += getNumericValue(formData.darlehenNRWBank.zusatzdarlehen.bauenMitHolz.nennbetrag);
       nrwBankTilgungsnachlass += getNumericValue(formData.darlehenNRWBank.zusatzdarlehen.bauenMitHolz.tilgungsnachlass);
     }
-    const isNeubauOrErsterwerb = foerderVariante === 'neubau' || foerderVariante.includes('ersterwerb');
+    const isNeubauOrErsterwerb = foerderVariante.includes('neubau') || foerderVariante.includes('ersterwerb');
     if (isNeubauOrErsterwerb && barrierefrei) {
       nrwBankNennbetrag += getNumericValue(formData.darlehenNRWBank.zusatzdarlehen.barrierefreiheit.nennbetrag);
       nrwBankTilgungsnachlass += getNumericValue(formData.darlehenNRWBank.zusatzdarlehen.barrierefreiheit.tilgungsnachlass);
@@ -383,10 +455,10 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
     eigenleistungSum += getNumericValue(formData.eigenleistung.eigeneGeldmittel);
     eigenleistungSum += getNumericValue(formData.eigenleistung.zuschüsse);
     eigenleistungSum += getNumericValue(formData.eigenleistung.selbsthilfe);
-    if (foerderVariante === 'neubau' || foerderVariante === 'nutzungsaenderung') {
+    if (foerderVariante.includes('neubau') || foerderVariante === 'nutzungsaenderung') {
       eigenleistungSum += getNumericValue(formData.eigenleistung.wertVorhandenerGebaeudeteile);
     }
-    if (foerderVariante === 'neubau') {
+    if (foerderVariante.includes('neubau')) {
       eigenleistungSum += getNumericValue(formData.eigenleistung.wertBaugrundstück);
     }
     // Fremddarlehen sum
@@ -403,6 +475,9 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
   // Add validation function
   const validateStep6 = () => {
     const errors: string[] = [];
+
+    // Get postcode validation data
+    const postcodeValidation = getPostcodeValidation(postcode);
 
     // Validate Fremddarlehen fields
     formData.fremddarlehen.forEach((darlehen, index) => {
@@ -422,43 +497,110 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
     // Validate Ergänzungsdarlehen if hasSupplementaryLoan is true
     if (hasSupplementaryLoan === true) {
       if (!formData.ergaenzungsdarlehen.nennbetrag) {
-        errors.push('Bitte geben Sie den Nennbetrag des Ergänzungsdarlehens ein');
+        errors.push('Ergänzungsdarlehen: Bitte geben Sie den Nennbetrag des Ergänzungsdarlehens ein');
+      } else {
+        // Validate Ergänzungsdarlehen limits (max 50K, min 2K)
+        const ergaenzungsdarlehenValue = getNumericValue(formData.ergaenzungsdarlehen.nennbetrag);
+        const maxErgaenzungsdarlehen = 5000000; // 50,000 EUR in cents
+        const minErgaenzungsdarlehen = 200000; // 2,000 EUR in cents
+        
+        if (ergaenzungsdarlehenValue > maxErgaenzungsdarlehen) {
+          errors.push(`Ergänzungsdarlehen: Ergänzungsdarlehen darf maximal 50.000,00€ betragen (aktuell: ${formatCurrency(ergaenzungsdarlehenValue)})`);
+        }
+        if (ergaenzungsdarlehenValue < minErgaenzungsdarlehen) {
+          errors.push(`Ergänzungsdarlehen: Ergänzungsdarlehen muss mindestens 2.000,00€ betragen (aktuell: ${formatCurrency(ergaenzungsdarlehenValue)})`);
+        }
       }
     } else {
       // Validate NRW Bank Darlehen
       if (!formData.darlehenNRWBank.grunddarlehen.nennbetrag) {
-        errors.push('Bitte geben Sie den Nennbetrag des Grunddarlehens ein');
+        errors.push('Grunddarlehen: Bitte geben Sie den Nennbetrag des Grunddarlehens ein');
+      } else {
+        // Validate Grunddarlehen limit based on postcode
+        const grunddarlehenValue = getNumericValue(formData.darlehenNRWBank.grunddarlehen.nennbetrag);
+        const maxGrunddarlehen = postcodeValidation.limits.maxLimit; // Dynamic limit based on postcode
+        
+        if (grunddarlehenValue > maxGrunddarlehen) {
+          errors.push(`Grunddarlehen: Grunddarlehen darf maximal ${formatCurrencyUtil(maxGrunddarlehen)} betragen (aktuell: ${formatCurrency(grunddarlehenValue)})`);
+        }
       }
 
       // Validate Familienbonus if childCount > 0
       if (parseInt(childCount) > 0 && !formData.darlehenNRWBank.zusatzdarlehen.familienbonus.nennbetrag) {
-        errors.push('Bitte geben Sie den Nennbetrag des Familienbonus ein (0,00€ wenn nicht vorhanden)');
+        errors.push('Familienbonus: Bitte geben Sie den Nennbetrag des Familienbonus ein (0,00€ wenn nicht vorhanden)');
+      } else if (parseInt(childCount) > 0 && formData.darlehenNRWBank.zusatzdarlehen.familienbonus.nennbetrag) {
+        // Validate Familienbonus limit (max (childCount + disabledAdultsCount) * 24K)
+        const familienbonusValue = getNumericValue(formData.darlehenNRWBank.zusatzdarlehen.familienbonus.nennbetrag);
+        const totalEligibleCount = parseInt(childCount) + parseInt(disabledAdultsCount || '0');
+        const maxFamilienbonus = totalEligibleCount * 2400000; // 24,000 EUR per person in cents
+        
+        if (familienbonusValue > maxFamilienbonus) {
+          errors.push(`Familienbonus: Familienbonus darf maximal ${formatCurrency(maxFamilienbonus)} betragen (${totalEligibleCount} berechtigte Personen × 24.000,00€, aktuell: ${formatCurrency(familienbonusValue)})`);
+        }
       }
 
       // Validate Bauen mit Holz
       if (hasWoodConstructionLoan === true && !formData.darlehenNRWBank.zusatzdarlehen.bauenMitHolz.nennbetrag) {
-        errors.push('Bitte geben Sie den Nennbetrag für Bauen mit Holz ein (0,00€ wenn nicht vorhanden)');
+        errors.push('Bauen mit Holz: Bitte geben Sie den Nennbetrag für Bauen mit Holz ein (0,00€ wenn nicht vorhanden)');
+      } else if (hasWoodConstructionLoan === true && formData.darlehenNRWBank.zusatzdarlehen.bauenMitHolz.nennbetrag) {
+        // Validate Bauen mit Holz limit (max 17,000 EUR)
+        const holzValue = getNumericValue(formData.darlehenNRWBank.zusatzdarlehen.bauenMitHolz.nennbetrag);
+        const maxHolz = 1700000; // 17,000 EUR in cents
+        
+        if (holzValue > maxHolz) {
+          errors.push(`Bauen mit Holz: Bauen mit Holz darf maximal 17.000,00€ betragen (aktuell: ${formatCurrency(holzValue)})`);
+        }
       }
 
       // Validate Barrierefreiheit if barrierefrei is true
-      if ((foerderVariante === 'neubau' || foerderVariante?.includes('ersterwerb')) && 
+      if ((foerderVariante.includes('neubau') || foerderVariante?.includes('ersterwerb')) && 
           barrierefrei === true && 
           !formData.darlehenNRWBank.zusatzdarlehen.barrierefreiheit.nennbetrag) {
-        errors.push('Bitte geben Sie den Nennbetrag für Barrierefreiheit ein (0,00€ wenn nicht vorhanden)');
+        errors.push('Barrierefreiheit: Bitte geben Sie den Nennbetrag für Barrierefreiheit ein (0,00€ wenn nicht vorhanden)');
+      } else if ((foerderVariante.includes('neubau') || foerderVariante?.includes('ersterwerb')) && 
+          barrierefrei === true && 
+          formData.darlehenNRWBank.zusatzdarlehen.barrierefreiheit.nennbetrag) {
+        // Validate Barrierefreiheit limit (max 11,500 EUR)
+        const barrierefreiValue = getNumericValue(formData.darlehenNRWBank.zusatzdarlehen.barrierefreiheit.nennbetrag);
+        const maxBarrierefrei = 1150000; // 11,500 EUR in cents
+        
+        if (barrierefreiValue > maxBarrierefrei) {
+          errors.push(`Barrierefreiheit: Barrierefreiheit darf maximal 11.500,00€ betragen (aktuell: ${formatCurrency(barrierefreiValue)})`);
+        }
       }
 
       // Validate Standortbedingte Mehrkosten
-      if ((foerderVariante === 'neubau' || foerderVariante?.includes('ersterwerb')) && 
+      if ((foerderVariante.includes('neubau') || foerderVariante?.includes('ersterwerb')) && 
           hasLocationCostLoan === true && 
           !formData.darlehenNRWBank.zusatzdarlehen.standortbedingteMehrkosten.nennbetrag) {
-        errors.push('Bitte geben Sie den Nennbetrag für standortbedingte Mehrkosten ein (0,00€ wenn nicht vorhanden)');
+        errors.push('Standortbedingte Mehrkosten: Bitte geben Sie den Nennbetrag für standortbedingte Mehrkosten ein (0,00€ wenn nicht vorhanden)');
+      } else if ((foerderVariante.includes('neubau') || foerderVariante?.includes('ersterwerb')) && 
+          hasLocationCostLoan === true && 
+          formData.darlehenNRWBank.zusatzdarlehen.standortbedingteMehrkosten.nennbetrag) {
+        // Validate Standortbedingte Mehrkosten limit (max 25,000 EUR)
+        const standortValue = getNumericValue(formData.darlehenNRWBank.zusatzdarlehen.standortbedingteMehrkosten.nennbetrag);
+        const maxStandort = 2500000; // 25,000 EUR in cents
+        
+        if (standortValue > maxStandort) {
+          errors.push(`Standortbedingte Mehrkosten: Standortbedingte Mehrkosten dürfen maximal 25.000,00€ betragen (aktuell: ${formatCurrency(standortValue)})`);
+        }
       }
 
       // Validate BEG Effizienzhaus 40 Standard
-      if ((foerderVariante === 'neubau' || foerderVariante?.includes('ersterwerb')) && 
+      if ((foerderVariante.includes('neubau') || foerderVariante?.includes('ersterwerb')) && 
           begEffizienzhaus40Standard === true && 
           !formData.darlehenNRWBank.zusatzdarlehen.begEffizienzhaus40Standard.nennbetrag) {
-        errors.push('Bitte geben Sie den Nennbetrag für BEG Effizienzhaus 40 Standard ein (0,00€ wenn nicht vorhanden)');
+        errors.push('BEG Effizienzhaus 40 Standard: Bitte geben Sie den Nennbetrag für BEG Effizienzhaus 40 Standard ein (0,00€ wenn nicht vorhanden)');
+      } else if ((foerderVariante.includes('neubau') || foerderVariante?.includes('ersterwerb')) && 
+          begEffizienzhaus40Standard === true && 
+          formData.darlehenNRWBank.zusatzdarlehen.begEffizienzhaus40Standard.nennbetrag) {
+        // Validate BEG Effizienzhaus 40 Standard limit (max 30,000 EUR)
+        const begValue = getNumericValue(formData.darlehenNRWBank.zusatzdarlehen.begEffizienzhaus40Standard.nennbetrag);
+        const maxBeg = 3000000; // 30,000 EUR in cents
+        
+        if (begValue > maxBeg) {
+          errors.push(`BEG Effizienzhaus 40 Standard: BEG Effizienzhaus 40 Standard darf maximal 30.000,00€ betragen (aktuell: ${formatCurrency(begValue)})`);
+        }
       }
     }
 
@@ -468,12 +610,12 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
     if (!formData.eigenleistung.selbsthilfe) errors.push('Bitte geben Sie die Selbsthilfe ein (0,00€ wenn nicht vorhanden)');
 
     // Validate wertBaugrundstück if foerderVariante is "neubau"
-    if (foerderVariante === 'neubau' && !formData.eigenleistung.wertBaugrundstück) {
+    if (foerderVariante.includes('neubau') && !formData.eigenleistung.wertBaugrundstück) {
       errors.push('Bitte geben Sie den Wert des Baugrundstücks ein (0,00€ wenn nicht vorhanden)');
     }
 
     // Validate wertVorhandenerGebaeudeteile if foerderVariante is "neubau" or "nutzungsaenderung"
-    if ((foerderVariante === 'neubau' || foerderVariante === 'nutzungsaenderung') && !formData.eigenleistung.wertVorhandenerGebaeudeteile) {
+    if ((foerderVariante.includes('neubau') || foerderVariante === 'nutzungsaenderung') && !formData.eigenleistung.wertVorhandenerGebaeudeteile) {
       errors.push('Bitte geben Sie den Wert vorhandener Gebäudeteile ein (0,00€ wenn nicht vorhanden)');
     }
 
@@ -489,6 +631,8 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
       }
     }
 
+
+
     return errors;
   };
 
@@ -503,6 +647,12 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
 
   const getFieldError = (fieldName: string): boolean => {
     return showValidation && validationErrors.some(error => error.includes(fieldName));
+  };
+
+  const getFieldErrorMessage = (fieldName: string): string => {
+    if (!showValidation) return '';
+    const error = validationErrors.find(error => error.includes(fieldName));
+    return error || '';
   };
 
   const renderTooltip = (text: string) => (
@@ -657,7 +807,7 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
           </div>
         ))}
 
-        {!readOnly && (
+        {!readOnly && formData.fremddarlehen.length < 3 && (
           <Button
             variant="outline-primary"
             onClick={addFremddarlehen}
@@ -701,25 +851,30 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
                 onChange={(value) => handleNRWBankChange('grunddarlehen', 'nennbetrag', value)}
                 placeholder="Grunddarlehen"
                 label="Grunddarlehen"
-                isInvalid={getFieldError('Bitte geben Sie den Nennbetrag des Grunddarlehens ein')}
+                isInvalid={getFieldError('Grunddarlehen')}
                 disabled={readOnly}
               />
-              {getFieldError('Bitte geben Sie den Nennbetrag des Grunddarlehens ein') && (
+              {getFieldError('Grunddarlehen') && (
                 <div className="text-danger mt-1">
-                  Bitte geben Sie den Nennbetrag des Grunddarlehens ein
+                  {getFieldErrorMessage('Grunddarlehen')}
                 </div>
               )}
             </div>
             <div className="col-md-6">
-              <CurrencyInput
+              <CurrencyInput_disabled
                 value={formData.darlehenNRWBank.grunddarlehen.tilgungsnachlass}
                 onChange={() => {}}
-                placeholder="Tilgungsnachlass"
-                label="Tilgungsnachlass"
+                placeholder="Tilgungsnachlass (10%)"
+                label="Tilgungsnachlass (10%)"
                 disabled={readOnly}
               />
             </div>
           </div>
+
+          {/* Info field for Grunddarlehen */}
+          {!hasSupplementaryLoan && (
+            renderInfoField(getPostcodeValidation(postcode).infoMessage)
+          )}
 
           {/* Zusatzdarlehen */}
           <h5 className="mb-3">Zusatzdarlehen:</h5>
@@ -733,21 +888,21 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
                   onChange={(value) => handleNRWBankChange('zusatzdarlehen', 'familienbonus', value)}
                   placeholder="Familienbonus"
                   label="Familienbonus"
-                  isInvalid={getFieldError('Bitte geben Sie den Nennbetrag des Familienbonus ein')}
+                  isInvalid={getFieldError('Familienbonus')}
                   disabled={readOnly}
                 />
-                {getFieldError('Bitte geben Sie den Nennbetrag des Familienbonus ein') && (
+                {getFieldError('Familienbonus') && (
                   <div className="text-danger mt-1">
-                    Bitte geben Sie den Nennbetrag des Familienbonus ein (0,00€ wenn nicht vorhanden)
+                    {getFieldErrorMessage('Familienbonus')}
                   </div>
                 )}
               </div>
               <div className="col-md-6">
-                <CurrencyInput
+                <CurrencyInput_disabled
                   value={formData.darlehenNRWBank.zusatzdarlehen.familienbonus.tilgungsnachlass}
                   onChange={() => {}}
-                  placeholder="Tilgungsnachlass"
-                  label="Tilgungsnachlass"
+                  placeholder="Tilgungsnachlass (10%)"
+                  label="Tilgungsnachlass (10%)"
                   disabled={readOnly}
                 />
               </div>
@@ -755,7 +910,7 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
           )}
 
           {/* Barrierefreiheit */}
-          {(foerderVariante === 'neubau' || foerderVariante.includes('ersterwerb')) && barrierefrei && (
+          {(foerderVariante.includes('neubau') || foerderVariante.includes('ersterwerb')) && barrierefrei && (
             <div className="row g-3 mb-3">
               <div className="col-md-6">
                 <CurrencyInput
@@ -763,21 +918,21 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
                   onChange={(value) => handleNRWBankChange('zusatzdarlehen', 'barrierefreiheit', value)}
                   placeholder="Barrierefreiheit"
                   label="Barrierefreiheit"
-                  isInvalid={getFieldError('Bitte geben Sie den Nennbetrag für Barrierefreiheit ein')}
+                  isInvalid={getFieldError('Barrierefreiheit')}
                   disabled={readOnly}
                 />
-                {getFieldError('Bitte geben Sie den Nennbetrag für Barrierefreiheit ein') && (
+                {getFieldError('Barrierefreiheit') && (
                   <div className="text-danger mt-1">
-                    Bitte geben Sie den Nennbetrag für Barrierefreiheit ein (0,00€ wenn nicht vorhanden)
+                    {getFieldErrorMessage('Barrierefreiheit')}
                   </div>
                 )}
               </div>
               <div className="col-md-6">
-                <CurrencyInput
+                <CurrencyInput_disabled
                   value={formData.darlehenNRWBank.zusatzdarlehen.barrierefreiheit.tilgungsnachlass}
                   onChange={() => {}}
-                  placeholder="Tilgungsnachlass"
-                  label="Tilgungsnachlass"
+                  placeholder="Tilgungsnachlass (10%)"
+                  label="Tilgungsnachlass (10%)"
                   disabled={readOnly}
                 />
               </div>
@@ -785,7 +940,7 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
           )}
 
           {/* BEG Effizienzhaus 40 Standard */}
-          {(foerderVariante === 'neubau' || foerderVariante.includes('ersterwerb')) && begEffizienzhaus40Standard && (
+          {(foerderVariante.includes('neubau') || foerderVariante.includes('ersterwerb')) && begEffizienzhaus40Standard && (
             <div className="row g-3 mb-3">
               <div className="col-md-6">
                 <CurrencyInput
@@ -793,21 +948,21 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
                   onChange={(value) => handleNRWBankChange('zusatzdarlehen', 'begEffizienzhaus40Standard', value)}
                   placeholder="BEG Effizienzhaus 40 Standard"
                   label="BEG Effizienzhaus 40 Standard"
-                  isInvalid={getFieldError('Bitte geben Sie den Nennbetrag für BEG Effizienzhaus 40 Standard ein')}
+                  isInvalid={getFieldError('BEG Effizienzhaus 40 Standard')}
                   disabled={readOnly}
                 />
-                {getFieldError('Bitte geben Sie den Nennbetrag für BEG Effizienzhaus 40 Standard ein') && (
-                  <div className="text-danger mt-1">
-                    Bitte geben Sie den Nennbetrag für BEG Effizienzhaus 40 Standard ein (0,00€ wenn nicht vorhanden)
+                {getFieldError('BEG Effizienzhaus 40 Standard') && (
+                  <div className="text-danger mt-1">    
+                    {getFieldErrorMessage('BEG Effizienzhaus 40 Standard')}
                   </div>
                 )}
               </div>
               <div className="col-md-6">
-                <CurrencyInput
+                <CurrencyInput_disabled
                   value={formData.darlehenNRWBank.zusatzdarlehen.begEffizienzhaus40Standard.tilgungsnachlass}
                   onChange={() => {}}
-                  placeholder="Tilgungsnachlass"
-                  label="Tilgungsnachlass"
+                  placeholder="Tilgungsnachlass (50%)"
+                  label="Tilgungsnachlass (50%)"
                   disabled={readOnly}
                 />
               </div>
@@ -815,7 +970,7 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
           )}
 
           {/* Standortbedingte Mehrkosten */}
-          {(foerderVariante === 'neubau' || foerderVariante.includes('ersterwerb')) && hasLocationCostLoan && (
+          {(foerderVariante.includes('neubau') || foerderVariante.includes('ersterwerb')) && hasLocationCostLoan && (
             <div className="row g-3 mb-3">
               <div className="col-md-6">
                 <CurrencyInput
@@ -823,25 +978,30 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
                   onChange={(value) => handleNRWBankChange('zusatzdarlehen', 'standortbedingteMehrkosten', value)}
                   placeholder="Standortbedingte Mehrkosten"
                   label="Standortbedingte Mehrkosten"
-                  isInvalid={getFieldError('Bitte geben Sie den Nennbetrag für standortbedingte Mehrkosten ein')}
+                  isInvalid={getFieldError('Standortbedingte Mehrkosten')}
                   disabled={readOnly}
                 />
-                {getFieldError('Bitte geben Sie den Nennbetrag für standortbedingte Mehrkosten ein') && (
+                {getFieldError('Standortbedingte Mehrkosten') && (
                   <div className="text-danger mt-1">
-                    Bitte geben Sie den Nennbetrag für standortbedingte Mehrkosten ein (0,00€ wenn nicht vorhanden)
+                    {getFieldErrorMessage('Standortbedingte Mehrkosten')}
                   </div>
                 )}
               </div>
               <div className="col-md-6">
-                <CurrencyInput
+                <CurrencyInput_disabled
                   value={formData.darlehenNRWBank.zusatzdarlehen.standortbedingteMehrkosten.tilgungsnachlass}
                   onChange={() => {}}
-                  placeholder="Tilgungsnachlass"
-                  label="Tilgungsnachlass"
+                  placeholder="Tilgungsnachlass (50%)"
+                  label="Tilgungsnachlass (50%)"
                   disabled={readOnly}
                 />
               </div>
             </div>
+          )}
+          {/* Info field for Standortbedingte Mehrkosten */}
+          {(foerderVariante.includes('neubau') || foerderVariante.includes('ersterwerb')) && hasLocationCostLoan && 
+           isValueGreaterThanZero(formData.darlehenNRWBank.zusatzdarlehen.standortbedingteMehrkosten.nennbetrag) && (
+            renderInfoField("Standortbedingte Mehrkosten: Bitte informieren Sie sich über die Berechnung der förderfähigen Summe. Informationen finden Sie in der Förderrichtlinie unter Punkt 2.5.2")
           )}
 
           {/* Bauen mit Holz */}
@@ -853,25 +1013,30 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
                   onChange={(value) => handleNRWBankChange('zusatzdarlehen', 'bauenMitHolz', value)}
                   placeholder="Bauen mit Holz"
                   label="Bauen mit Holz"
-                  isInvalid={getFieldError('Bitte geben Sie den Nennbetrag für Bauen mit Holz ein')}
+                  isInvalid={getFieldError('Bauen mit Holz')}
                   disabled={readOnly}
                 />
-                {getFieldError('Bitte geben Sie den Nennbetrag für Bauen mit Holz ein') && (
+                {getFieldError('Bauen mit Holz') && (
                   <div className="text-danger mt-1">
-                    Bitte geben Sie den Nennbetrag für Bauen mit Holz ein (0,00€ wenn nicht vorhanden)
+                    {getFieldErrorMessage('Bauen mit Holz')}
                   </div>
                 )}
               </div>
               <div className="col-md-6">
-                <CurrencyInput
+                <CurrencyInput_disabled
                   value={formData.darlehenNRWBank.zusatzdarlehen.bauenMitHolz.tilgungsnachlass}
                   onChange={() => {}}
-                  placeholder="Tilgungsnachlass"
-                  label="Tilgungsnachlass"
+                  placeholder="Tilgungsnachlass (50%)"
+                  label="Tilgungsnachlass (50%)"
                   disabled={readOnly}
                 />
               </div>
             </div>
+          )}
+          {/* Info field for Bauen mit Holz */}
+          {hasWoodConstructionLoan && 
+           isValueGreaterThanZero(formData.darlehenNRWBank.zusatzdarlehen.bauenMitHolz.nennbetrag) && (
+            renderInfoField("Bauen mit Holz: Bitte informieren Sie sich über die Berechnung der förderfähigen Summe. Informationen finden Sie in der Förderrichtlinie unter Punkt 2.5.5")
           )}
 
           {/* Summe Förderdarlehen/Tilgungsnachlässe */}
@@ -924,14 +1089,14 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
                 }}
                 placeholder="Nennbetrag"
                 label="Nennbetrag"
-                isInvalid={getFieldError('Bitte geben Sie den Nennbetrag des Ergänzungsdarlehens ein')}
-                disabled={readOnly}
-              />
-              {getFieldError('Bitte geben Sie den Nennbetrag des Ergänzungsdarlehens ein') && (
-                <div className="text-danger mt-1">
-                  Bitte geben Sie den Nennbetrag des Ergänzungsdarlehens ein
-                </div>
-              )}
+                                  isInvalid={getFieldError('Ergänzungsdarlehen')}
+                  disabled={readOnly}
+                />
+                {getFieldError('Ergänzungsdarlehen') && (
+                  <div className="text-danger mt-1">
+                    {getFieldErrorMessage('Ergänzungsdarlehen')}
+                  </div>
+                )}
             </div>
           </div>
         </div>
@@ -1012,7 +1177,7 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
               </div>
             )}
           </div>
-          {(foerderVariante === 'neubau' || foerderVariante === 'nutzungsaenderung') && (
+          {(foerderVariante.includes('neubau') || foerderVariante === 'nutzungsaenderung') && (
             <div className="col-12">
               <CurrencyInput
                 value={formData.eigenleistung.wertVorhandenerGebaeudeteile}
@@ -1029,7 +1194,7 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
               )}
             </div>
           )}
-          {foerderVariante === 'neubau' && (
+          {foerderVariante.includes('neubau') && (
             <div className="col-12">
               <CurrencyInput
                 value={formData.eigenleistung.wertBaugrundstück}

@@ -6,7 +6,7 @@ import Step4_Eigentumsverhaeltnisse from './Steps/Step4_Eigentumsverhaeltnisse';
 import Step5_Kostenaufstellung from './Steps/Step5_Kostenaufstellung';
 import Step6_Finanzierungsmittel from './Steps/Step6_Finanzierungsmittel';
 import { supabase } from '../../lib/supabase';
-import { formatCurrencyForDisplay } from '../../utils/currencyUtils';
+import { formatCurrencyForDisplay, safeFormatCurrencyForDisplay, safeNumericToString, safeAreaToString } from '../../utils/currencyUtils';
 import { Button, Modal, Form } from 'react-bootstrap';
 import '../Einkommenserklaerung/EinkommenserklaerungContainer.css';
 
@@ -103,26 +103,6 @@ const stepTitles = [
 
 const getStepTitle = (step: number) => stepTitles[step - 1] || '';
 
-// Helper function to normalize person data structure
-const normalizePersonData = (person: any): any => {
-  return {
-    title: person.title || '',
-    firstName: person.firstname || person.firstName || '',
-    lastName: person.lastname || person.lastName || '',
-    nationality: person.nationality || '',
-    birthDate: person.birthDate || '',
-    street: person.person_street || person.street || '',
-    houseNumber: person.person_housenumber || person.houseNumber || '',
-    postalCode: person.person_postalcode || person.postalCode || '',
-    city: person.person_city || person.city || '',
-    phone: person.phone || '',
-    email: person.email || '',
-    employment: {
-      type: person.employment?.type || person.employment || '',
-      details: person.employment?.details || person.branche || ''
-    }
-  };
-};
 
 const HauptantragReviewContainer: React.FC<HauptantragReviewContainerProps> = ({ residentId }) => {
   const [isLoading, setIsLoading] = useState(true);
@@ -164,10 +144,16 @@ const HauptantragReviewContainer: React.FC<HauptantragReviewContainerProps> = ({
           .select('*')
           .eq('user_id', residentId)
           .single();
+        // Load user financials for steuerid
+        const { data: userFinancials } = await supabase
+          .from('user_financials')
+          .select('*')
+          .eq('user_id', residentId)
+          .single();
         // Calculate total costs (copied from HauptantragContainer)
         let totalCosts = 0;
         if (costData) {
-          const isNeubau = objectData?.foerderVariante === 'neubau';
+          const isNeubau = objectData?.foerderVariante.includes('neubau');
           const isBestandserwerbOrErsterwerb = objectData?.foerderVariante?.includes('bestandserwerb') || objectData?.foerderVariante?.includes('ersterwerb');
           const showBaukosten = isNeubau || objectData?.foerderVariante === 'nutzungsaenderung';
           if (isNeubau) {
@@ -202,23 +188,69 @@ const HauptantragReviewContainer: React.FC<HauptantragReviewContainerProps> = ({
               ...userData?.bevollmaechtigte
             },
             persons: [
-              normalizePersonData(userData),
-              ...Object.values(userData?.weitere_antragstellende_personen || {}).map(normalizePersonData)
+              // Main applicant
+              {
+                title: userData?.title || '',
+                firstName: userData?.firstname || '',
+                lastName: userData?.lastname || '',
+                nationality: userData?.nationality || '',
+                birthDate: userData?.birthDate || '',
+                steuerid: userFinancials?.steuerid || '',
+                street: userData?.person_street || '',
+                houseNumber: userData?.person_housenumber || '',
+                postalCode: userData?.person_postalcode || '',
+                city: userData?.person_city || '',
+                phone: userData?.phone || '',
+                email: userData?.email || '',
+                employment: {
+                  type: userData?.employment || '',
+                  details: userData?.branche || ''
+                },
+                isApplicant: true
+              },
+              // Additional applicants - convert UUID-based object to array
+              ...Object.entries(userData?.weitere_antragstellende_personen || {})
+                .filter(([uuid, person]: [string, any]) => person.isApplicant === true)
+                .map(([uuid, person]: [string, any]) => {
+                  // Get steuerid for this specific person from additional_applicants_financials
+                  const personFinancials = userFinancials?.additional_applicants_financials?.[uuid] || {};
+                  const personSteuerid = personFinancials.steuerid || '';
+                  return {
+                    title: person.title || '',
+                    firstName: person.firstName || '',
+                    lastName: person.lastName || '',
+                    nationality: person.nationality || '',
+                    birthDate: person.birthDate || '',
+                    steuerid: personSteuerid,
+                    street: person.street || '',
+                    houseNumber: person.houseNumber || '',
+                    postalCode: person.postalCode || '',
+                    city: person.city || '',
+                    phone: person.phone || '',
+                    email: person.email || '',
+                    employment: {
+                      type: person.employment?.type || '',
+                      details: person.employment?.details || ''
+                    },
+                    isApplicant: person.isApplicant, // Preserve isApplicant field
+                    originalPersonId: uuid // Store the UUID for tracking
+                  };
+                })
             ]
           },
           step2: {
-            adultCount: userData?.adult_count || '',
-            childCount: userData?.child_count || '',
+            adultCount: safeNumericToString(userData?.adult_count),
+            childCount: safeNumericToString(userData?.child_count),
             isDisabled: userData?.is_disabled ?? null,
             isMarried: userData?.is_married ?? null,
             hasAdditionalAssets: userData?.hasadditionalassets ?? null,
             hasDoubleSubsidy: userData?.hasdoublesubsidy ?? null,
             childrenAges: userData?.childrenages || '',
-            disabledAdultsCount: userData?.disabledadultscount || '',
-            disabledChildrenCount: userData?.disabledchildrencount || '',
+            disabledAdultsCount: safeNumericToString(userData?.disabledadultscount),
+            disabledChildrenCount: safeNumericToString(userData?.disabledchildrencount),
             additionalAssetsDetails: userData?.additionalassetsdetails || '',
             hasRepaidSubsidy: userData?.hasrepaidsubsidy ?? null,
-            subsidyAmount: userData?.subsidyamount ? formatCurrencyForDisplay(userData.subsidyamount) : '',
+            subsidyAmount: safeFormatCurrencyForDisplay(userData?.subsidyamount),
             subsidyFileNumber: userData?.subsidyfilenumber || '',
             subsidyAuthority: userData?.subsidyauthority || '',
             hasSupplementaryLoan: userData?.hassupplementaryloan ?? null
@@ -231,19 +263,20 @@ const HauptantragReviewContainer: React.FC<HauptantragReviewContainerProps> = ({
               city: objectData?.obj_city || ''
             },
             foerderVariante: objectData?.foerderVariante || '',
+            objektart: objectData?.objektart || '',
             objektDetailsAllgemein: {
-              wohnflaecheSelbstgenutzt: objectData?.wohnflaeche_selbstgenutzt || '',
-              gesamtWohnflaeche: objectData?.gesamt_wohnflaeche || '',
-              anzahlZimmer: objectData?.anzahl_zimmer || '',
-              anzahlGaragen: objectData?.anzahl_garagen || '',
+              wohnflaecheSelbstgenutzt: safeAreaToString(objectData?.wohnflaeche_selbstgenutzt),
+              gesamtWohnflaeche: safeAreaToString(objectData?.gesamt_wohnflaeche),
+              anzahlZimmer: safeNumericToString(objectData?.anzahl_zimmer),
+              anzahlGaragen: safeNumericToString(objectData?.anzahl_garagen),
               gewerbeflaeche: {
                 hasGewerbeflaeche: objectData?.has_gewerbeflaeche ?? null,
-                flaeche: objectData?.has_gewerbeflaeche ? objectData?.gewerbeflaeche || '' : ''
+                flaeche: objectData?.has_gewerbeflaeche ? safeAreaToString(objectData?.gewerbeflaeche) : ''
               },
               ertraege: {
                 hasErtraege: objectData?.has_ertraege ?? null,
-                vermieteteWohnung: objectData?.has_ertraege ? formatCurrencyForDisplay(objectData?.vermietete_wohnung) || '' : '',
-                vermieteteGarage: objectData?.has_ertraege ? formatCurrencyForDisplay(objectData?.vermietete_garage) || '' : ''
+                vermieteteWohnung: objectData?.has_ertraege ? safeFormatCurrencyForDisplay(objectData?.vermietete_wohnung) : '',
+                vermieteteGarage: objectData?.has_ertraege ? safeFormatCurrencyForDisplay(objectData?.vermietete_garage) : ''
               },
               barrierefrei: objectData?.barrierefrei ?? null,
               begEffizienzhaus40Standard: objectData?.beg_effizienzhaus_40_standard ?? null,
@@ -251,30 +284,30 @@ const HauptantragReviewContainer: React.FC<HauptantragReviewContainerProps> = ({
               hasWoodConstructionLoan: objectData?.haswoodconstructionloan ?? null
             },
             objektDetailsEigentumswohnung: {
-              anzahlVollgeschosse: (objectData?.foerderVariante === 'bestandserwerb-wohnung' || objectData?.foerderVariante === 'ersterwerb-wohnung') ? objectData?.anzahl_vollgeschosse || '' : '',
-              wohnungenAmHauseingang: (objectData?.foerderVariante === 'bestandserwerb-wohnung' || objectData?.foerderVariante === 'ersterwerb-wohnung') ? objectData?.wohnungen_am_hauseingang || '' : '',
+              anzahlVollgeschosse: (objectData?.foerderVariante === 'bestandserwerb-wohnung' || objectData?.foerderVariante === 'ersterwerb-wohnung') ? safeNumericToString(objectData?.anzahl_vollgeschosse) : '',
+              wohnungenAmHauseingang: (objectData?.foerderVariante === 'bestandserwerb-wohnung' || objectData?.foerderVariante === 'ersterwerb-wohnung') ? safeNumericToString(objectData?.wohnungen_am_hauseingang) : '',
               lageImGebaeude: (objectData?.foerderVariante === 'bestandserwerb-wohnung' || objectData?.foerderVariante === 'ersterwerb-wohnung') ? objectData?.lage_im_gebaeude || '' : '',
               lageImGeschoss: (objectData?.foerderVariante === 'bestandserwerb-wohnung' || objectData?.foerderVariante === 'ersterwerb-wohnung') ? objectData?.lage_im_geschoss || '' : ''
             },
             objektDetailsNeubauErsterwerb: {
-              baugenehmigungErforderlich: (objectData?.foerderVariante === 'neubau' || objectData?.foerderVariante === 'ersterwerb-eigenheim' || objectData?.foerderVariante === 'ersterwerb-wohnung') ? objectData?.baugenehmigung_erforderlich : null,
+              baugenehmigungErforderlich: (objectData?.foerderVariante.includes('neubau') || objectData?.foerderVariante === 'ersterwerb-eigenheim' || objectData?.foerderVariante === 'ersterwerb-wohnung') ? objectData?.baugenehmigung_erforderlich : null,
               baugenehmigung: {
-                wurdeErteilt: (objectData?.foerderVariante === 'neubau' || objectData?.foerderVariante === 'ersterwerb-eigenheim' || objectData?.foerderVariante === 'ersterwerb-wohnung') ? objectData?.baugenehmigung_wurde_erteilt : null,
-                erteilungsDatum: (objectData?.foerderVariante === 'neubau' || objectData?.foerderVariante === 'ersterwerb-eigenheim' || objectData?.foerderVariante === 'ersterwerb-wohnung') && objectData?.baugenehmigung_wurde_erteilt ? objectData?.erteilungs_datum || '' : '',
-                aktenzeichen: (objectData?.foerderVariante === 'neubau' || objectData?.foerderVariante === 'ersterwerb-eigenheim' || objectData?.foerderVariante === 'ersterwerb-wohnung') && objectData?.baugenehmigung_wurde_erteilt ? objectData?.aktenzeichen || '' : '',
-                erteilungsBehoerde: (objectData?.foerderVariante === 'neubau' || objectData?.foerderVariante === 'ersterwerb-eigenheim' || objectData?.foerderVariante === 'ersterwerb-wohnung') && objectData?.baugenehmigung_wurde_erteilt ? objectData?.erteilungs_behoerde || '' : ''
+                wurdeErteilt: (objectData?.foerderVariante.includes('neubau') || objectData?.foerderVariante === 'ersterwerb-eigenheim' || objectData?.foerderVariante === 'ersterwerb-wohnung') ? objectData?.baugenehmigung_wurde_erteilt : null,
+                erteilungsDatum: (objectData?.foerderVariante.includes('neubau') || objectData?.foerderVariante === 'ersterwerb-eigenheim' || objectData?.foerderVariante === 'ersterwerb-wohnung') && objectData?.baugenehmigung_wurde_erteilt ? objectData?.erteilungs_datum || '' : '',
+                aktenzeichen: (objectData?.foerderVariante.includes('neubau') || objectData?.foerderVariante === 'ersterwerb-eigenheim' || objectData?.foerderVariante === 'ersterwerb-wohnung') && objectData?.baugenehmigung_wurde_erteilt ? objectData?.aktenzeichen || '' : '',
+                erteilungsBehoerde: (objectData?.foerderVariante.includes('neubau') || objectData?.foerderVariante === 'ersterwerb-eigenheim' || objectData?.foerderVariante === 'ersterwerb-wohnung') && objectData?.baugenehmigung_wurde_erteilt ? objectData?.erteilungs_behoerde || '' : ''
               },
               bauanzeige: {
-                wurdeEingereicht: (objectData?.foerderVariante === 'neubau' || objectData?.foerderVariante === 'ersterwerb-eigenheim' || objectData?.foerderVariante === 'ersterwerb-wohnung') ? objectData?.bauanzeige_wurde_eingereicht : null,
-                einreichungsDatum: (objectData?.foerderVariante === 'neubau' || objectData?.foerderVariante === 'ersterwerb-eigenheim' || objectData?.foerderVariante === 'ersterwerb-wohnung') && objectData?.bauanzeige_wurde_eingereicht ? objectData?.bauanzeige_einreichungs_datum || '' : ''
+                wurdeEingereicht: (objectData?.foerderVariante.includes('neubau') || objectData?.foerderVariante === 'ersterwerb-eigenheim' || objectData?.foerderVariante === 'ersterwerb-wohnung') ? objectData?.bauanzeige_wurde_eingereicht : null,
+                einreichungsDatum: (objectData?.foerderVariante.includes('neubau') || objectData?.foerderVariante === 'ersterwerb-eigenheim' || objectData?.foerderVariante === 'ersterwerb-wohnung') && objectData?.bauanzeige_wurde_eingereicht ? objectData?.bauanzeige_einreichungs_datum || '' : ''
               },
               bauarbeiten: {
-                wurdeBegonnen: (objectData?.foerderVariante === 'neubau' || objectData?.foerderVariante === 'ersterwerb-eigenheim' || objectData?.foerderVariante === 'ersterwerb-wohnung') ? objectData?.bauarbeiten_wurde_begonnen : null,
-                beginnDatum: (objectData?.foerderVariante === 'neubau' || objectData?.foerderVariante === 'ersterwerb-eigenheim' || objectData?.foerderVariante === 'ersterwerb-wohnung') && objectData?.bauarbeiten_wurde_begonnen ? objectData?.bauarbeiten_beginn_datum || '' : ''
+                wurdeBegonnen: (objectData?.foerderVariante.includes('neubau') || objectData?.foerderVariante === 'ersterwerb-eigenheim' || objectData?.foerderVariante === 'ersterwerb-wohnung') ? objectData?.bauarbeiten_wurde_begonnen : null,
+                beginnDatum: (objectData?.foerderVariante.includes('neubau') || objectData?.foerderVariante === 'ersterwerb-eigenheim' || objectData?.foerderVariante === 'ersterwerb-wohnung') && objectData?.bauarbeiten_wurde_begonnen ? objectData?.bauarbeiten_beginn_datum || '' : ''
               }
             },
             objektDetailsBestandserwerb: {
-              baujahr: (objectData?.foerderVariante === 'bestandserwerb-wohnung' || objectData?.foerderVariante === 'bestandserwerb-eigenheim') ? objectData?.bestandserwerb_baujahr || '' : ''
+              baujahr: (objectData?.foerderVariante === 'bestandserwerb-wohnung' || objectData?.foerderVariante === 'bestandserwerb-eigenheim') ? safeNumericToString(objectData?.bestandserwerb_baujahr) : ''
             }
           },
           step4: {
@@ -284,7 +317,7 @@ const HauptantragReviewContainer: React.FC<HauptantragReviewContainerProps> = ({
               abschlussDatum: objectData?.kaufvertrag_abschluss_datum || ''
             },
             erbbaurecht: objectData?.erbbaurecht ?? null,
-            restlaufzeitErbbaurecht: objectData?.restlaufzeit_erbbaurecht || '',
+            restlaufzeitErbbaurecht: safeNumericToString(objectData?.restlaufzeit_erbbaurecht),
             grundbuch: {
               type: objectData?.grundbuch_type || '',
               amtsgericht: objectData?.grundbuch_amtsgericht || '',
@@ -294,7 +327,7 @@ const HauptantragReviewContainer: React.FC<HauptantragReviewContainerProps> = ({
               flur: objectData?.grundbuch_flur || '',
               flurstueck: objectData?.grundbuch_flurstueck || '',
               flurstueckNeu: objectData?.grundbuch_flurstueck_neu || '',
-              grundstuecksgroesse: objectData?.grundstuecksgroesse || ''
+              grundstuecksgroesse: safeAreaToString(objectData?.grundstuecksgroesse)
             },
             baulasten: {
               vorhanden: objectData?.baulasten_vorhanden ?? null,
@@ -307,35 +340,35 @@ const HauptantragReviewContainer: React.FC<HauptantragReviewContainerProps> = ({
           },
           step5: {
             baugrundstuck: {
-              kaufpreis: costData?.grundstueck_kaufpreis ? formatCurrencyForDisplay(costData.grundstueck_kaufpreis) : '',
-              wert: costData?.grundstueck_wert ? formatCurrencyForDisplay(costData.grundstueck_wert) : '',
-              erschliessungskosten: costData?.erschliessungskosten ? formatCurrencyForDisplay(costData.erschliessungskosten) : '',
-              standortbedingteMehrkosten: costData?.standortbedingte_mehrkosten ? formatCurrencyForDisplay(costData.standortbedingte_mehrkosten) : ''
+              kaufpreis: safeFormatCurrencyForDisplay(costData?.grundstueck_kaufpreis),
+              wert: safeFormatCurrencyForDisplay(costData?.grundstueck_wert),
+              erschliessungskosten: safeFormatCurrencyForDisplay(costData?.erschliessungskosten),
+              standortbedingteMehrkosten: safeFormatCurrencyForDisplay(costData?.standortbedingte_mehrkosten)
             },
             kaufpreis: {
-              kaufpreis: costData?.kaufpreis ? formatCurrencyForDisplay(costData.kaufpreis) : ''
+              kaufpreis: safeFormatCurrencyForDisplay(costData?.kaufpreis)
             },
             baukosten: {
-              kostenGebaeude: costData?.kosten_gebaeude ? formatCurrencyForDisplay(costData.kosten_gebaeude) : '',
-              besondereBauausfuhrung: costData?.besondere_bauausfuehrung ? formatCurrencyForDisplay(costData.besondere_bauausfuehrung) : '',
-              wertVorhandenerGebaude: costData?.wert_vorhandener_gebaeude ? formatCurrencyForDisplay(costData.wert_vorhandener_gebaeude) : '',
-              kostenAussenanlagen: costData?.kosten_aussenanlagen ? formatCurrencyForDisplay(costData.kosten_aussenanlagen) : '',
-              kostenArchitekt: costData?.kosten_architekt ? formatCurrencyForDisplay(costData.kosten_architekt) : ''
+              kostenGebaeude: safeFormatCurrencyForDisplay(costData?.kosten_gebaeude),
+              besondereBauausfuhrung: safeFormatCurrencyForDisplay(costData?.besondere_bauausfuehrung),
+              wertVorhandenerGebaude: safeFormatCurrencyForDisplay(costData?.wert_vorhandener_gebaeude),
+              kostenAussenanlagen: safeFormatCurrencyForDisplay(costData?.kosten_aussenanlagen),
+              kostenArchitekt: safeFormatCurrencyForDisplay(costData?.kosten_architekt)
             },
             nebenkosten: {
-              erwerbsnebenkosten: costData?.erwerbsnebenkosten ? formatCurrencyForDisplay(costData.erwerbsnebenkosten) : '',
-              verwaltungsleistungen: costData?.verwaltungsleistungen ? formatCurrencyForDisplay(costData.verwaltungsleistungen) : '',
-              beschaffungDauerfinanzierung: costData?.beschaffung_dauerfinanzierung ? formatCurrencyForDisplay(costData.beschaffung_dauerfinanzierung) : '',
-              beschaffungZwischenfinanzierung: costData?.beschaffung_zwischenfinanzierung ? formatCurrencyForDisplay(costData.beschaffung_zwischenfinanzierung) : '',
-              sonstigeNebenkosten: costData?.sonstige_nebenkosten ? formatCurrencyForDisplay(costData.sonstige_nebenkosten) : '',
-              zusaetzlicheKosten: costData?.zusaetzliche_kosten ? formatCurrencyForDisplay(costData.zusaetzliche_kosten) : ''
+              erwerbsnebenkosten: safeFormatCurrencyForDisplay(costData?.erwerbsnebenkosten),
+              verwaltungsleistungen: safeFormatCurrencyForDisplay(costData?.verwaltungsleistungen),
+              beschaffungDauerfinanzierung: safeFormatCurrencyForDisplay(costData?.beschaffung_dauerfinanzierung),
+              beschaffungZwischenfinanzierung: safeFormatCurrencyForDisplay(costData?.beschaffung_zwischenfinanzierung),
+              sonstigeNebenkosten: safeFormatCurrencyForDisplay(costData?.sonstige_nebenkosten),
+              zusaetzlicheKosten: safeFormatCurrencyForDisplay(costData?.zusaetzliche_kosten)
             },
             gesamtkosten: formatCurrencyForDisplay(totalCosts)
           },
           step6: {
             fremddarlehen: financeData?.fremddarlehen ? financeData.fremddarlehen.map((darlehen: any) => ({
               ...darlehen,
-              nennbetrag: formatCurrencyForDisplay(darlehen.nennbetrag)
+              nennbetrag: safeFormatCurrencyForDisplay(darlehen.nennbetrag)
             })) : [{
               id: '1',
               darlehenGeber: '',
@@ -346,28 +379,28 @@ const HauptantragReviewContainer: React.FC<HauptantragReviewContainerProps> = ({
             }],
             darlehenNRWBank: {
               grunddarlehen: {
-                nennbetrag: financeData?.grunddarlehen_nennbetrag ? formatCurrencyForDisplay(financeData.grunddarlehen_nennbetrag) : '',
+                nennbetrag: safeFormatCurrencyForDisplay(financeData?.grunddarlehen_nennbetrag),
                 tilgungsnachlass: ''
               },
               zusatzdarlehen: {
                 familienbonus: {
-                  nennbetrag: financeData?.zusatzdarlehen_familienbonus_nennbetrag ? formatCurrencyForDisplay(financeData.zusatzdarlehen_familienbonus_nennbetrag) : '',
+                  nennbetrag: safeFormatCurrencyForDisplay(financeData?.zusatzdarlehen_familienbonus_nennbetrag),
                   tilgungsnachlass: ''
                 },
                 barrierefreiheit: {
-                  nennbetrag: financeData?.zusatzdarlehen_barrierefreiheit_nennbetrag ? formatCurrencyForDisplay(financeData.zusatzdarlehen_barrierefreiheit_nennbetrag) : '',
+                  nennbetrag: safeFormatCurrencyForDisplay(financeData?.zusatzdarlehen_barrierefreiheit_nennbetrag),
                   tilgungsnachlass: ''
                 },
                 bauenMitHolz: {
-                  nennbetrag: financeData?.zusatzdarlehen_bauen_mit_holz_nennbetrag ? formatCurrencyForDisplay(financeData.zusatzdarlehen_bauen_mit_holz_nennbetrag) : '',
+                  nennbetrag: safeFormatCurrencyForDisplay(financeData?.zusatzdarlehen_bauen_mit_holz_nennbetrag),
                   tilgungsnachlass: ''
                 },
                 standortbedingteMehrkosten: {
-                  nennbetrag: financeData?.zusatzdarlehen_standortbedingte_mehrkosten_nennbetrag ? formatCurrencyForDisplay(financeData.zusatzdarlehen_standortbedingte_mehrkosten_nennbetrag) : '',
+                  nennbetrag: safeFormatCurrencyForDisplay(financeData?.zusatzdarlehen_standortbedingte_mehrkosten_nennbetrag),
                   tilgungsnachlass: ''
                 },
                 begEffizienzhaus40Standard: {
-                  nennbetrag: financeData?.zusatzdarlehen_effizienzhaus40_nennbetrag ? formatCurrencyForDisplay(financeData.zusatzdarlehen_effizienzhaus40_nennbetrag) : '',
+                  nennbetrag: safeFormatCurrencyForDisplay(financeData?.zusatzdarlehen_effizienzhaus40_nennbetrag),
                   tilgungsnachlass: ''
                 }
               },
@@ -375,14 +408,14 @@ const HauptantragReviewContainer: React.FC<HauptantragReviewContainerProps> = ({
               summeTilgungsnachlass: ''
             },
             ergaenzungsdarlehen: {
-              nennbetrag: financeData?.ergaenzungsdarlehen_nennbetrag ? formatCurrencyForDisplay(financeData.ergaenzungsdarlehen_nennbetrag) : ''
+              nennbetrag: safeFormatCurrencyForDisplay(financeData?.ergaenzungsdarlehen_nennbetrag)
             },
             eigenleistung: {
-              eigeneGeldmittel: financeData?.eigene_geldmittel ? formatCurrencyForDisplay(financeData.eigene_geldmittel) : '',
-              zuschüsse: financeData?.zuschuesse ? formatCurrencyForDisplay(financeData.zuschuesse) : '',
-              selbsthilfe: financeData?.selbsthilfe ? formatCurrencyForDisplay(financeData.selbsthilfe) : '',
-              wertVorhandenerGebaeudeteile: financeData?.wert_vorhandener_gebaeudeteile ? formatCurrencyForDisplay(financeData.wert_vorhandener_gebaeudeteile) : '',
-              wertBaugrundstück: financeData?.wert_baugrundstueck ? formatCurrencyForDisplay(financeData.wert_baugrundstueck) : '',
+              eigeneGeldmittel: safeFormatCurrencyForDisplay(financeData?.eigene_geldmittel),
+              zuschüsse: safeFormatCurrencyForDisplay(financeData?.zuschuesse),
+              selbsthilfe: safeFormatCurrencyForDisplay(financeData?.selbsthilfe),
+              wertVorhandenerGebaeudeteile: safeFormatCurrencyForDisplay(financeData?.wert_vorhandener_gebaeudeteile),
+              wertBaugrundstück: safeFormatCurrencyForDisplay(financeData?.wert_baugrundstueck),
               summeEigenleistung: ''
             },
             gesamtbetraege: ''
@@ -468,7 +501,7 @@ const HauptantragReviewContainer: React.FC<HauptantragReviewContainerProps> = ({
       case 5:
         return <Step5_Kostenaufstellung formData={formData.step5} updateFormData={() => {}} foerderVariante={formData.step3.foerderVariante} showValidation={true} readOnly={true} />;
       case 6:
-        return <Step6_Finanzierungsmittel formData={formData.step6} updateFormData={() => {}} foerderVariante={formData.step3.foerderVariante} gesamtkosten={formData.step5.gesamtkosten} childCount={formData.step2.childCount} barrierefrei={formData.step3.objektDetailsAllgemein.barrierefrei} begEffizienzhaus40Standard={formData.step3.objektDetailsAllgemein.begEffizienzhaus40Standard} hasSupplementaryLoan={formData.step2.hasSupplementaryLoan} hasLocationCostLoan={formData.step3.objektDetailsAllgemein.hasLocationCostLoan} hasWoodConstructionLoan={formData.step3.objektDetailsAllgemein.hasWoodConstructionLoan} showValidation={true} readOnly={true} selbsthilfeData={null} />;
+        return <Step6_Finanzierungsmittel formData={formData.step6} updateFormData={() => {}} foerderVariante={formData.step3.foerderVariante} gesamtkosten={formData.step5.gesamtkosten} childCount={formData.step2.childCount} disabledAdultsCount={formData.step2.disabledAdultsCount} barrierefrei={formData.step3.objektDetailsAllgemein.barrierefrei} begEffizienzhaus40Standard={formData.step3.objektDetailsAllgemein.begEffizienzhaus40Standard} hasSupplementaryLoan={formData.step2.hasSupplementaryLoan} hasLocationCostLoan={formData.step3.objektDetailsAllgemein.hasLocationCostLoan} hasWoodConstructionLoan={formData.step3.objektDetailsAllgemein.hasWoodConstructionLoan} showValidation={true} readOnly={true} selbsthilfeData={null} />;
       default:
         return null;
     }

@@ -127,6 +127,12 @@ const WoFIVReviewContainer: React.FC<WoFIVReviewContainerProps> = ({ residentId 
         }
         if (!room.totalArea) {
           errors.push(`${floor.name} - ${room.name}: Gesamtfläche ist erforderlich`);
+        } else {
+          // Check for zero values in totalArea
+          const totalArea = parseFloat((room.totalArea || '0').replace(',', '.')) || 0;
+          if (totalArea === 0) {
+            errors.push(`${floor.name} - ${room.name}: Gesamtfläche darf nicht 0 m² betragen`);
+          }
         }
 
         // Validate Dachschräge calculations
@@ -135,6 +141,11 @@ const WoFIVReviewContainer: React.FC<WoFIVReviewContainerProps> = ({ residentId 
           const under1m = parseFloat((room.areaUnder1m || '0').replace(',', '.')) || 0;
           const area1to2m = parseFloat((room.area1to2m || '0').replace(',', '.')) || 0;
           const over2m = parseFloat((room.areaOver2m || '0').replace(',', '.')) || 0;
+          
+          // Check for zero values in Dachschräge fields
+          if (under1m === 0 && area1to2m === 0 && over2m === 0) {
+            errors.push(`${floor.name} - ${room.name}: Bei Dachschräge müssen mindestens eine Teilfläche größer als 0 m² angegeben werden`);
+          }
           
           const sumSubAreas = under1m + area1to2m + over2m;
           const tolerance = 0.01;
@@ -156,6 +167,12 @@ const WoFIVReviewContainer: React.FC<WoFIVReviewContainerProps> = ({ residentId 
       }
       if (!room.totalArea) {
         errors.push(`Nutzfläche - ${room.name}: Gesamtfläche ist erforderlich`);
+      } else {
+        // Check for zero values in totalArea
+        const totalArea = parseFloat((room.totalArea || '0').replace(',', '.')) || 0;
+        if (totalArea === 0) {
+          errors.push(`Nutzfläche - ${room.name}: Gesamtfläche darf nicht 0 m² betragen`);
+        }
       }
     });
 

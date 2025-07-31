@@ -1,8 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { Form, Button, OverlayTrigger, Tooltip, Modal } from 'react-bootstrap';
 import AddressInput from '../../common/AddressInput';
+import BirthDatePicker from '../../common/BirthDatePicker';
 import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../contexts/AuthContext';
+
+// Email validation function
+const isValidEmail = (email: string): boolean => {
+  if (!email) return false;
+  
+  // Basic email regex pattern
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  return emailRegex.test(email);
+};
 
 // Add styles
 const styles = `
@@ -258,6 +268,7 @@ interface Person {
   lastName: string;
   nationality: string;
   birthDate: string;
+  steuerid: string;
   street: string;
   houseNumber: string;
   postalCode: string;
@@ -326,6 +337,12 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
   const [showAddPersonModal, setShowAddPersonModal] = useState(false);
   const [existingNonApplicants, setExistingNonApplicants] = useState<ExistingPerson[]>([]);
   const [selectedExistingPerson, setSelectedExistingPerson] = useState<string>('');
+  
+  // Add state for duplicate person warning modal
+  const [showDuplicateWarningModal, setShowDuplicateWarningModal] = useState(false);
+  const [duplicatePerson, setDuplicatePerson] = useState<ExistingPerson | null>(null);
+  const [editingPersonIndex, setEditingPersonIndex] = useState<number>(-1);
+  const [pendingPersonData, setPendingPersonData] = useState<Person | null>(null);
 
   // Generate UUID helper function
   const generateUUID = (): string => {
@@ -396,24 +413,64 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
     }
   };
 
-  // Set expanded employment sections based on loaded data
-  useEffect(() => {
-    const newExpandedSections: Record<number, string | null> = {};
+  // Load all existing people for comprehensive duplicate detection
+  const loadAllExistingPeople = async (): Promise<ExistingPerson[]> => {
+    if (!user?.id) return [];
     
-    formData.persons.forEach((person, index) => {
-      if (person.employment.type) {
-        // Determine which section the employment type belongs to
-        if (['worker', 'employee', 'civil-servant', 'apprentice', 'retired', 'unemployed'].includes(person.employment.type)) {
-          newExpandedSections[index] = 'non-self-employed';
-        } else if (['sole-trader', 'business-owner', 'freelancer', 'farmer', 'private-income'].includes(person.employment.type)) {
-          newExpandedSections[index] = 'self-employed';
-        } else if (['student', 'pupil', 'homemaker', 'no-occupation'].includes(person.employment.type)) {
-          newExpandedSections[index] = 'other';
-        }
-      }
-    });
+    try {
+      const { data: userData, error } = await supabase
+        .from('user_data')
+        .select('weitere_antragstellende_personen')
+        .eq('id', user.id)
+        .single();
 
-    setExpandedEmploymentSections(newExpandedSections);
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error loading existing people:', error);
+        return [];
+      }
+
+      const weiterePersonen = userData?.weitere_antragstellende_personen || {};
+      
+      // Convert UUID-based object to array of all people
+      const allExistingPeople: ExistingPerson[] = Object.entries(weiterePersonen)
+        .map(([uuid, person]: [string, any]) => ({
+          ...person,
+          id: uuid // Use the UUID as the ID
+        }));
+
+      return allExistingPeople;
+    } catch (error) {
+      console.error('Error loading existing people:', error);
+      return [];
+    }
+  };
+
+  // Load existing non-applicants and set expanded employment sections
+  useEffect(() => {
+    const loadData = async () => {
+      // Load existing non-applicants for duplicate detection
+      await loadExistingNonApplicants();
+      
+      // Set expanded employment sections based on loaded data
+      const newExpandedSections: Record<number, string | null> = {};
+      
+      formData.persons.forEach((person, index) => {
+        if (person.employment.type) {
+          // Determine which section the employment type belongs to
+          if (['worker', 'employee', 'civil-servant', 'apprentice', 'retired', 'unemployed'].includes(person.employment.type)) {
+            newExpandedSections[index] = 'non-self-employed';
+          } else if (['sole-trader', 'business-owner', 'freelancer', 'farmer', 'private-income'].includes(person.employment.type)) {
+            newExpandedSections[index] = 'self-employed';
+          } else if (['student', 'pupil', 'homemaker', 'no-occupation'].includes(person.employment.type)) {
+            newExpandedSections[index] = 'other';
+          }
+        }
+      });
+
+      setExpandedEmploymentSections(newExpandedSections);
+    };
+
+    loadData();
   }, [formData.persons]);
 
   const handleRepresentativeChange = (field: keyof Representative, value: any) => {
@@ -446,11 +503,48 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
     }));
   };
 
+  // Function to check if person details match an existing person
+  const checkForDuplicatePerson = async (person: Person, excludeIndex: number = -1): Promise<ExistingPerson | null> => {
+    const { firstName, lastName, birthDate } = person;
+    
+    // Only check if we have all three required fields
+    if (!firstName?.trim() || !lastName?.trim() || !birthDate) {
+      return null;
+    }
+
+    // Load all existing people for comprehensive check
+    const allExistingPeople = await loadAllExistingPeople();
+    
+    // Check against all existing people
+    const match = allExistingPeople.find(existingPerson => {
+      // Skip if this is the same person (by originalPersonId)
+      if (person.originalPersonId === existingPerson.id) {
+        return false;
+      }
+      
+      // Check if all three fields match (case-insensitive for names)
+      return (
+        existingPerson.firstName?.trim().toLowerCase() === firstName.trim().toLowerCase() &&
+        existingPerson.lastName?.trim().toLowerCase() === lastName.trim().toLowerCase() &&
+        existingPerson.birthDate === birthDate
+      );
+    });
+
+    return match || null;
+  };
+
+  // Debounced duplicate check state
+  const [debounceTimers, setDebounceTimers] = useState<Record<string, NodeJS.Timeout>>({});
+
+  // Enhanced person change handler with debounced duplicate detection
   const handlePersonChange = (index: number, field: keyof Person, value: string) => {
     if (readOnly) return;
+    
     const updatedPersons = [...formData.persons];
+    let updatedPerson: Person;
+    
     if (field === 'employment') {
-      updatedPersons[index] = {
+      updatedPerson = {
         ...updatedPersons[index],
         employment: {
           ...updatedPersons[index].employment,
@@ -459,15 +553,69 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
         }
       };
     } else {
-      updatedPersons[index] = {
+      updatedPerson = {
         ...updatedPersons[index],
         [field]: value
       };
     }
+
+    // Apply the change immediately for responsive UI
+    updatedPersons[index] = updatedPerson;
     updateFormData(ensureRepresentativeState({
       ...formData,
       persons: updatedPersons
     }));
+
+    // Debounced duplicate check for name and birth date fields
+    if (['firstName', 'lastName', 'birthDate'].includes(field)) {
+      const timerKey = `${index}-${field}`;
+      
+      // Clear existing timer
+      if (debounceTimers[timerKey]) {
+        clearTimeout(debounceTimers[timerKey]);
+      }
+      
+      // Set new timer for duplicate check
+      const timer = setTimeout(async () => {
+        const duplicate = await checkForDuplicatePerson(updatedPerson, index);
+        
+        if (duplicate) {
+          // Store the pending change and show warning modal
+          setDuplicatePerson(duplicate);
+          setEditingPersonIndex(index);
+          setPendingPersonData(updatedPerson);
+          setShowDuplicateWarningModal(true);
+        }
+      }, 1000); // 1 second delay
+      
+      setDebounceTimers(prev => ({
+        ...prev,
+        [timerKey]: timer
+      }));
+    }
+  };
+
+  // Handle duplicate warning modal actions
+  const handleDuplicateWarningContinue = () => {
+    if (pendingPersonData && editingPersonIndex >= 0) {
+      const updatedPersons = [...formData.persons];
+      updatedPersons[editingPersonIndex] = pendingPersonData;
+      updateFormData(ensureRepresentativeState({
+        ...formData,
+        persons: updatedPersons
+      }));
+    }
+    setShowDuplicateWarningModal(false);
+    setDuplicatePerson(null);
+    setEditingPersonIndex(-1);
+    setPendingPersonData(null);
+  };
+
+  const handleDuplicateWarningCancel = () => {
+    setShowDuplicateWarningModal(false);
+    setDuplicatePerson(null);
+    setEditingPersonIndex(-1);
+    setPendingPersonData(null);
   };
 
   const handleEmploymentDetailChange = (index: number, value: string) => {
@@ -516,6 +664,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
       lastName: '',
       nationality: '',
       birthDate: '',
+      steuerid: '',
       street: '',
       houseNumber: '',
       postalCode: '',
@@ -537,19 +686,37 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
     setShowAddPersonModal(false);
   };
 
-  const addExistingPersonAsApplicant = () => {
-    if (!selectedExistingPerson) return;
+  const addExistingPersonAsApplicant = async () => {
+    if (!selectedExistingPerson || !user?.id) return;
     
     // Find the selected person by UUID
     const selectedPerson = existingNonApplicants.find(person => person.id === selectedExistingPerson);
     
     if (selectedPerson) {
+      // Load the steuerid from user_financials for this person
+      let personSteuerid = '';
+      try {
+        const { data: userFinancials, error } = await supabase
+          .from('user_financials')
+          .select('additional_applicants_financials')
+          .eq('user_id', user.id)
+          .single();
+
+        if (!error && userFinancials?.additional_applicants_financials && selectedPerson.id) {
+          const personFinancials = userFinancials.additional_applicants_financials[selectedPerson.id];
+          personSteuerid = personFinancials?.steuerid || '';
+        }
+      } catch (error) {
+        console.error('Error loading steuerid for existing person:', error);
+      }
+
       const newPerson: Person = {
         title: selectedPerson.title || '',
         firstName: selectedPerson.firstName || '',
         lastName: selectedPerson.lastName || '',
         nationality: selectedPerson.nationality || '',
         birthDate: selectedPerson.birthDate || '',
+        steuerid: personSteuerid,
         street: selectedPerson.street || '',
         houseNumber: selectedPerson.houseNumber || '',
         postalCode: selectedPerson.postalCode || '',
@@ -580,13 +747,29 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
     </Tooltip>
   );
 
+  // Age validation helper function
+  const isValidAge = (birthDate: string): boolean => {
+    if (!birthDate) return false;
+    
+    const date = new Date(birthDate);
+    const now = new Date();
+    const minDate = new Date(now.getFullYear() - 120, now.getMonth(), now.getDate());
+    const maxDate = new Date(now.getFullYear() - 18, now.getMonth(), now.getDate());
+    
+    return date >= minDate && date <= maxDate;
+  };
+
   const validatePerson = (person: Person, index: number): string[] => {
     const errors: string[] = [];
     if (!person.title) errors.push('Titel ist erforderlich');
     if (!person.firstName) errors.push('Vorname ist erforderlich');
     if (!person.lastName) errors.push('Name ist erforderlich');
     if (!person.birthDate) errors.push('Geburtsdatum ist erforderlich');
+    else if (!isValidAge(person.birthDate)) {
+      errors.push('Geburtsdatum liegt außerhalb des gültigen Bereichs (Antragsteller muss mindestens 18 Jahre alt und nicht älter als 120 Jahre sein)');
+    }
     if (!person.nationality) errors.push('Staatsangehörigkeit ist erforderlich');
+    if (!person.steuerid) errors.push('Steuer-ID ist erforderlich');
     if (!person.street) errors.push('Straße ist erforderlich');
     if (!person.houseNumber) errors.push('Hausnummer ist erforderlich');
     if (!person.postalCode) errors.push('Postleitzahl ist erforderlich');
@@ -599,6 +782,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
     if (!person.city) errors.push('Ort ist erforderlich');
     if (!person.phone) errors.push('Telefonnummer ist erforderlich');
     if (!person.email) errors.push('E-Mail ist erforderlich');
+    else if (!isValidEmail(person.email)) errors.push('Bitte geben Sie eine gültige E-Mail-Adresse ein');
     if (!person.employment.type) errors.push('Beschäftigungsart ist erforderlich');
     if ((person.employment.type === 'sole-trader' || 
          person.employment.type === 'business-owner' || 
@@ -634,6 +818,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
         if (!formData.representative.city) errors.push('Bitte geben Sie die Stadt des Bevollmächtigten ein');
         if (!formData.representative.phone) errors.push('Bitte geben Sie die Telefonnummer des Bevollmächtigten ein');
         if (!formData.representative.email) errors.push('Bitte geben Sie die E-Mail des Bevollmächtigten ein');
+        else if (!isValidEmail(formData.representative.email)) errors.push('Bitte geben Sie eine gültige E-Mail-Adresse für den Bevollmächtigten ein');
       }
     }
     return errors;
@@ -670,7 +855,22 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
     if (fieldName === 'Postleitzahl') {
       return errors.some(error => error.includes('Postleitzahl') || error.includes('Die Postleitzahl muss aus genau 5 Ziffern bestehen'));
     }
+    if (fieldName === 'E-Mail') {
+      return errors.some(error => error.includes('E-Mail') || error.includes('gültige E-Mail-Adresse'));
+    }
     return errors.some(error => error.includes(fieldName));
+  };
+
+  const getEmailErrorMessage = (index: number): string => {
+    const errors = validationErrors[`person_${index}`] || [];
+    const emailError = errors.find(error => error.includes('E-Mail') || error.includes('gültige E-Mail-Adresse'));
+    return emailError || 'E-Mail ist erforderlich';
+  };
+
+  const getRepresentativeEmailErrorMessage = (): string => {
+    const errors = validationErrors['representative'] || [];
+    const emailError = errors.find(error => error.includes('E-Mail') || error.includes('gültige E-Mail-Adresse'));
+    return emailError || 'Bitte geben Sie die E-Mail des Bevollmächtigten ein';
   };
 
   const renderPersonForm = (person: Person, index: number) => (
@@ -803,7 +1003,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
         </div>
 
         <div className="row g-3 mt-1">
-          <div className="col-md-6">
+          <div className="col-md-4">
             <Form.Floating>
               <Form.Select
                 value={person.nationality}
@@ -824,19 +1024,33 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
               </Form.Control.Feedback>
             </Form.Floating>
           </div>
-          <div className="col-md-6">
+          <div className="col-md-4">
+            <BirthDatePicker
+              value={person.birthDate}
+              onChange={(date) => handlePersonChange(index, 'birthDate', date)}
+              disabled={readOnly}
+              isInvalid={getFieldError(index, 'Geburtsdatum')}
+              label="Geburtsdatum"
+            />
+            {getFieldError(index, 'Geburtsdatum') && (
+              <div className="text-danger mt-1">
+                {validationErrors[`person_${index}`]?.find(error => error.includes('Geburtsdatum')) || 'Geburtsdatum ist erforderlich'}
+              </div>
+            )}
+          </div>
+          <div className="col-md-4">
             <Form.Floating>
               <Form.Control
-                type="date"
-                placeholder="Geburtsdatum"
-                value={person.birthDate}
-                onChange={(e) => handlePersonChange(index, 'birthDate', e.target.value)}
-                isInvalid={getFieldError(index, 'Geburtsdatum')}
+                type="text"
+                placeholder="Steuer-ID"
+                value={person.steuerid}
+                onChange={(e) => handlePersonChange(index, 'steuerid', e.target.value)}
+                isInvalid={getFieldError(index, 'Steuer-ID')}
                 disabled={readOnly}
               />
-              <label>Geburtsdatum</label>
+              <label>Steuer-ID</label>
               <Form.Control.Feedback type="invalid">
-                Geburtsdatum ist erforderlich
+                Steuer-ID ist erforderlich
               </Form.Control.Feedback>
             </Form.Floating>
           </div>
@@ -955,7 +1169,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
               />
               <label>E-Mail Adresse</label>
               <Form.Control.Feedback type="invalid">
-                E-Mail ist erforderlich
+                {getEmailErrorMessage(index)}
               </Form.Control.Feedback>
             </Form.Floating>
           </div>
@@ -1533,12 +1747,12 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
                   placeholder="E-Mail Adresse"
                   value={formData.representative.email}
                   onChange={(e) => handleRepresentativeChange('email', e.target.value)}
-                  isInvalid={validationErrors['representative']?.includes('Bitte geben Sie die E-Mail des Bevollmächtigten ein')}
+                  isInvalid={validationErrors['representative']?.some(error => error.includes('E-Mail') || error.includes('gültige E-Mail-Adresse'))}
                   disabled={readOnly}
                 />
                 <label>E-Mail Adresse</label>
                 <Form.Control.Feedback type="invalid">
-                  Bitte geben Sie die E-Mail des Bevollmächtigten ein
+                  {getRepresentativeEmailErrorMessage()}
                 </Form.Control.Feedback>
               </Form.Floating>
             </div>
@@ -1596,7 +1810,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
       {formData.persons.map((person, index) => renderPersonForm(person, index))}
       
       <div className="text-center mb-8">
-        { !readOnly && <Button
+        { !readOnly && formData.persons.length < 2 && <Button
           onClick={addPerson}
           variant="outline-primary"
           className="rounded-pill add-person-button"
@@ -1671,6 +1885,56 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
               {existingNonApplicants.length > 0 ? 'Vorhandene Person hinzufügen' : 'Neue Person erstellen'}
             </Button>
           </div>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Duplicate Warning Modal */}
+      <Modal show={showDuplicateWarningModal} onHide={handleDuplicateWarningCancel} centered size="lg">
+        <Modal.Header>
+          <Modal.Title>Achtung: Person bereits vorhanden</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <div className="alert alert-warning mb-3">
+            <strong>Wichtiger Hinweis:</strong> Es wurde eine Person mit identischen Daten (Vorname, Name, Geburtsdatum) gefunden, die bereits in Ihrem Haushalt existiert.
+          </div>
+          
+          <p className="mb-3">
+            <strong>Gefundene Person:</strong><br />
+            {duplicatePerson?.title && `${duplicatePerson.title} `}
+            {duplicatePerson?.firstName && `${duplicatePerson.firstName} `}
+            {duplicatePerson?.lastName && `${duplicatePerson.lastName}`}
+            {duplicatePerson?.birthDate && ` (${duplicatePerson.birthDate})`}
+          </p>
+          
+          <p className="mb-3">
+            <strong>Ihre Eingabe:</strong><br />
+            {pendingPersonData?.title && `${pendingPersonData.title} `}
+            {pendingPersonData?.firstName && `${pendingPersonData.firstName} `}
+            {pendingPersonData?.lastName && `${pendingPersonData.lastName}`}
+            {pendingPersonData?.birthDate && ` (${pendingPersonData.birthDate})`}
+          </p>
+          
+          <div className="mb-6 mt-3">
+            <strong>Empfohlene Vorgehensweise:</strong>
+            <ul className="mb-0 mt-2">
+              <li>1. Klicken Sie auf "Abbrechen". Sie können die Eingaben rückgängig zu machen, falls Sie den alten Antragsteller im Haushalt beibehalten möchten.</li>
+              <li>2. Klickne Sie auf das Minus Symbol neben "Antragstellende Person 2". Entfernen Sie die aktuelle Person als Antragsteller bzw. Komplett.</li>
+              <li>3. Fügen Sie dann die gewünschte Person über den "+" Button hinzu</li>
+              <li>4. Wählen Sie dabei "Vorhandene Person hinzufügen"</li>
+            </ul>
+          </div>
+          
+          <div className="alert alert-danger">
+            <strong>Warnung:</strong> Wenn Sie fortfahren, kann es zu Dateninkonsistenzen kommen, da die Person-ID nicht korrekt verknüpft wird.
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={handleDuplicateWarningContinue}>
+            Trotzdem fortfahren
+          </Button>
+          <Button variant="primary" onClick={handleDuplicateWarningCancel} style={{ backgroundColor: '#064497', borderColor: '#064497' }}>
+            Abbrechen (Empfohlen)
+          </Button>
         </Modal.Footer>
       </Modal>
     </div>

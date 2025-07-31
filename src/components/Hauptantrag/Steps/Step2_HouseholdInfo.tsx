@@ -36,75 +36,128 @@ const Step2_HouseholdInfo: React.FC<Step2Props> = ({ formData, updateFormData, s
     });
   };
 
-  const validateStep2 = (data: Step2Data): string[] => {
-    const errors: string[] = [];
+  const validateStep2 = (data: Step2Data): { [key: string]: string[] } => {
+    const errors: { [key: string]: string[] } = {};
 
     // Adult count validation
-    if (!data.adultCount) errors.push('Bitte geben Sie die Anzahl der Erwachsenen ein');
-    if (parseInt(data.adultCount) < 0) errors.push('Die Anzahl der Erwachsenen darf nicht negativ sein');
-    if (parseInt(data.adultCount) === 0) errors.push('Die Anzahl der Erwachsenen darf nicht 0 sein');
+    if (!data.adultCount) {
+      if (!errors.adultCount) errors.adultCount = [];
+      errors.adultCount.push('Bitte geben Sie die Anzahl der Erwachsenen ein');
+    }
+    if (data.adultCount && parseInt(data.adultCount) < 0) {
+      if (!errors.adultCount) errors.adultCount = [];
+      errors.adultCount.push('Die Anzahl der Erwachsenen darf nicht negativ sein');
+    }
+    if (data.adultCount && parseInt(data.adultCount) === 0) {
+      if (!errors.adultCount) errors.adultCount = [];
+      errors.adultCount.push('Die Anzahl der Erwachsenen darf nicht 0 sein');
+    }
 
     // Child count validation
-    if (!data.childCount) errors.push('Bitte geben Sie die Anzahl der Kinder ein');
-    if (parseInt(data.childCount) < 0) errors.push('Die Anzahl der Kinder darf nicht negativ sein');
-    if (parseInt(data.childCount) > 0 && !data.childrenAges) errors.push('Bitte geben Sie das Alter der Kinder ein');
+    if (!data.childCount) {
+      if (!errors.childCount) errors.childCount = [];
+      errors.childCount.push('Bitte geben Sie die Anzahl der Kinder ein');
+    }
+    if (data.childCount && parseInt(data.childCount) < 0) {
+      if (!errors.childCount) errors.childCount = [];
+      errors.childCount.push('Die Anzahl der Kinder darf nicht negativ sein');
+    }
+    if (data.childCount && parseInt(data.childCount) > 0 && !data.childrenAges) {
+      if (!errors.childrenAges) errors.childrenAges = [];
+      errors.childrenAges.push('Bitte geben Sie das Alter der Kinder ein');
+    }
 
     // Child ages validation
     if (data.childrenAges) {
       const ages = data.childrenAges.split(',').map(age => parseInt(age.trim()));
       if (ages.some(age => age > 17)) {
-        errors.push('Volljährige Personen zählen als Erwachsene');
+        if (!errors.childrenAges) errors.childrenAges = [];
+        errors.childrenAges.push('Volljährige Personen zählen als Erwachsene');
       }
     }
 
     // Disability validation
-    if (data.isDisabled == null) errors.push('Bitte geben Sie an, ob behinderte Menschen in dem Haushalt leben');
+    if (data.isDisabled == null) {
+      if (!errors.isDisabled) errors.isDisabled = [];
+      errors.isDisabled.push('Bitte geben Sie an, ob behinderte Menschen in dem Haushalt leben');
+    }
     if (data.isDisabled === true) {
       const totalDisabled = parseInt(data.disabledAdultsCount || '0') + parseInt(data.disabledChildrenCount || '0');
       const totalHousehold = parseInt(data.adultCount || '0') + parseInt(data.childCount || '0');
       if (totalDisabled <= 0) {
-        errors.push('Bitte geben Sie die Anzahl der behinderten Menschen in ihrem Haushalt ein');
+        if (!errors.disabledAdultsCount) errors.disabledAdultsCount = [];
+        errors.disabledAdultsCount.push('Bitte geben Sie die Anzahl der behinderten Menschen in ihrem Haushalt ein');
       }
       if (totalDisabled > totalHousehold) {
-        errors.push('Die Anzahl der behinderten Menschen kann nicht größer sein als die Gesamtanzahl der Haushaltsmitglieder');
+        if (!errors.disabledAdultsCount) errors.disabledAdultsCount = [];
+        errors.disabledAdultsCount.push('Die Anzahl der behinderten Menschen kann nicht größer sein als die Gesamtanzahl der Haushaltsmitglieder');
+      } else {
+        const disabledAdults = parseInt(data.disabledAdultsCount || '0');
+        const disabledChildren = parseInt(data.disabledChildrenCount || '0');
+        const totalAdults = parseInt(data.adultCount || '0');
+        const totalChildren = parseInt(data.childCount || '0');
+        
+        if (disabledAdults > totalAdults) {
+          if (!errors.disabledAdultsCount) errors.disabledAdultsCount = [];
+          errors.disabledAdultsCount.push('Die Anzahl der behinderten Erwachsenen kann nicht größer sein als die Anzahl der Erwachsenen');
+        }
+        if (disabledChildren > totalChildren) {
+          if (!errors.disabledChildrenCount) errors.disabledChildrenCount = [];
+          errors.disabledChildrenCount.push('Die Anzahl der behinderten Kinder kann nicht größer sein als die Anzahl der Kinder');
+        }
       }
     }
 
     // Marriage status validation
     if (data.isMarried === null || data.isMarried === undefined) {
-      errors.push('Bitte geben Sie an, ob Sie verheiratet sind oder in einer eingetragenen Lebenspartnerschaft leben');
+      if (!errors.isMarried) errors.isMarried = [];
+      errors.isMarried.push('Bitte geben Sie an, ob Sie verheiratet sind oder in einer eingetragenen Lebenspartnerschaft leben');
     }
 
     // Additional assets validation
     if (data.hasAdditionalAssets === null) {
-      errors.push('Bitte geben Sie an, ob weiteres Vermögen vorhanden ist');
+      if (!errors.hasAdditionalAssets) errors.hasAdditionalAssets = [];
+      errors.hasAdditionalAssets.push('Bitte geben Sie an, ob weiteres Vermögen vorhanden ist');
     }
     if (data.hasAdditionalAssets === true && !data.additionalAssetsDetails) {
-      errors.push('Bitte beschreiben Sie das weitere Vermögen');
+      if (!errors.additionalAssetsDetails) errors.additionalAssetsDetails = [];
+      errors.additionalAssetsDetails.push('Bitte beschreiben Sie das weitere Vermögen');
     }
 
     // Double subsidy validation
     if (data.hasDoubleSubsidy === null) {
-      errors.push('Bitte geben Sie an, ob Sie bereits Eigentümer eines geförderten Eigenheims oder einer geförderten Eigentumswohnung sind/waren');
+      if (!errors.hasDoubleSubsidy) errors.hasDoubleSubsidy = [];
+      errors.hasDoubleSubsidy.push('Bitte geben Sie an, ob Sie bereits Eigentümer eines geförderten Eigenheims oder einer geförderten Eigentumswohnung sind/waren');
     }
     if (data.hasDoubleSubsidy === true) {
       if (data.hasRepaidSubsidy === null) {
-        errors.push('Bitte geben Sie an, ob die Fördermittel bereits zurückgezahlt wurden');
+        if (!errors.hasRepaidSubsidy) errors.hasRepaidSubsidy = [];
+        errors.hasRepaidSubsidy.push('Bitte geben Sie an, ob die Fördermittel bereits zurückgezahlt wurden');
       }
       if (!data.subsidyAmount) {
-        errors.push('Bitte geben Sie den Betrag der Fördermittel ein');
+        if (!errors.subsidyAmount) errors.subsidyAmount = [];
+        errors.subsidyAmount.push('Bitte geben Sie den Betrag der Fördermittel ein');
+      } else {
+        const amount = parseFloat(data.subsidyAmount.replace(/[^\d.,]/g, '').replace(',', '.'));
+        if (isNaN(amount) || amount <= 0) {
+          if (!errors.subsidyAmount) errors.subsidyAmount = [];
+          errors.subsidyAmount.push('Der Betrag der Fördermittel muss größer als 0,00 € sein');
+        }
       }
       if (!data.subsidyFileNumber) {
-        errors.push('Bitte geben Sie das Aktenzeichen ein');
+        if (!errors.subsidyFileNumber) errors.subsidyFileNumber = [];
+        errors.subsidyFileNumber.push('Bitte geben Sie das Aktenzeichen ein');
       }
       if (!data.subsidyAuthority) {
-        errors.push('Bitte geben Sie die Bewilligungsbehörde ein');
+        if (!errors.subsidyAuthority) errors.subsidyAuthority = [];
+        errors.subsidyAuthority.push('Bitte geben Sie die Bewilligungsbehörde ein');
       }
     }
 
     // Supplementary loan validation
     if (data.hasSupplementaryLoan === null) {
-      errors.push('Bitte geben Sie an, ob Sie ein Ergänzungsdarlehen der NRW.BANK beantragen');
+      if (!errors.hasSupplementaryLoan) errors.hasSupplementaryLoan = [];
+      errors.hasSupplementaryLoan.push('Bitte geben Sie an, ob Sie ein Ergänzungsdarlehen der NRW.BANK beantragen');
     }
 
     return errors;
@@ -113,7 +166,13 @@ const Step2_HouseholdInfo: React.FC<Step2Props> = ({ formData, updateFormData, s
   const getFieldError = (fieldName: string): boolean => {
     if (!showValidation) return false;
     const errors = validateStep2(formData);
-    return errors.some(error => error.includes(fieldName));
+    return errors[fieldName] && errors[fieldName].length > 0;
+  };
+
+  const getFieldErrorMessage = (fieldName: string): string => {
+    if (!showValidation) return '';
+    const errors = validateStep2(formData);
+    return errors[fieldName] && errors[fieldName].length > 0 ? errors[fieldName][0] : '';
   };
 
   const renderTooltip = (text: string) => (
@@ -166,13 +225,13 @@ const Step2_HouseholdInfo: React.FC<Step2Props> = ({ formData, updateFormData, s
                 placeholder="Anzahl Erwachsene"
                 value={formData.adultCount}
                 onChange={(e) => handleInputChange('adultCount', e.target.value)}
-                isInvalid={getFieldError('Anzahl der Erwachsenen')}
+                isInvalid={getFieldError('adultCount')}
                 disabled={readOnly}
               />
               <label>Anzahl Erwachsene</label>
-              {showValidation && getFieldError('Anzahl der Erwachsenen') && (
+              {showValidation && getFieldError('adultCount') && (
                 <Form.Control.Feedback type="invalid">
-                  Bitte geben Sie die Anzahl der Erwachsenen ein
+                  {getFieldErrorMessage('adultCount')}
                 </Form.Control.Feedback>
               )}
             </Form.Floating>
@@ -184,13 +243,13 @@ const Step2_HouseholdInfo: React.FC<Step2Props> = ({ formData, updateFormData, s
                 placeholder="Anzahl Kinder"
                 value={formData.childCount}
                 onChange={(e) => handleInputChange('childCount', e.target.value)}
-                isInvalid={getFieldError('Anzahl der Kinder')}
+                isInvalid={getFieldError('childCount')}
                 disabled={readOnly}
               />
               <label>Anzahl Kinder</label>
-              {showValidation && getFieldError('Anzahl der Kinder') && (
+              {showValidation && getFieldError('childCount') && (
                 <Form.Control.Feedback type="invalid">
-                  Bitte geben Sie die Anzahl der Kinder ein
+                  {getFieldErrorMessage('childCount')}
                 </Form.Control.Feedback>
               )}
             </Form.Floating>
@@ -206,13 +265,13 @@ const Step2_HouseholdInfo: React.FC<Step2Props> = ({ formData, updateFormData, s
                   placeholder="Alter der Kinder (Trennung per Comma)"
                   value={formData.childrenAges}
                   onChange={(e) => handleInputChange('childrenAges', e.target.value)}
-                  isInvalid={getFieldError('Alter der Kinder')}
+                  isInvalid={getFieldError('childrenAges')}
                   disabled={readOnly}
                 />
                 <label>Alter der Kinder (Trennung per Comma)</label>
-                {showValidation && getFieldError('Alter der Kinder') && (
+                {showValidation && getFieldError('childrenAges') && (
                   <Form.Control.Feedback type="invalid">
-                    Bitte geben Sie das Alter der Kinder ein
+                    {getFieldErrorMessage('childrenAges')}
                   </Form.Control.Feedback>
                 )}
               </Form.Floating>
@@ -269,9 +328,9 @@ const Step2_HouseholdInfo: React.FC<Step2Props> = ({ formData, updateFormData, s
             />
           </div>
         </div>
-        {showValidation && validationErrors.includes('Bitte geben Sie an, ob behinderte Menschen in dem Haushalt leben') && (
+        {showValidation && validationErrors.isDisabled && validationErrors.isDisabled.length > 0 && (
           <div className="text-danger mt-1">
-            Bitte geben Sie an, ob behinderte Menschen in dem Haushalt leben
+            {validationErrors.isDisabled[0]}
           </div>
         )}
 
@@ -284,13 +343,13 @@ const Step2_HouseholdInfo: React.FC<Step2Props> = ({ formData, updateFormData, s
                   placeholder="davon Erwachsene mit Schwerbehinderung"
                   value={formData.disabledAdultsCount || '1'}
                   onChange={(e) => handleInputChange('disabledAdultsCount', e.target.value)}
-                  isInvalid={getFieldError('behinderten Menschen')}
+                  isInvalid={getFieldError('disabledAdultsCount')}
                   disabled={readOnly}
                 />
                 <label>davon Erwachsene mit Schwerbehinderung</label>
-                {showValidation && getFieldError('behinderten Menschen') && (
+                {showValidation && getFieldError('disabledAdultsCount') && (
                   <Form.Control.Feedback type="invalid">
-                    Bitte geben Sie die Anzahl der behinderten Menschen in ihrem Haushalt ein
+                    {getFieldErrorMessage('disabledAdultsCount')}
                   </Form.Control.Feedback>
                 )}
               </Form.Floating>
@@ -302,13 +361,13 @@ const Step2_HouseholdInfo: React.FC<Step2Props> = ({ formData, updateFormData, s
                   placeholder="davon Kinder mit Schwerbehinderung"
                   value={formData.disabledChildrenCount || '0'}
                   onChange={(e) => handleInputChange('disabledChildrenCount', e.target.value)}
-                  isInvalid={getFieldError('behinderten Menschen')}
+                  isInvalid={getFieldError('disabledChildrenCount')}
                   disabled={readOnly}
                 />
                 <label>davon Kinder mit Schwerbehinderung</label>
-                {showValidation && getFieldError('behinderten Menschen') && (
+                {showValidation && getFieldError('disabledChildrenCount') && (
                   <Form.Control.Feedback type="invalid">
-                    Bitte geben Sie die Anzahl der behinderten Menschen in ihrem Haushalt ein
+                    {getFieldErrorMessage('disabledChildrenCount')}
                   </Form.Control.Feedback>
                 )}
               </Form.Floating>
@@ -347,9 +406,9 @@ const Step2_HouseholdInfo: React.FC<Step2Props> = ({ formData, updateFormData, s
             />
           </div>
         </div>
-        {showValidation && validationErrors.includes('Bitte geben Sie an, ob Sie verheiratet sind oder in einer eingetragenen Lebenspartnerschaft leben') && (
+        {showValidation && validationErrors.isMarried && validationErrors.isMarried.length > 0 && (
           <div className="text-danger mt-1">
-            Bitte geben Sie an, ob Sie verheiratet sind oder in einer eingetragenen Lebenspartnerschaft leben
+            {validationErrors.isMarried[0]}
           </div>
         )}
       </div>
@@ -406,9 +465,9 @@ const Step2_HouseholdInfo: React.FC<Step2Props> = ({ formData, updateFormData, s
             />
           </div>
         </div>
-        {showValidation && validationErrors.includes('Bitte geben Sie an, ob weiteres Vermögen vorhanden ist') && (
+        {showValidation && validationErrors.hasAdditionalAssets && validationErrors.hasAdditionalAssets.length > 0 && (
           <div className="text-danger mt-1">
-            Bitte geben Sie an, ob weiteres Vermögen vorhanden ist
+            {validationErrors.hasAdditionalAssets[0]}
           </div>
         )}
 
@@ -421,13 +480,13 @@ const Step2_HouseholdInfo: React.FC<Step2Props> = ({ formData, updateFormData, s
                   placeholder="Bitte beschreiben Sie das weitere Vermögen"
                   value={formData.additionalAssetsDetails}
                   onChange={(e) => handleInputChange('additionalAssetsDetails', e.target.value)}
-                  isInvalid={getFieldError('weitere Vermögen')}
+                  isInvalid={getFieldError('additionalAssetsDetails')}
                   disabled={readOnly}
                 />
                 <label>Bitte beschreiben Sie das weitere Vermögen</label>
-                {showValidation && getFieldError('weitere Vermögen') && (
+                {showValidation && getFieldError('additionalAssetsDetails') && (
                   <Form.Control.Feedback type="invalid">
-                    Bitte beschreiben Sie das weitere Vermögen
+                    {getFieldErrorMessage('additionalAssetsDetails')}
                   </Form.Control.Feedback>
                 )}
               </Form.Floating>
@@ -488,9 +547,9 @@ const Step2_HouseholdInfo: React.FC<Step2Props> = ({ formData, updateFormData, s
             />
           </div>
         </div>
-        {showValidation && validationErrors.includes('Bitte geben Sie an, ob Sie bereits Eigentümer eines geförderten Eigenheims oder einer geförderten Eigentumswohnung sind/waren') && (
+        {showValidation && validationErrors.hasDoubleSubsidy && validationErrors.hasDoubleSubsidy.length > 0 && (
           <div className="text-danger mt-1">
-            Bitte geben Sie an, ob Sie bereits Eigentümer eines geförderten Eigenheims oder einer geförderten Eigentumswohnung sind/waren
+            {validationErrors.hasDoubleSubsidy[0]}
           </div>
         )}
 
@@ -523,9 +582,9 @@ const Step2_HouseholdInfo: React.FC<Step2Props> = ({ formData, updateFormData, s
                 />
               </div>
             </div>
-            {showValidation && validationErrors.includes('Bitte geben Sie an, ob die Fördermittel bereits zurückgezahlt wurden') && (
+            {showValidation && validationErrors.hasRepaidSubsidy && validationErrors.hasRepaidSubsidy.length > 0 && (
               <div className="text-danger mt-1 mb-3">
-                Bitte geben Sie an, ob die Fördermittel bereits zurückgezahlt wurden
+                {validationErrors.hasRepaidSubsidy[0]}
               </div>
             )}
 
@@ -536,14 +595,9 @@ const Step2_HouseholdInfo: React.FC<Step2Props> = ({ formData, updateFormData, s
                   onChange={(value) => handleInputChange('subsidyAmount', value)}
                   placeholder="Betrag"
                   label="Betrag"
-                  isInvalid={getFieldError('Betrag der Fördermittel')}
+                  isInvalid={getFieldError('subsidyAmount')}
                   disabled={readOnly}
                 />
-                {showValidation && getFieldError('Betrag der Fördermittel') && (
-                  <Form.Control.Feedback type="invalid">
-                    Bitte geben Sie den Betrag der Fördermittel ein
-                  </Form.Control.Feedback>
-                )}
               </div>
               <div className="col-md-4">
                 <Form.Floating>
@@ -552,13 +606,13 @@ const Step2_HouseholdInfo: React.FC<Step2Props> = ({ formData, updateFormData, s
                     placeholder="Aktenzeichen"
                     value={formData.subsidyFileNumber}
                     onChange={(e) => handleInputChange('subsidyFileNumber', e.target.value)}
-                    isInvalid={getFieldError('Aktenzeichen')}
+                    isInvalid={getFieldError('subsidyFileNumber')}
                     disabled={readOnly}
                   />
                   <label>Aktenzeichen</label>
-                  {showValidation && getFieldError('Aktenzeichen') && (
+                  {showValidation && getFieldError('subsidyFileNumber') && (
                     <Form.Control.Feedback type="invalid">
-                      Bitte geben Sie das Aktenzeichen ein
+                      {getFieldErrorMessage('subsidyFileNumber')}
                     </Form.Control.Feedback>
                   )}
                 </Form.Floating>
@@ -570,18 +624,23 @@ const Step2_HouseholdInfo: React.FC<Step2Props> = ({ formData, updateFormData, s
                     placeholder="Bewilligungsbehörde"
                     value={formData.subsidyAuthority}
                     onChange={(e) => handleInputChange('subsidyAuthority', e.target.value)}
-                    isInvalid={getFieldError('Bewilligungsbehörde')}
+                    isInvalid={getFieldError('subsidyAuthority')}
                     disabled={readOnly}
                   />
                   <label>Bewilligungsbehörde</label>
-                  {showValidation && getFieldError('Bewilligungsbehörde') && (
+                  {showValidation && getFieldError('subsidyAuthority') && (
                     <Form.Control.Feedback type="invalid">
-                      Bitte geben Sie die Bewilligungsbehörde ein
+                      {getFieldErrorMessage('subsidyAuthority')}
                     </Form.Control.Feedback>
                   )}
                 </Form.Floating>
               </div>
             </div>
+            {showValidation && getFieldError('subsidyAmount') && (
+              <div className="alert alert-danger mt-3" role="alert">
+                {getFieldErrorMessage('subsidyAmount')}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -638,9 +697,9 @@ const Step2_HouseholdInfo: React.FC<Step2Props> = ({ formData, updateFormData, s
             />
           </div>
         </div>
-        {showValidation && validationErrors.includes('Bitte geben Sie an, ob Sie ein Ergänzungsdarlehen der NRW.BANK beantragen') && (
+        {showValidation && validationErrors.hasSupplementaryLoan && validationErrors.hasSupplementaryLoan.length > 0 && (
           <div className="text-danger mt-1">
-            Bitte geben Sie an, ob Sie ein Ergänzungsdarlehen der NRW.BANK beantragen
+            {validationErrors.hasSupplementaryLoan[0]}
           </div>
         )}
       </div>

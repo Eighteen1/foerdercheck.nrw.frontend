@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Container, Modal, Form, Button, Spinner } from 'react-bootstrap';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase, ensureUserFinancialsExists } from '../../lib/supabase';
-import { formatCurrencyForDisplay } from '../../utils/currencyUtils';
+import { formatCurrencyForDisplay, safeFormatCurrencyForDisplay } from '../../utils/currencyUtils';
 import SelbstauskunftForm from './Steps/SelbstauskunftForm';
 import '../Einkommenserklaerung/EinkommenserklaerungContainer.css';
 
@@ -284,9 +284,9 @@ const SelbstauskunftReviewContainer: React.FC<SelbstauskunftReviewContainerProps
         lastName: userData?.lastname || '',
         hasSalaryIncome: financialData?.hasSalaryIncome ?? null,
         // Extended fields for Selbstauskunft - salary-related fields only if hasSalaryIncome is true
-        wheinachtsgeld_next12: financialData?.hasSalaryIncome && financialData?.wheinachtsgeld_next12 ? formatCurrencyForDisplay(financialData.wheinachtsgeld_next12) : '',
-        urlaubsgeld_next12: financialData?.hasSalaryIncome && financialData?.urlaubsgeld_next12 ? formatCurrencyForDisplay(financialData.urlaubsgeld_next12) : '',
-        monthlynetsalary: financialData?.hasSalaryIncome && financialData?.monthlynetsalary ? formatCurrencyForDisplay(financialData.monthlynetsalary) : '',
+        wheinachtsgeld_next12: financialData?.hasSalaryIncome ? safeFormatCurrencyForDisplay(financialData.wheinachtsgeld_next12) : '',
+        urlaubsgeld_next12: financialData?.hasSalaryIncome ? safeFormatCurrencyForDisplay(financialData.urlaubsgeld_next12) : '',
+        monthlynetsalary: financialData?.hasSalaryIncome ? safeFormatCurrencyForDisplay(financialData.monthlynetsalary) : '',
         otheremploymentmonthlynetincome: financialData?.hasSalaryIncome ? (financialData?.otheremploymentmonthlynetincome || []) : [],
         hastaxfreeunterhaltincome: !!financialData?.hastaxfreeunterhaltincome,
         hastaxableunterhaltincome: !!financialData?.hastaxableunterhaltincome,
@@ -297,18 +297,18 @@ const SelbstauskunftReviewContainer: React.FC<SelbstauskunftReviewContainerProps
         hasrentincome: !!financialData?.hasrentincome,
         haspensionincome: !!financialData?.haspensionincome,
         hascapitalincome: !!financialData?.hascapitalincome,
-        yearlyselfemployednetincome: financialData?.hasbusinessincome && financialData?.yearlyselfemployednetincome ? formatCurrencyForDisplay(financialData.yearlyselfemployednetincome) : '',
-        yearlybusinessnetincome: financialData?.hasbusinessincome && financialData?.yearlybusinessnetincome ? formatCurrencyForDisplay(financialData.yearlybusinessnetincome) : '',
-        yearlycapitalnetincome: financialData?.hascapitalincome && financialData?.yearlycapitalnetincome ? formatCurrencyForDisplay(financialData.yearlycapitalnetincome) : '',
-        incomeagriculture: financialData?.hasagricultureincome && financialData?.incomeagriculture ? formatCurrencyForDisplay(financialData.incomeagriculture) : '',
-        incomerent: financialData?.hasrentincome && financialData?.incomerent ? formatCurrencyForDisplay(financialData.incomerent) : '',
+        yearlyselfemployednetincome: financialData?.hasbusinessincome ? safeFormatCurrencyForDisplay(financialData.yearlyselfemployednetincome) : '',
+        yearlybusinessnetincome: financialData?.hasbusinessincome ? safeFormatCurrencyForDisplay(financialData.yearlybusinessnetincome) : '',
+        yearlycapitalnetincome: financialData?.hascapitalincome ? safeFormatCurrencyForDisplay(financialData.yearlycapitalnetincome) : '',
+        incomeagriculture: financialData?.hasagricultureincome ? safeFormatCurrencyForDisplay(financialData.incomeagriculture) : '',
+        incomerent: financialData?.hasrentincome ? safeFormatCurrencyForDisplay(financialData.incomerent) : '',
         pensionmonthlynetincome: financialData?.haspensionincome ? (financialData?.pensionmonthlynetincome || []) : [],
         haskindergeldincome: !!financialData?.haskindergeldincome,
-        monthlykindergeldnetincome: financialData?.monthlykindergeldnetincome ? formatCurrencyForDisplay(financialData.monthlykindergeldnetincome) : '',
+        monthlykindergeldnetincome: safeFormatCurrencyForDisplay(financialData?.monthlykindergeldnetincome),
         haspflegegeldincome: !!financialData?.haspflegegeldincome,
-        monthlypflegegeldnetincome: financialData?.monthlypflegegeldnetincome ? formatCurrencyForDisplay(financialData.monthlypflegegeldnetincome) : '',
+        monthlypflegegeldnetincome: safeFormatCurrencyForDisplay(financialData?.monthlypflegegeldnetincome),
         haselterngeldincome: !!financialData?.haselterngeldincome,
-        monthlyelterngeldnetincome: financialData?.monthlyelterngeldnetincome ? formatCurrencyForDisplay(financialData.monthlyelterngeldnetincome) : '',
+        monthlyelterngeldnetincome: safeFormatCurrencyForDisplay(financialData?.monthlyelterngeldnetincome),
         hasothernetincome: !!financialData?.hasothernetincome,
         othermonthlynetincome: financialData?.othermonthlynetincome || [],
         betragotherinsurancetaxexpenses: financialData?.betragotherinsurancetaxexpenses || [],
@@ -321,12 +321,12 @@ const SelbstauskunftReviewContainer: React.FC<SelbstauskunftReviewContainerProps
         hasRentenversicherung: financialData?.hasRentenversicherung === null ? null : !!financialData?.hasRentenversicherung,
         otherzahlungsverpflichtung: financialData?.hasotherzahlungsverpflichtung ? (financialData?.otherzahlungsverpflichtung || []) : null,
         institutbausparvertraege: financialData?.hasBausparvertraege ? financialData?.institutbausparvertraege || '' : '',
-        sparratebausparvertraege: financialData?.hasBausparvertraege ? financialData?.sparratebausparvertraege ? formatCurrencyForDisplay(financialData.sparratebausparvertraege) : '' : '',
+        sparratebausparvertraege: financialData?.hasBausparvertraege ? safeFormatCurrencyForDisplay(financialData.sparratebausparvertraege) : '',
         institutkapitalrentenversicherung: financialData?.hasRentenversicherung ? financialData?.institutkapitalrentenversicherung || '' : '',
-        praemiekapitalrentenversicherung: financialData?.hasRentenversicherung ? financialData?.praemiekapitalrentenversicherung ? formatCurrencyForDisplay(financialData.praemiekapitalrentenversicherung) : '' : '',
-        expensespayable: financialData?.expensespayable ? formatCurrencyForDisplay(financialData.expensespayable) : '',
-        bankoverdraft: financialData?.bankoverdraft ? formatCurrencyForDisplay(financialData.bankoverdraft) : '',
-        debtpayable: financialData?.debtpayable ? formatCurrencyForDisplay(financialData.debtpayable) : '',
+        praemiekapitalrentenversicherung: financialData?.hasRentenversicherung ? safeFormatCurrencyForDisplay(financialData.praemiekapitalrentenversicherung) : '',
+        expensespayable: safeFormatCurrencyForDisplay(financialData?.expensespayable),
+        bankoverdraft: safeFormatCurrencyForDisplay(financialData?.bankoverdraft),
+        debtpayable: safeFormatCurrencyForDisplay(financialData?.debtpayable),
         hasbuergschaft: financialData?.hasbuergschaft ?? null,
         weitereEinkuenfte: {
           selectedTypes: ([
@@ -346,8 +346,8 @@ const SelbstauskunftReviewContainer: React.FC<SelbstauskunftReviewContainerProps
             financialData?.hasothernetincome ? 'sonstiges' : null
           ].filter(Boolean)) as string[]
         },
-        incomeunterhalttaxfree: financialData?.incomeunterhalttaxfree ? formatCurrencyForDisplay(financialData.incomeunterhalttaxfree) : '',
-        incomeunterhalttaxable: financialData?.incomeunterhalttaxable ? formatCurrencyForDisplay(financialData.incomeunterhalttaxable) : ''
+        incomeunterhalttaxfree: safeFormatCurrencyForDisplay(financialData?.incomeunterhalttaxfree),
+        incomeunterhalttaxable: safeFormatCurrencyForDisplay(financialData?.incomeunterhalttaxable)
       });
 
       // Load additional applicants data (UUID-based structure)
@@ -447,14 +447,14 @@ const SelbstauskunftReviewContainer: React.FC<SelbstauskunftReviewContainerProps
             lastName: person.lastName || '',
             hasSalaryIncome: fin.hasSalaryIncome ?? null,
             // Extended fields for Selbstauskunft - salary-related fields only if hasSalaryIncome is true
-            wheinachtsgeld_next12: fin.hasSalaryIncome && fin.wheinachtsgeld_next12 ? formatCurrencyForDisplay(fin.wheinachtsgeld_next12) : '',
-            urlaubsgeld_next12: fin.hasSalaryIncome && fin.urlaubsgeld_next12 ? formatCurrencyForDisplay(fin.urlaubsgeld_next12) : '',
-            monthlynetsalary: fin.hasSalaryIncome && fin.monthlynetsalary ? formatCurrencyForDisplay(fin.monthlynetsalary) : '',
+            wheinachtsgeld_next12: fin.hasSalaryIncome ? safeFormatCurrencyForDisplay(fin.wheinachtsgeld_next12) : '',
+            urlaubsgeld_next12: fin.hasSalaryIncome ? safeFormatCurrencyForDisplay(fin.urlaubsgeld_next12) : '',
+            monthlynetsalary: fin.hasSalaryIncome ? safeFormatCurrencyForDisplay(fin.monthlynetsalary) : '',
             otheremploymentmonthlynetincome: fin.hasSalaryIncome ? (fin.otheremploymentmonthlynetincome || []) : [],  
             hastaxfreeunterhaltincome: !!fin.hastaxfreeunterhaltincome,
             hastaxableunterhaltincome: !!fin.hastaxableunterhaltincome,
-            incomeunterhalttaxfree: fin.hastaxfreeunterhaltincome && fin.incomeunterhalttaxfree ? formatCurrencyForDisplay(fin.incomeunterhalttaxfree) : '',
-            incomeunterhalttaxable: fin.hastaxableunterhaltincome && fin.incomeunterhalttaxable ? formatCurrencyForDisplay(fin.incomeunterhalttaxable) : '',
+            incomeunterhalttaxfree: fin.hastaxfreeunterhaltincome ? safeFormatCurrencyForDisplay(fin.incomeunterhalttaxfree) : '',
+            incomeunterhalttaxable: fin.hastaxableunterhaltincome ? safeFormatCurrencyForDisplay(fin.incomeunterhalttaxable) : '',
             ispayingunterhalt: fin.ispayingunterhalt === null ? null : !!fin.ispayingunterhalt,
             unterhaltszahlungenTotal: fin.ispayingunterhalt ? (fin.unterhaltszahlungenTotal || []) : null,
             hasbusinessincome: !!fin.hasbusinessincome,
@@ -462,18 +462,18 @@ const SelbstauskunftReviewContainer: React.FC<SelbstauskunftReviewContainerProps
             hasrentincome: !!fin.hasrentincome,
             haspensionincome: !!fin.haspensionincome,
             hascapitalincome: !!fin.hascapitalincome,
-            yearlyselfemployednetincome: fin.hasbusinessincome && fin.yearlyselfemployednetincome ? formatCurrencyForDisplay(fin.yearlyselfemployednetincome) : '',
-            yearlybusinessnetincome: fin.hasbusinessincome && fin.yearlybusinessnetincome ? formatCurrencyForDisplay(fin.yearlybusinessnetincome) : '',
-            yearlycapitalnetincome: fin.hascapitalincome && fin.yearlycapitalnetincome ? formatCurrencyForDisplay(fin.yearlycapitalnetincome) : '',
-            incomeagriculture: fin.hasagricultureincome && fin.incomeagriculture ? formatCurrencyForDisplay(fin.incomeagriculture) : '',
-            incomerent: fin.hasrentincome && fin.incomerent ? formatCurrencyForDisplay(fin.incomerent) : '',
+            yearlyselfemployednetincome: fin.hasbusinessincome ? safeFormatCurrencyForDisplay(fin.yearlyselfemployednetincome) : '',
+            yearlybusinessnetincome: fin.hasbusinessincome ? safeFormatCurrencyForDisplay(fin.yearlybusinessnetincome) : '',
+            yearlycapitalnetincome: fin.hascapitalincome ? safeFormatCurrencyForDisplay(fin.yearlycapitalnetincome) : '',
+            incomeagriculture: fin.hasagricultureincome ? safeFormatCurrencyForDisplay(fin.incomeagriculture) : '',
+            incomerent: fin.hasrentincome ? safeFormatCurrencyForDisplay(fin.incomerent) : '',
             pensionmonthlynetincome: fin.haspensionincome ? (fin.pensionmonthlynetincome || []) : [],
             haskindergeldincome: !!fin.haskindergeldincome,
-            monthlykindergeldnetincome: fin.monthlykindergeldnetincome ? formatCurrencyForDisplay(fin.monthlykindergeldnetincome) : '',
+            monthlykindergeldnetincome: safeFormatCurrencyForDisplay(fin.monthlykindergeldnetincome),
             haspflegegeldincome: !!fin.haspflegegeldincome,
-            monthlypflegegeldnetincome: fin.monthlypflegegeldnetincome ? formatCurrencyForDisplay(fin.monthlypflegegeldnetincome) : '',
+            monthlypflegegeldnetincome: safeFormatCurrencyForDisplay(fin.monthlypflegegeldnetincome),
             haselterngeldincome: !!fin.haselterngeldincome,
-            monthlyelterngeldnetincome: fin.monthlyelterngeldnetincome ? formatCurrencyForDisplay(fin.monthlyelterngeldnetincome) : '',
+            monthlyelterngeldnetincome: safeFormatCurrencyForDisplay(fin.monthlyelterngeldnetincome),
             hasothernetincome: !!fin.hasothernetincome,
             othermonthlynetincome: fin.othermonthlynetincome || [],
             betragotherinsurancetaxexpenses: fin.betragotherinsurancetaxexpenses || [],
@@ -486,12 +486,12 @@ const SelbstauskunftReviewContainer: React.FC<SelbstauskunftReviewContainerProps
             hasBausparvertraege: fin.hasBausparvertraege === null ? null : !!fin.hasBausparvertraege,
             hasRentenversicherung: fin.hasRentenversicherung === null ? null : !!fin.hasRentenversicherung,
             institutbausparvertraege: fin.hasBausparvertraege ? (fin.institutbausparvertraege || '') : '',
-            sparratebausparvertraege: fin.hasBausparvertraege && fin.sparratebausparvertraege ? formatCurrencyForDisplay(fin.sparratebausparvertraege) : '',
+            sparratebausparvertraege: fin.hasBausparvertraege ? safeFormatCurrencyForDisplay(fin.sparratebausparvertraege) : '',
             institutkapitalrentenversicherung: fin.hasRentenversicherung ? (fin.institutkapitalrentenversicherung || '') : '',
-            praemiekapitalrentenversicherung: fin.hasRentenversicherung && fin.praemiekapitalrentenversicherung ? formatCurrencyForDisplay(fin.praemiekapitalrentenversicherung) : '',
-            expensespayable: fin.expensespayable ? formatCurrencyForDisplay(fin.expensespayable) : '',
-            bankoverdraft: fin.bankoverdraft ? formatCurrencyForDisplay(fin.bankoverdraft) : '',
-            debtpayable: fin.debtpayable ? formatCurrencyForDisplay(fin.debtpayable) : '',
+            praemiekapitalrentenversicherung: fin.hasRentenversicherung ? safeFormatCurrencyForDisplay(fin.praemiekapitalrentenversicherung) : '',
+            expensespayable: safeFormatCurrencyForDisplay(fin.expensespayable),
+            bankoverdraft: safeFormatCurrencyForDisplay(fin.bankoverdraft),
+            debtpayable: safeFormatCurrencyForDisplay(fin.debtpayable),
             hasbuergschaft: fin.hasbuergschaft ?? null,
             weitereEinkuenfte: {
               selectedTypes: ([

@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Form, Button, OverlayTrigger, Tooltip, Modal } from 'react-bootstrap';
 import CurrencyInput from '../../common/CurrencyInput';
 import WeitereEinkuenfteMultiSelect from '../../common/WeitereEinkuenfteMultiSelect';
+import CustomDatePicker from '../../common/DatePicker';
+import { isCurrencyEmptyOrZero } from '../../../utils/currencyUtils';
 
 // Add styles
 const styles = `
@@ -47,6 +49,13 @@ const styles = `
     transform: rotate(180deg);
   }
 `;
+
+// Date range constants for DatePicker components
+const minDate = new Date();
+minDate.setFullYear(minDate.getFullYear() - 1);
+
+const maxDate = new Date();
+maxDate.setFullYear(maxDate.getFullYear() + 100);
 
 interface WeitereEinkuenfte {
   selectedTypes: string[];
@@ -629,8 +638,8 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                       if (!item.type) {
                         sonstigeErrors.push(`Sonstige Beträge ${idx + 1}: Art des Betrags fehlt`);
                       }
-                      if (!item.amount) {
-                        sonstigeErrors.push(`Sonstige Beträge ${idx + 1}: Jahresbetrag fehlt`);
+                      if (isCurrencyEmptyOrZero(item.amount)) {
+                        sonstigeErrors.push(`Sonstige Beträge ${idx + 1}: Jahresbetrag fehlt oder ist 0`);
                       }
                     });
                     return sonstigeErrors.length > 0 ? (
@@ -946,17 +955,17 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                   {/* Validation errors for weitere Einkünfte */}
                   {showValidation && (() => {
                     const errors: string[] = [];
-                    if (data.weitereEinkuenfte?.selectedTypes?.includes('gewerbe') && !data.yearlybusinessnetincome && !data.yearlyselfemployednetincome) {
-                      errors.push('Bei Gewerbebetrieb/selbstständiger Arbeit muss mindestens ein Betrag angegeben werden');
+                    if (data.weitereEinkuenfte?.selectedTypes?.includes('gewerbe') && isCurrencyEmptyOrZero(data.yearlybusinessnetincome) && isCurrencyEmptyOrZero(data.yearlyselfemployednetincome)) {
+                      errors.push('Summe aus Gewerbebetrieb/selbstständiger Arbeit muss größer als 0 sein');
                     }
-                    if (data.weitereEinkuenfte?.selectedTypes?.includes('landforst') && !data.incomeagriculture) {
-                      errors.push('Land- und Forstwirtschaft: Jahresbetrag ist erforderlich');
+                    if (data.weitereEinkuenfte?.selectedTypes?.includes('landforst') && isCurrencyEmptyOrZero(data.incomeagriculture)) {
+                      errors.push('Land- und Forstwirtschaft: Jahresbetrag fehlt oder ist 0');
                     }
-                    if (data.weitereEinkuenfte?.selectedTypes?.includes('kapital') && !data.yearlycapitalnetincome) {
-                      errors.push('Kapitalvermögen: Jahresbetrag ist erforderlich');
+                    if (data.weitereEinkuenfte?.selectedTypes?.includes('kapital') && isCurrencyEmptyOrZero(data.yearlycapitalnetincome)) {
+                      errors.push('Kapitalvermögen: Jahresbetrag fehlt oder ist 0');
                     }
-                    if (data.weitereEinkuenfte?.selectedTypes?.includes('vermietung') && !data.incomerent) {
-                      errors.push('Vermietung und Verpachtung: Jahresbetrag ist erforderlich');
+                    if (data.weitereEinkuenfte?.selectedTypes?.includes('vermietung') && isCurrencyEmptyOrZero(data.incomerent)) {
+                      errors.push('Vermietung und Verpachtung: Jahresbetrag fehlt oder ist 0');
                     }
                     return errors.length > 0 ? (
                       <div className="alert alert-danger mt-3" role="alert">
@@ -1147,8 +1156,8 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                       if (!item.type) {
                         rowErrors.push(`Rentenart ${idx + 1}: Rentenart fehlt`);
                       }
-                      if (!item.amount) {
-                        rowErrors.push(`Rentenart ${idx + 1}: Monatliches Nettoeinkommen fehlt`);
+                      if (isCurrencyEmptyOrZero(item.amount)) {
+                        rowErrors.push(`Rentenart ${idx + 1}: Monatliches Nettoeinkommen fehlt oder ist 0`);
                       }
                       return rowErrors;
                     }).flat();
@@ -1481,28 +1490,28 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                     const errors: string[] = [];
                     
                     // Validate Kindergeld
-                    if (data.weitereEinkuenfte2?.selectedTypes?.includes('kindergeld') && !data.monthlykindergeldnetincome) {
-                      errors.push('Kindergeld: Monatliches Nettoeinkommen ist erforderlich');
+                    if (data.weitereEinkuenfte2?.selectedTypes?.includes('kindergeld') && isCurrencyEmptyOrZero(data.monthlykindergeldnetincome)) {
+                      errors.push('Kindergeld: Monatliches Nettoeinkommen fehlt oder ist 0');
                     }
                     
                     // Validate Pflegegeld
-                    if (data.weitereEinkuenfte2?.selectedTypes?.includes('pflegegeld') && !data.monthlypflegegeldnetincome) {
-                      errors.push('Pflegegeld: Monatliches Nettoeinkommen ist erforderlich');
+                    if (data.weitereEinkuenfte2?.selectedTypes?.includes('pflegegeld') && isCurrencyEmptyOrZero(data.monthlypflegegeldnetincome)) {
+                      errors.push('Pflegegeld: Monatliches Nettoeinkommen fehlt oder ist 0');
                     }
                     
                     // Validate Unterhaltsleistungen steuerfrei
-                    if (data.weitereEinkuenfte2?.selectedTypes?.includes('unterhaltsteuerfrei') && !data.incomeunterhalttaxfree) {
-                      errors.push('Unterhaltsleistungen steuerfrei: Monatliches Nettoeinkommen ist erforderlich');
+                    if (data.weitereEinkuenfte2?.selectedTypes?.includes('unterhaltsteuerfrei') && isCurrencyEmptyOrZero(data.incomeunterhalttaxfree)) {
+                      errors.push('Unterhaltsleistungen steuerfrei: Monatliches Nettoeinkommen fehlt oder ist 0');
                     }
                     
                     // Validate Unterhaltsleistungen steuerpflichtig
-                    if (data.weitereEinkuenfte2?.selectedTypes?.includes('unterhaltsteuerpflichtig') && !data.incomeunterhalttaxable) {
-                      errors.push('Unterhaltsleistungen steuerpflichtig: Monatliches Nettoeinkommen ist erforderlich');
+                    if (data.weitereEinkuenfte2?.selectedTypes?.includes('unterhaltsteuerpflichtig') && isCurrencyEmptyOrZero(data.incomeunterhalttaxable)) {
+                      errors.push('Unterhaltsleistungen steuerpflichtig: Monatliches Nettoeinkommen fehlt oder ist 0');
                     }
                     
                     // Validate Elterngeld
-                    if (data.weitereEinkuenfte2?.selectedTypes?.includes('elterngeld') && !data.monthlyelterngeldnetincome) {
-                      errors.push('Elterngeld/Erziehungsgeld: Monatliches Nettoeinkommen ist erforderlich');
+                    if (data.weitereEinkuenfte2?.selectedTypes?.includes('elterngeld') && isCurrencyEmptyOrZero(data.monthlyelterngeldnetincome)) {
+                      errors.push('Elterngeld/Erziehungsgeld: Monatliches Nettoeinkommen fehlt oder ist 0');
                     }
                     
                     // Validate Sonstiges
@@ -1516,8 +1525,8 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                         if (!item.type) {
                           rowErrors.push(`Sonstiges Einkommen ${idx + 1}: Art des Einkommens fehlt`);
                         }
-                        if (!item.amount) {
-                          rowErrors.push(`Sonstiges Einkommen ${idx + 1}: Monatliches Nettoeinkommen fehlt`);
+                        if (isCurrencyEmptyOrZero(item.amount)) {
+                          rowErrors.push(`Sonstiges Einkommen ${idx + 1}: Monatliches Nettoeinkommen fehlt oder ist 0`);
                         }
                         return rowErrors;
                       }).flat();
@@ -1638,8 +1647,8 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                       if (!item.type) {
                         rowErrors.push(`Steuer/Beitrag ${idx + 1}: Art der Steuer bzw. Beitrag fehlt`);
                       }
-                      if (!item.amount) {
-                        rowErrors.push(`Steuer/Beitrag ${idx + 1}: Monatlicher Betrag fehlt`);
+                      if (isCurrencyEmptyOrZero(item.amount)) {
+                        rowErrors.push(`Steuer/Beitrag ${idx + 1}: Monatlicher Betrag fehlt oder ist 0`);
                       }
                       return rowErrors;
                     }).flat();
@@ -1674,6 +1683,9 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                     style={{
                       width: '20px',
                       height: '20px',
+                      minWidth: '20px',
+                      minHeight: '20px',
+                      marginRight: '15px',
                       color: '#064497',
                       borderColor: '#D7DAEA',
                       backgroundColor: '#D7DAEA'
@@ -1744,21 +1756,20 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                       </Form.Floating>
                     </div>
                     <div className="col-md-4">
-                      <Form.Floating>
-                        <Form.Control
-                          type="date"
-                          placeholder="Laufzeit bis"
-                          value={data.loans?.[0]?.duration || ''}
-                          onChange={e => {
-                            const currentLoans = data.loans || [{ description: '', duration: '', amount: '' }];
-                            const newLoans = [...currentLoans];
-                            newLoans[0] = { ...newLoans[0], duration: e.target.value };
-                            onChange({ loans: newLoans });
-                          }}
-                          disabled={isReadOnly}
-                        />
-                        <label>Laufzeit bis</label>
-                      </Form.Floating>
+                      <CustomDatePicker
+                        value={data.loans?.[0]?.duration || ''}
+                        onChange={(date) => {
+                          const currentLoans = data.loans || [{ description: '', duration: '', amount: '' }];
+                          const newLoans = [...currentLoans];
+                          newLoans[0] = { ...newLoans[0], duration: date };
+                          onChange({ loans: newLoans });
+                        }}
+                        placeholder="Laufzeit bis"
+                        label="Laufzeit bis"
+                        disabled={isReadOnly}
+                        minDate={minDate}
+                        maxDate={maxDate}
+                      />
                     </div>
                     <div className="col-md-4">
                       <CurrencyInput
@@ -1815,20 +1826,19 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                           </Form.Floating>
                         </div>
                         <div className="col-md-4">
-                          <Form.Floating>
-                            <Form.Control
-                              type="date"
-                              placeholder="Laufzeit bis"
-                              value={item.duration || ''}
-                              onChange={e => {
-                                const newLoans = [...(data.loans || [])];
-                                newLoans[idx + 1] = { ...item, duration: e.target.value };
-                                onChange({ loans: newLoans });
-                              }}
-                              disabled={isReadOnly}
-                            />
-                            <label>Laufzeit bis</label>
-                          </Form.Floating>
+                          <CustomDatePicker
+                            value={item.duration || ''}
+                            onChange={(date) => {
+                              const newLoans = [...(data.loans || [])];
+                              newLoans[idx + 1] = { ...item, duration: date };
+                              onChange({ loans: newLoans });
+                            }}
+                            placeholder="Laufzeit bis"
+                            label="Laufzeit bis"
+                            disabled={isReadOnly}
+                            minDate={minDate}
+                            maxDate={maxDate}
+                          />
                         </div>
                         <div className="col-md-4">
                           <CurrencyInput
@@ -1878,8 +1888,8 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                       } else if (!isDateInFuture(item.duration)) {
                         rowErrors.push(`Kredit ${idx + 1}: Laufzeit bis muss in der Zukunft liegen`);
                       }
-                      if (!item.amount) {
-                        rowErrors.push(`Kredit ${idx + 1}: Monatlicher Betrag fehlt`);
+                      if (isCurrencyEmptyOrZero(item.amount)) {
+                        rowErrors.push(`Kredit ${idx + 1}: Monatlicher Betrag fehlt oder ist 0`);
                       }
                       return rowErrors;
                     }).flat();
@@ -1908,6 +1918,9 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                     style={{
                       width: '20px',
                       height: '20px',
+                      minWidth: '20px',
+                      minHeight: '20px',
+                      marginRight: '15px',
                       color: '#064497',
                       borderColor: '#D7DAEA',
                       backgroundColor: '#D7DAEA'
@@ -1985,21 +1998,20 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                       </div>
                     </div>
                     <div className="col-md-4">
-                      <Form.Floating>
-                        <Form.Control
-                          type="date"
-                          placeholder="Laufzeit bis"
-                          value={data.zwischenkredit?.[0]?.duration || ''}
-                          onChange={e => {
-                            const currentZwischenkredit = data.zwischenkredit || [{ duration: '', amount: '' }];
-                            const newZwischenkredit = [...currentZwischenkredit];
-                            newZwischenkredit[0] = { ...newZwischenkredit[0], duration: e.target.value };
-                            onChange({ zwischenkredit: newZwischenkredit });
-                          }}
-                          disabled={isReadOnly}
-                        />
-                        <label>Laufzeit bis</label>
-                      </Form.Floating>
+                      <CustomDatePicker
+                        value={data.zwischenkredit?.[0]?.duration || ''}
+                        onChange={(date) => {
+                          const currentZwischenkredit = data.zwischenkredit || [{ duration: '', amount: '' }];
+                          const newZwischenkredit = [...currentZwischenkredit];
+                          newZwischenkredit[0] = { ...newZwischenkredit[0], duration: date };
+                          onChange({ zwischenkredit: newZwischenkredit });
+                        }}
+                        placeholder="Laufzeit bis"
+                        label="Laufzeit bis"
+                        disabled={isReadOnly}
+                        minDate={minDate}
+                        maxDate={maxDate}
+                      />
                     </div>
                     <div className="col-md-4">
                       <CurrencyInput
@@ -2030,8 +2042,8 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                       } else if (!isDateInFuture(item.duration)) {
                         rowErrors.push(`Zwischenkredit: Laufzeit bis muss in der Zukunft liegen`);
                       }
-                      if (!item.amount) {
-                        rowErrors.push(`Zwischenkredit: Monatlicher Betrag fehlt`);
+                      if (isCurrencyEmptyOrZero(item.amount)) {
+                        rowErrors.push(`Zwischenkredit: Monatlicher Betrag fehlt oder ist 0`);
                       }
                       return rowErrors;
                     }).flat();
@@ -2060,6 +2072,9 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                     style={{
                       width: '20px',
                       height: '20px',
+                      minWidth: '20px',
+                      minHeight: '20px',
+                      marginRight: '15px',
                       color: '#064497',
                       borderColor: '#D7DAEA',
                       backgroundColor: '#D7DAEA'
@@ -2137,21 +2152,20 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                       </div>
                     </div>
                     <div className="col-md-4">
-                      <Form.Floating>
-                        <Form.Control
-                          type="date"
-                          placeholder="Laufzeit bis"
-                          value={data.unterhaltszahlungenTotal?.[0]?.duration || ''}
-                          onChange={e => {
-                            const currentUnterhalt = data.unterhaltszahlungenTotal || [{ description: '', duration: '', amountTotal: '' }];
-                            const newUnterhalt = [...currentUnterhalt];
-                            newUnterhalt[0] = { ...newUnterhalt[0], duration: e.target.value };
-                            onChange({ unterhaltszahlungenTotal: newUnterhalt });
-                          }}
-                          disabled={isReadOnly}
-                        />
-                        <label>Laufzeit bis</label>
-                      </Form.Floating>
+                      <CustomDatePicker
+                        value={data.unterhaltszahlungenTotal?.[0]?.duration || ''}
+                        onChange={(date) => {
+                          const currentUnterhalt = data.unterhaltszahlungenTotal || [{ description: '', duration: '', amountTotal: '' }];
+                          const newUnterhalt = [...currentUnterhalt];
+                          newUnterhalt[0] = { ...newUnterhalt[0], duration: date };
+                          onChange({ unterhaltszahlungenTotal: newUnterhalt });
+                        }}
+                        placeholder="Laufzeit bis"
+                        label="Laufzeit bis"
+                        disabled={isReadOnly}
+                        minDate={minDate}
+                        maxDate={maxDate}
+                      />
                     </div>
                     <div className="col-md-4">
                       <CurrencyInput
@@ -2182,8 +2196,8 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                       } else if (!isDateInFuture(item.duration)) {
                         rowErrors.push(`Unterhalt: Laufzeit bis muss in der Zukunft liegen`);
                       }
-                      if (!item.amountTotal) {
-                        rowErrors.push(`Unterhalt: Monatlicher Betrag fehlt`);
+                      if (isCurrencyEmptyOrZero(item.amountTotal)) {
+                        rowErrors.push(`Unterhalt: Monatlicher Betrag fehlt oder ist 0`);
                       }
                       return rowErrors;
                     }).flat();
@@ -2212,6 +2226,9 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                     style={{
                       width: '20px',
                       height: '20px',
+                      minWidth: '20px',
+                      minHeight: '20px',
+                      marginRight: '15px',
                       color: '#064497',
                       borderColor: '#D7DAEA',
                       backgroundColor: '#D7DAEA'
@@ -2289,21 +2306,20 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                       </Form.Floating>
                     </div>
                     <div className="col-md-4">
-                      <Form.Floating>
-                        <Form.Control
-                          type="date"
-                          placeholder="Laufzeit bis"
-                          value={data.otherzahlungsverpflichtung?.[0]?.duration || ''}
-                          onChange={e => {
-                            const currentOther = data.otherzahlungsverpflichtung || [{ type: '', duration: '', amount: '' }];
-                            const newOther = [...currentOther];
-                            newOther[0] = { ...newOther[0], duration: e.target.value };
-                            onChange({ otherzahlungsverpflichtung: newOther });
-                          }}
-                          disabled={isReadOnly}
-                        />
-                        <label>Laufzeit bis</label>
-                      </Form.Floating>
+                      <CustomDatePicker
+                        value={data.otherzahlungsverpflichtung?.[0]?.duration || ''}
+                        onChange={(date) => {
+                          const currentOther = data.otherzahlungsverpflichtung || [{ type: '', duration: '', amount: '' }];
+                          const newOther = [...currentOther];
+                          newOther[0] = { ...newOther[0], duration: date };
+                          onChange({ otherzahlungsverpflichtung: newOther });
+                        }}
+                        placeholder="Laufzeit bis"
+                        label="Laufzeit bis"
+                        disabled={isReadOnly}
+                        minDate={minDate}
+                        maxDate={maxDate}
+                      />
                     </div>
                     <div className="col-md-4">
                       <CurrencyInput
@@ -2360,20 +2376,19 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                           </Form.Floating>
                         </div>
                         <div className="col-md-4">
-                          <Form.Floating>
-                            <Form.Control
-                              type="date"
-                              placeholder="Laufzeit bis"
-                              value={item.duration || ''}
-                              onChange={e => {
-                                const newOther = [...(data.otherzahlungsverpflichtung || [])];
-                                newOther[idx + 1] = { ...item, duration: e.target.value };
-                                onChange({ otherzahlungsverpflichtung: newOther });
-                              }}
-                              disabled={isReadOnly}
-                            />
-                            <label>Laufzeit bis</label>
-                          </Form.Floating>
+                          <CustomDatePicker
+                            value={item.duration || ''}
+                            onChange={(date) => {
+                              const newOther = [...(data.otherzahlungsverpflichtung || [])];
+                              newOther[idx + 1] = { ...item, duration: date };
+                              onChange({ otherzahlungsverpflichtung: newOther });
+                            }}
+                            placeholder="Laufzeit bis"
+                            label="Laufzeit bis"
+                            disabled={isReadOnly}
+                            minDate={minDate}
+                            maxDate={maxDate}
+                          />
                         </div>
                         <div className="col-md-4">
                           <CurrencyInput
@@ -2419,8 +2434,8 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                       } else if (!isDateInFuture(item.duration)) {
                         rowErrors.push(`Zahlungsverpflichtung ${idx + 1}: Laufzeit bis muss in der Zukunft liegen`);
                       }
-                      if (!item.amount) {
-                        rowErrors.push(`Zahlungsverpflichtung ${idx + 1}: Monatlicher Betrag fehlt`);
+                      if (isCurrencyEmptyOrZero(item.amount)) {
+                        rowErrors.push(`Zahlungsverpflichtung ${idx + 1}: Monatlicher Betrag fehlt oder ist 0`);
                       }
                       return rowErrors;
                     }).flat();
@@ -2455,6 +2470,9 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                     style={{
                       width: '20px',
                       height: '20px',
+                      minWidth: '20px',
+                      minHeight: '20px',
+                      marginRight: '15px',
                       color: '#064497',
                       borderColor: '#D7DAEA',
                       backgroundColor: '#D7DAEA'
@@ -2545,8 +2563,8 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                     if (!data.institutbausparvertraege) {
                       errors.push('Bausparverträge: Institut fehlt');
                     }
-                    if (!data.sparratebausparvertraege) {
-                      errors.push('Bausparverträge: Monatlicher Betrag fehlt');
+                    if (isCurrencyEmptyOrZero(data.sparratebausparvertraege)) {
+                      errors.push('Bausparverträge: Monatlicher Betrag fehlt oder ist 0');
                     }
                     
                     return errors.length > 0 ? (
@@ -2574,6 +2592,9 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                     style={{
                       width: '20px',
                       height: '20px',
+                      minWidth: '20px',
+                      minHeight: '20px',
+                      marginRight: '15px',
                       color: '#064497',
                       borderColor: '#D7DAEA',
                       backgroundColor: '#D7DAEA'
@@ -2664,8 +2685,8 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                     if (!data.institutkapitalrentenversicherung) {
                       errors.push('Rentenversicherung: Institut fehlt');
                     }
-                    if (!data.praemiekapitalrentenversicherung) {
-                      errors.push('Rentenversicherung: Monatlicher Betrag fehlt');
+                    if (isCurrencyEmptyOrZero(data.praemiekapitalrentenversicherung)) {
+                      errors.push('Rentenversicherung: Monatlicher Betrag fehlt oder ist 0');
                     }
                     
                     return errors.length > 0 ? (

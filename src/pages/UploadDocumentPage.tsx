@@ -3,6 +3,17 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Container, Card, Alert, Button, ProgressBar, Spinner } from 'react-bootstrap';
 import { supabase } from '../lib/supabase';
 
+// Date formatting function
+function formatDate(dateString: string) {
+  if (!dateString) return "-";
+  const d = new Date(dateString);
+  if (isNaN(d.getTime())) return "-";
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  return `${day}.${month}.${year}`;
+}
+
 interface DocumentRequest {
   token: string;
   document_type_id: string;
@@ -244,7 +255,7 @@ const UploadDocumentPage: React.FC = () => {
                 <i className="bi bi-clock-fill text-warning" style={{ fontSize: '3rem' }}></i>
               </div>
               <h4 className="text-warning mb-3">Anfrage abgelaufen</h4>
-              <p>Diese Dokumentenanfrage ist am {expiresAt.toLocaleDateString()} abgelaufen.</p>
+              <p>Diese Dokumentenanfrage ist am {formatDate(expiresAt.toISOString())} abgelaufen.</p>
               <p>Bitte wenden Sie sich an Ihren Sachbearbeiter für eine neue Anfrage.</p>
             </Card.Body>
           </Card>
@@ -422,7 +433,7 @@ const UploadDocumentPage: React.FC = () => {
                   <p className="mb-1"><strong>Für:</strong> {getApplicantName()}</p>
                 </div>
                 <div className="col-md-6">
-                  <p className="mb-0"><strong>Gültig bis:</strong> {expiresAt.toLocaleDateString()}</p>
+                  <p className="mb-0"><strong>Gültig bis:</strong> {formatDate(expiresAt.toISOString())}</p>
                 </div>
               </div>
             </div>

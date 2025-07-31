@@ -252,21 +252,51 @@ const Din277Form: React.FC<Props> = ({ data, onChange, showValidation, isReadOnl
         }
         if (!element.length_m) {
           errors.push(`${level.name} - ${element.label}: Länge ist erforderlich`);
+        } else {
+          // Check for zero values in length_m
+          const length = parseFloat((element.length_m || '0').replace(',', '.')) || 0;
+          if (length === 0) {
+            errors.push(`${level.name} - ${element.label}: Länge darf nicht 0 m betragen`);
+          }
         }
         if (!element.width_m) {
           errors.push(`${level.name} - ${element.label}: Breite ist erforderlich`);
+        } else {
+          // Check for zero values in width_m
+          const width = parseFloat((element.width_m || '0').replace(',', '.')) || 0;
+          if (width === 0) {
+            errors.push(`${level.name} - ${element.label}: Breite darf nicht 0 m betragen`);
+          }
         }
         
         if (element.hasSlopedRoof) {
           if (!element.traufhoehe) {
             errors.push(`${level.name} - ${element.label}: Traufhöhe ist erforderlich`);
+          } else {
+            // Check for zero values in traufhoehe
+            const traufhoehe = parseFloat((element.traufhoehe || '0').replace(',', '.')) || 0;
+            if (traufhoehe === 0) {
+              errors.push(`${level.name} - ${element.label}: Traufhöhe darf nicht 0 m betragen`);
+            }
           }
           if (!element.firsthoehe) {
             errors.push(`${level.name} - ${element.label}: Firsthöhe ist erforderlich`);
+          } else {
+            // Check for zero values in firsthoehe
+            const firsthoehe = parseFloat((element.firsthoehe || '0').replace(',', '.')) || 0;
+            if (firsthoehe === 0) {
+              errors.push(`${level.name} - ${element.label}: Firsthöhe darf nicht 0 m betragen`);
+            }
           }
         } else {
           if (!element.height_m) {
             errors.push(`${level.name} - ${element.label}: Höhe ist erforderlich`);
+          } else {
+            // Check for zero values in height_m
+            const height = parseFloat((element.height_m || '0').replace(',', '.')) || 0;
+            if (height === 0) {
+              errors.push(`${level.name} - ${element.label}: Höhe darf nicht 0 m betragen`);
+            }
           }
         }
       });

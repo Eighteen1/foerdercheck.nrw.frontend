@@ -3,6 +3,15 @@ import { Form, Button, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import AddressInput from '../common/AddressInput';
 import CurrencyInput from '../common/CurrencyInput';
 
+// Email validation function
+const isValidEmail = (email: string): boolean => {
+  if (!email) return false;
+  
+  // Basic email regex pattern
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  return emailRegex.test(email);
+};
+
 // Add styles
 const styles = `
   .form-check-input:checked {
@@ -467,7 +476,7 @@ const SelbsthilfeForm: React.FC<Props> = ({ data, helpers, onChange, onHelpersCh
       case 'surname':
         return !helper.surname?.trim();
       case 'email':
-        return !helper.email?.trim();
+        return !helper.email?.trim() || !isValidEmail(helper.email);
       case 'jobTitle':
         return !helper.jobTitle?.trim();
       case 'jobNumbers':
@@ -515,6 +524,8 @@ const SelbsthilfeForm: React.FC<Props> = ({ data, helpers, onChange, onHelpersCh
         }
         if (!helper.email?.trim()) {
           errors.push(`${helperType}: E-Mail fehlt`);
+        } else if (!isValidEmail(helper.email)) {
+          errors.push(`${helperType}: Bitte geben Sie eine gültige E-Mail-Adresse ein`);
         }
         if (!helper.jobTitle?.trim()) {
           errors.push(`${helperType}: Beruf fehlt`);
@@ -557,6 +568,15 @@ const SelbsthilfeForm: React.FC<Props> = ({ data, helpers, onChange, onHelpersCh
     });
     
     return errors;
+  };
+
+  const getHelperEmailErrorMessage = (helper: Helper, helperType: string): string => {
+    if (!helper.email?.trim()) {
+      return `${helperType}: E-Mail fehlt`;
+    } else if (!isValidEmail(helper.email)) {
+      return `${helperType}: Bitte geben Sie eine gültige E-Mail-Adresse ein`;
+    }
+    return '';
   };
 
   const getCostValidationErrors = () => {
@@ -1148,6 +1168,11 @@ const SelbsthilfeForm: React.FC<Props> = ({ data, helpers, onChange, onHelpersCh
                             isInvalid={validateHelperField(helper, 'email')}
                           />
                           <label>E-Mail-Adresse</label>
+                          {validateHelperField(helper, 'email') && (
+                            <Form.Control.Feedback type="invalid">
+                              {getHelperEmailErrorMessage(helper, index === 0 ? 'Hauptantragsteller' : `Helfer ${index}`)}
+                            </Form.Control.Feedback>
+                          )}
                         </Form.Floating>
                       </div>
                       <div className="col-md-6">
@@ -1259,7 +1284,7 @@ const SelbsthilfeForm: React.FC<Props> = ({ data, helpers, onChange, onHelpersCh
               })}
 
               {/* Add Helper Button */}
-              {!isReadOnly && (
+              {!isReadOnly && helpers.length < 7 && (
                 <Button
                   variant="outline-primary"
                   className="add-person-btn mt-3"

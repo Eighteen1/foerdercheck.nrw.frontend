@@ -251,6 +251,7 @@ const DocumentCheck: React.FC = () => {
               { id: 'bestandserwerb-eigenheim', label: 'Bestandserwerb Eigenheim' },
               { id: 'bestandserwerb-wohnung', label: 'Bestandserwerb Eigentumswohnung' },
               { id: 'ersterwerb-wohnung', label: 'Ersterwerb Eigentumswohnung' },
+              { id: 'neubau-wohnung', label: 'Neubau Eigentumswohnung' },
               { id: 'nutzungsaenderung', label: 'Nutzungsänderung' }
             ].map((option) => (
               <Col md={4} key={option.id}>

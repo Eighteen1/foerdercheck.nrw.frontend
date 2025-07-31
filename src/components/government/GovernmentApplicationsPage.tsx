@@ -38,6 +38,7 @@ const TYPE_LABELS: Record<string, string> = {
   "bestandserwerb-eigenheim": "Bestandserwerb Eigenheim",
   "bestandserwerb-wohnung": "Bestandserwerb Eigentumswohnung",
   "ersterwerb-wohnung": "Ersterwerb Eigentumswohnung",
+  "neubau-wohnung": "Neubau Eigentumswohnung",
   "nutzungsaenderung": "Nutzungsänderung"
 };
 
@@ -50,7 +51,7 @@ function formatDate(dateString: string) {
   const day = String(d.getDate()).padStart(2, '0');
   const month = String(d.getMonth() + 1).padStart(2, '0');
   const year = d.getFullYear();
-  return `${day}/${month}/${year}`;
+  return `${day}.${month}.${year}`;
 }
 
 const cardShadow = "0 2px 8px rgba(0,0,0,0.08)";
@@ -680,7 +681,7 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
                     <Form.Control
                       size="sm"
                       type="text"
-                      placeholder="TT/MM/JJJJ"
+                      placeholder="TT.MM.JJJJ"
                       value={filters.submitted_at}
                       onChange={e => setFilters(f => ({ ...f, submitted_at: e.target.value }))}
                       className="mt-1"
@@ -691,7 +692,7 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
                     <Form.Control
                       size="sm"
                       type="text"
-                      placeholder="TT/MM/JJJJ"
+                      placeholder="TT.MM.JJJJ"
                       value={filters.updated_at}
                       onChange={e => setFilters(f => ({ ...f, updated_at: e.target.value }))}
                       className="mt-1"
@@ -754,7 +755,7 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
                     <Form.Control
                       size="sm"
                       type="text"
-                      placeholder="TT/MM/JJJJ"
+                      placeholder="TT.MM.JJJJ"
                       value={filters.submitted_at}
                       onChange={e => setFilters(f => ({ ...f, submitted_at: e.target.value }))}
                       className="mt-1"
@@ -765,7 +766,7 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
                     <Form.Control
                       size="sm"
                       type="text"
-                      placeholder="TT/MM/JJJJ"
+                      placeholder="TT.MM.JJJJ"
                       value={filters.finished_at}
                       onChange={e => setFilters(f => ({ ...f, finished_at: e.target.value }))}
                       className="mt-1"
@@ -813,7 +814,7 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
                     <Form.Control
                       size="sm"
                       type="text"
-                      placeholder="TT/MM/JJJJ"
+                      placeholder="TT.MM.JJJJ"
                       value={filters.submitted_at}
                       onChange={e => setFilters(f => ({ ...f, submitted_at: e.target.value }))}
                       className="mt-1"

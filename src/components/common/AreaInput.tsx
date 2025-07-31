@@ -8,6 +8,7 @@ interface AreaInputProps {
   label?: string;
   disabled?: boolean;
   isInvalid?: boolean;
+  errorMessage?: string;
 }
 
 const AreaInput: React.FC<AreaInputProps> = ({
@@ -16,7 +17,8 @@ const AreaInput: React.FC<AreaInputProps> = ({
   placeholder,
   label,
   disabled = false,
-  isInvalid = false
+  isInvalid = false,
+  errorMessage
 }) => {
   const [cursorPosition, setCursorPosition] = useState<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -43,6 +45,12 @@ const AreaInput: React.FC<AreaInputProps> = ({
     }
     
     return cleanValue;
+  };
+
+  // Convert database value (with dot) to display format (with comma)
+  const formatValueForDisplay = (value: string): string => {
+    if (value === '') return '';
+    return formatArea(value);
   };
 
   // Handle input changes
@@ -81,13 +89,18 @@ const AreaInput: React.FC<AreaInputProps> = ({
         ref={inputRef}
         type="text"
         placeholder={placeholder}
-        value={value}
+        value={formatValueForDisplay(value)}
         onChange={handleChange}
         onKeyDown={handleKeyPress}
         disabled={disabled}
         isInvalid={isInvalid}
       />
       {label && <label>{label}</label>}
+      {isInvalid && errorMessage && (
+        <Form.Control.Feedback type="invalid">
+          {errorMessage}
+        </Form.Control.Feedback>
+      )}
     </Form.Floating>
   );
 };

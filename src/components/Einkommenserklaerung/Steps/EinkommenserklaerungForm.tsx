@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Form, Button, OverlayTrigger, Tooltip, Modal } from 'react-bootstrap';
+import { Form, Button, OverlayTrigger, Tooltip, Modal, Row, Col } from 'react-bootstrap';
 import AddressInput from '../../common/AddressInput';
 import CurrencyInput from '../../common/CurrencyInput';
 import WeitereEinkuenfteMultiSelect from '../../common/WeitereEinkuenfteMultiSelect';
+import GeneralDatePicker from '../../common/GeneralDatePicker';
 
 // Add styles
 const styles = `
@@ -110,6 +111,62 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
   // Add state for expanded section
   const [expandedSection, setExpandedSection] = useState<string>('');
 
+      // Date validation helper functions
+  const isValidFutureDate = (date: string): boolean => {
+    if (!date) return false;
+    
+    const inputDate = new Date(date);
+    const now = new Date();
+    const maxDate = new Date(now.getFullYear() + 1, now.getMonth(), now.getDate());
+    
+    return inputDate > now && inputDate <= maxDate;
+  };
+
+  const getDateValidationError = (date: string): string => {
+    if (!date) return 'Bitte geben Sie das Datum an.';
+    if (!isValidFutureDate(date)) {
+      return 'Das Datum darf weder in der Vergangenheit noch mehr als 12 Monate in der Zukunft liegen';
+    }
+    return '';
+  };
+
+  // Employment date validation helper functions
+  const isValidEmploymentStartDate = (date: string): boolean => {
+    if (!date) return false;
+    
+    const inputDate = new Date(date);
+    const now = new Date();
+    const minDate = new Date(now.getFullYear() - 100, now.getMonth(), now.getDate());
+    
+    return inputDate <= now && inputDate >= minDate;
+  };
+
+  const isValidContractEndDate = (date: string): boolean => {
+    if (!date) return false;
+    
+    const inputDate = new Date(date);
+    const now = new Date();
+    const minDate = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+    const maxDate = new Date(now.getFullYear() + 100, now.getMonth(), now.getDate());
+    
+    return inputDate >= minDate && inputDate <= maxDate;
+  };
+
+  const getEmploymentStartDateValidationError = (date: string): string => {
+    if (!date) return 'Bitte geben Sie das Datum an.';
+    if (!isValidEmploymentStartDate(date)) {
+      return 'Bitte geben Sie ein valides Datum an.';
+    }
+    return '';
+  };
+
+  const getContractEndDateValidationError = (date: string): string => {
+    if (!date) return 'Bitte geben Sie das Datum an.';
+    if (!isValidContractEndDate(date)) {
+      return 'Bitte geben Sie ein valides Datum an.';
+    }
+    return '';
+  };
   // Function to toggle section
   const toggleSection = (section: string) => {
     setExpandedSection(expandedSection === section ? '' : section);
@@ -293,7 +350,11 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
   if (data.werbungskosten) costTypes.push('werbungskosten');
   if (data.kinderbetreuungskosten) costTypes.push('kinderbetreuungskosten');
   if (data.unterhaltszahlungen && data.unterhaltszahlungen.length > 0) costTypes.push('unterhaltszahlungen');
-  const allChangeTypes = [...weitereTypes, ...costTypes];
+  
+  // Include existing change types that might have been removed from weitereEinkuenfte
+  const existingChangeTypes = Object.keys(data.additionalIncomeChanges?.changes || {});
+  
+  const allChangeTypes = [...weitereTypes, ...costTypes, ...existingChangeTypes];
 
   // Remove duplicates
   const uniqueChangeTypes = Array.from(new Set(allChangeTypes));
@@ -393,6 +454,54 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
   const externalErrors = getSonderzuwendungenFieldErrors(sonderzuwendungenFieldErrors);
   const validationErrors = getSonderzuwendungenValidationErrors();
   const allSonderzuwendungenErrors = [...externalErrors, ...validationErrors];
+
+  // Helper function to get current value for a given type
+  const getCurrentValueForType = (type: string): number => {
+    // Handle weitereEinkuenfte types
+    if (data.weitereEinkuenfte?.selectedTypes?.includes(type)) {
+      const weitereData = (data.weitereEinkuenfte as any)[type];
+      if (weitereData?.betrag) {
+        return parseFloat(weitereData.betrag.replace(/[^\d.,]/g, '').replace(',', '.')) || 0;
+      }
+    }
+    
+    // Handle cost types
+    switch (type) {
+      case 'werbungskosten':
+        return parseFloat(data.werbungskosten?.replace(/[^\d.,]/g, '').replace(',', '.') || '0') || 0;
+      case 'kinderbetreuungskosten':
+        return parseFloat(data.kinderbetreuungskosten?.replace(/[^\d.,]/g, '').replace(',', '.') || '0') || 0;
+      case 'unterhaltszahlungen':
+        if (data.unterhaltszahlungen && data.unterhaltszahlungen.length > 0) {
+          return data.unterhaltszahlungen.reduce((sum: number, item: any) => {
+            return sum + (parseFloat(item.amount?.replace(/[^\d.,]/g, '').replace(',', '.') || '0') || 0);
+          }, 0);
+        }
+        return 0;
+      default:
+        return 0;
+    }
+  };
+
+  // Helper function to validate increase/decrease radio button against actual values
+  const validateIncreaseDecreaseRadio = (type: string, change: any): string | null => {
+    if (typeof change.increase !== 'boolean' || !change.newAmount) {
+      return null; // Let other validations handle missing values
+    }
+    
+    const currentValue = getCurrentValueForType(type);
+    const newValue = parseFloat(change.newAmount.replace(/[^\d.,]/g, '').replace(',', '.') || '0') || 0;
+    
+    if (change.increase === true && newValue <= currentValue) {
+      return 'Ihr neuer Betrag ist geringer als oder gleich dem alten Betrag.';
+    }
+    
+    if (change.increase === false && newValue >= currentValue) {
+      return 'Ihr neuer Betrag ist größer als oder gleich dem alten Betrag.';
+    }
+    
+    return null;
+  };
 
   return (
     <Form>
@@ -1022,20 +1131,20 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                     <>
                       <div className="row g-3 mb-3">
                         <div className="col-md-6">
-                          <Form.Floating>
-                            <Form.Control
-                              type="date"
-                              placeholder="Datum der Änderung"
-                              value={data.incomeChangeDate || ''}
-                              onChange={e => onChange({ ...data, incomeChangeDate: e.target.value })}
-                              isInvalid={showValidation && !data.incomeChangeDate}
-                              disabled={isReadOnly}
-                            />
-                            <label>Datum der Änderung</label>
-                            <Form.Control.Feedback type="invalid">
-                              Bitte geben Sie das Datum der Einkommensänderung an.
-                            </Form.Control.Feedback>
-                          </Form.Floating>
+                          <GeneralDatePicker
+                            value={data.incomeChangeDate || ''}
+                            onChange={(date) => onChange({ ...data, incomeChangeDate: date })}
+                            label="Datum der Änderung"
+                            isInvalid={showValidation && (!data.incomeChangeDate || !isValidFutureDate(data.incomeChangeDate))}
+                            disabled={isReadOnly}
+                            minDate={new Date(new Date().getFullYear() -1, new Date().getMonth(), new Date().getDate())}
+                            maxDate={new Date(new Date().getFullYear() + 2, new Date().getMonth(), new Date().getDate())}
+                          />
+                          {showValidation && getDateValidationError(data.incomeChangeDate) && (
+                            <div className="text-danger mt-1">
+                              {getDateValidationError(data.incomeChangeDate)}
+                            </div>
+                          )}
                         </div>
                       </div>
                       <div className="mb-3 d-flex align-items-center">
@@ -1149,20 +1258,20 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                   </div>
                   <div className="row g-3 mb-4">
                     <div className="col-md-6">
-                      <Form.Floating>
-                        <Form.Control
-                          type="date"
-                          placeholder="Beschäftigt seit"
-                          value={data.startEmployment || ''}
-                          onChange={e => onChange({ ...data, startEmployment: e.target.value })}
-                          isInvalid={showValidation && !data.startEmployment}
-                          disabled={isReadOnly}
-                        />
-                        <label>Beschäftigt seit</label>
-                        <Form.Control.Feedback type="invalid">
-                          Bitte geben Sie das Beschäftigungsbeginn-Datum an.
-                        </Form.Control.Feedback>
-                      </Form.Floating>
+                      <GeneralDatePicker
+                        value={data.startEmployment || ''}
+                        onChange={(date) => onChange({ ...data, startEmployment: date })}
+                        label="Beschäftigt seit"
+                        isInvalid={showValidation && (!data.startEmployment || !isValidEmploymentStartDate(data.startEmployment))}
+                        disabled={isReadOnly}
+                        minDate={new Date(new Date().getFullYear() - 110, new Date().getMonth(), new Date().getDate())}
+                        maxDate={new Date()}
+                      />
+                      {showValidation && getEmploymentStartDateValidationError(data.startEmployment) && (
+                        <div className="text-danger mt-1">
+                          {getEmploymentStartDateValidationError(data.startEmployment)}
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="mb-1 d-flex align-items-center">
@@ -1196,20 +1305,20 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                   {data.isContractLimited === true && (
                     <div className="row g-3 mt-2">
                       <div className="col-md-6">
-                        <Form.Floating>
-                          <Form.Control
-                            type="date"
-                            placeholder="Vertragsende"
-                            value={data.endOfContract || ''}
-                            onChange={e => onChange({ ...data, endOfContract: e.target.value })}
-                            isInvalid={showValidation && !data.endOfContract}
-                            disabled={isReadOnly}
-                          />
-                          <label>Vertragsende</label>
-                          <Form.Control.Feedback type="invalid">
-                            Bitte geben Sie das Ende des befristeten Vertrags an.
-                          </Form.Control.Feedback>
-                        </Form.Floating>
+                        <GeneralDatePicker
+                          value={data.endOfContract || ''}
+                          onChange={(date) => onChange({ ...data, endOfContract: date })}
+                          label="Vertragsende"
+                          isInvalid={showValidation && (!data.endOfContract || !isValidContractEndDate(data.endOfContract))}
+                          disabled={isReadOnly}
+                          minDate={new Date(new Date().getFullYear() - 2, new Date().getMonth(), new Date().getDate())}
+                          maxDate={new Date(new Date().getFullYear() + 120, new Date().getMonth(), new Date().getDate())}
+                        />
+                        {showValidation && getContractEndDateValidationError(data.endOfContract) && (
+                          <div className="text-danger mt-1">
+                            {getContractEndDateValidationError(data.endOfContract)}
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
@@ -1246,13 +1355,36 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                       { value: 'arbeitslosengeld', label: 'Arbeitslosengeld' },
                     ]}
                     value={data.weitereEinkuenfte?.selectedTypes || []}
-                    onChange={selected => onChange({
-                      ...data,
-                      weitereEinkuenfte: {
-                        ...data.weitereEinkuenfte,
-                        selectedTypes: selected
-                      }
-                    })}
+                    onChange={selected => {
+                      // Get the currently selected types
+                      const currentSelectedTypes = data.weitereEinkuenfte?.selectedTypes || [];
+                      
+                      // Find types that were removed
+                      const removedTypes = currentSelectedTypes.filter((type: string) => !selected.includes(type));
+                      
+                      // Clean up additional income changes for removed types
+                      const newChanges = { ...data.additionalIncomeChanges?.changes };
+                      removedTypes.forEach((type: string) => {
+                        delete newChanges[type];
+                      });
+                      
+                      // Update selected types in additional income changes
+                      const currentChangeTypes = data.additionalIncomeChanges?.selectedTypes || [];
+                      const newSelectedChangeTypes = currentChangeTypes.filter((type: string) => !removedTypes.includes(type));
+                      
+                      onChange({
+                        ...data,
+                        weitereEinkuenfte: {
+                          ...data.weitereEinkuenfte,
+                          selectedTypes: selected
+                        },
+                        additionalIncomeChanges: {
+                          ...data.additionalIncomeChanges,
+                          selectedTypes: newSelectedChangeTypes,
+                          changes: newChanges
+                        }
+                      });
+                    }}
                     placeholder="+ Weitere Einkünfte hinzufügen"
                     disabled={isReadOnly}
                   />
@@ -2079,34 +2211,34 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                 <div className="mb-2 fw-bold">{typeLabels[type] || additionalChangeTypeLabels[type] || type}</div>
                 <div className="row g-3 mt-1">
                   <div className="col-md-6">
-                    <Form.Floating>
-                      <Form.Control
-                        type="date"
-                        placeholder="Datum der Änderung"
-                        value={change.date || ''}
-                        onChange={e => {
-                          onChange({
-                            ...data,
-                            additionalIncomeChanges: {
-                              ...data.additionalIncomeChanges,
-                              changes: {
-                                ...data.additionalIncomeChanges?.changes,
-                                [type]: {
-                                  ...change,
-                                  date: e.target.value,
-                                }
+                    <GeneralDatePicker
+                      value={change.date || ''}
+                      onChange={(date) => {
+                        onChange({
+                          ...data,
+                          additionalIncomeChanges: {
+                            ...data.additionalIncomeChanges,
+                            changes: {
+                              ...data.additionalIncomeChanges?.changes,
+                              [type]: {
+                                ...change,
+                                date: date,
                               }
                             }
-                          });
-                        }}
-                        isInvalid={showValidation && (!change.date)}
-                        disabled={isReadOnly}
-                      />
-                      <label>Datum der Änderung</label>
-                      <Form.Control.Feedback type="invalid">
-                        Bitte geben Sie das Datum der Änderung an.
-                      </Form.Control.Feedback>
-                    </Form.Floating>
+                          }
+                        });
+                      }}
+                      label="Datum der Änderung"
+                      isInvalid={showValidation && (!change.date || !isValidFutureDate(change.date))}
+                      disabled={isReadOnly}
+                      minDate={new Date(new Date().getFullYear() -1, new Date().getMonth(), new Date().getDate())}
+                      maxDate={new Date(new Date().getFullYear() + 2, new Date().getMonth(), new Date().getDate())}
+                    />
+                    {showValidation && getDateValidationError(change.date) && (
+                      <div className="text-danger mt-1">
+                        {getDateValidationError(change.date)}
+                      </div>
+                    )}
                   </div>
                   <div className="col-md-6">
                     <CurrencyInput
@@ -2190,8 +2322,72 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                         />
                       </div>
                     </div>
-                    {showValidation && typeof change.increase !== 'boolean' && (
-                      <div className="text-danger mt-1">Bitte geben Sie an, ob sich Ihr Einkommen erhöht oder verringert.</div>
+                    {showValidation && (typeof change.increase !== 'boolean' || validateIncreaseDecreaseRadio(type, change)) && (
+                      <div className="text-danger mt-1">
+                        {typeof change.increase !== 'boolean' 
+                          ? 'Bitte geben Sie an, ob sich Ihr Einkommen erhöht oder verringert.'
+                          : validateIncreaseDecreaseRadio(type, change)
+                        }
+                      </div>
+                    )}
+                  </div>
+                  {/* Radio button for monthly/yearly - now full width below the increase/decrease question */}
+                  <div className="col-12 mt-2">
+                    <div className="d-flex align-items-center">
+                      <div className="flex-grow-1">
+                        <Form.Label className="mb-2 mt-2">Zeitraum für den neuen Betrag auswählen:</Form.Label>
+                      </div>
+                      <div className="d-flex gap-3 ms-5">
+                        <Form.Check
+                          inline
+                          type="radio"
+                          label="pro Monat"
+                          name={`isNewIncomeMonthly-${type}`}
+                          checked={change.isNewIncomeMonthly === true}
+                          onChange={() => {
+                            onChange({
+                              ...data,
+                              additionalIncomeChanges: {
+                                ...data.additionalIncomeChanges,
+                                changes: {
+                                  ...data.additionalIncomeChanges?.changes,
+                                  [type]: {
+                                    ...change,
+                                    isNewIncomeMonthly: true,
+                                  }
+                                }
+                              }
+                            });
+                          }}
+                          disabled={isReadOnly}
+                        />
+                        <Form.Check
+                          inline
+                          type="radio"
+                          label="pro Jahr"
+                          name={`isNewIncomeMonthly-${type}`}
+                          checked={change.isNewIncomeMonthly === false}
+                          onChange={() => {
+                            onChange({
+                              ...data,
+                              additionalIncomeChanges: {
+                                ...data.additionalIncomeChanges,
+                                changes: {
+                                  ...data.additionalIncomeChanges?.changes,
+                                  [type]: {
+                                    ...change,
+                                    isNewIncomeMonthly: false,
+                                  }
+                                }
+                              }
+                            });
+                          }}
+                          disabled={isReadOnly}
+                        />
+                      </div>
+                    </div>
+                    {showValidation && (change.isNewIncomeMonthly === null || change.isNewIncomeMonthly === undefined) && (
+                      <div className="text-danger mt-1">Bitte geben Sie an, ob der neue Betrag monatlich oder jährlich ist.</div>
                     )}
                   </div>
                   {/* Begründung field below, full width */}

@@ -78,7 +78,7 @@ const PDFDownloadButton: React.FC<PDFDownloadButtonProps> = ({
       // Get the API base URL from environment or use relative path
       const apiBaseUrl = process.env.REACT_APP_BACKEND_URL || '';
       
-      // Make API call to generate PDF
+      // Make API call to generate PDF/ZIP
       const response = await fetch(`${apiBaseUrl}/pdf/generate-${formType}`, {
         method: 'POST',
         headers: {
@@ -91,23 +91,33 @@ const PDFDownloadButton: React.FC<PDFDownloadButtonProps> = ({
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      // Get the PDF blob
-      const pdfBlob = await response.blob();
-      
+      // Get the filename from the Content-Disposition header
+      const disposition = response.headers.get('Content-Disposition');
+      let filename = `${formType}_form_${user.id}.pdf`; // default
+      if (disposition && disposition.indexOf('filename=') !== -1) {
+        filename = disposition
+          .split('filename=')[1]
+          .replace(/['"]/g, '')
+          .trim();
+      }
+
+      // Get the blob (PDF or ZIP)
+      const blob = await response.blob();
+
       // Create download link
-      const url = window.URL.createObjectURL(pdfBlob);
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `${formType}_form_${user.id}.pdf`;
-      
+      link.download = filename;
+
       // Trigger download
       document.body.appendChild(link);
       link.click();
-      
+
       // Cleanup
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-      
+
     } catch (error) {
       console.error('Error downloading PDF:', error);
       // You could show a toast notification here

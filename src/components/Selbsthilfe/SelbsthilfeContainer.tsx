@@ -4,6 +4,17 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import SelbsthilfeForm from './SelbsthilfeForm';
+import PDFDownloadButton from '../PDFDownload/PDFDownloadButton';
+
+// Email validation function
+const isValidEmail = (email: string): boolean => {
+  if (!email) return false;
+  
+  // Basic email regex pattern
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  return emailRegex.test(email);
+};
+
 
 interface Helper {
   id: string;
@@ -393,15 +404,24 @@ const SelbsthilfeContainer: React.FC = () => {
       // Prepare form data without address (address will be saved to individual columns)
       const { address, ...formDataWithoutAddress } = formData;
 
-      // Prepare helpers data - for main applicant (index 0), only save hours and jobNumbers
+      // Prepare helpers data - for main applicant (index 0), only save hours and jobNumbers if they will help
       const helpersToSave = helpers.map((helper, index) => {
         if (index === 0) {
-          // Main applicant - only save hours and jobNumbers
-          return {
-            id: helper.id,
-            hours: helper.hours,
-            jobNumbers: helper.jobNumbers
-          };
+          // Main applicant - only save hours and jobNumbers if they will help
+          if (formData.mainApplicantWillHelp === true) {
+            return {
+              id: helper.id,
+              hours: helper.hours,
+              jobNumbers: helper.jobNumbers
+            };
+          } else {
+            // If main applicant won't help, set hours and jobNumbers to null
+            return {
+              id: helper.id,
+              hours: "",
+              jobNumbers: []
+            };
+          }
         } else {
           // Other helpers - save all data
           return helper;
@@ -623,6 +643,8 @@ const SelbsthilfeContainer: React.FC = () => {
           }
           if (!helper.email?.trim()) {
             errors.helfer.push(`${helperType}: E-Mail fehlt`);
+          } else if (!isValidEmail(helper.email)) {
+            errors.helfer.push(`${helperType}: Bitte geben Sie eine gültige E-Mail-Adresse ein`);
           }
           if (!helper.jobTitle?.trim()) {
             errors.helfer.push(`${helperType}: Beruf fehlt`);
@@ -806,6 +828,7 @@ const SelbsthilfeContainer: React.FC = () => {
           if (!helper.name?.trim()) actualErrors += 1;
           if (!helper.surname?.trim()) actualErrors += 1;
           if (!helper.email?.trim()) actualErrors += 1;
+          else if (!isValidEmail(helper.email)) actualErrors += 1;
           if (!helper.jobTitle?.trim()) actualErrors += 1;
           if (helper.jobNumbers.length === 0) actualErrors += 1;
           if (!helper.hours?.trim()) actualErrors += 1;
@@ -945,6 +968,9 @@ const SelbsthilfeContainer: React.FC = () => {
           >
             Speichern
           </Button>
+
+          <PDFDownloadButton formType="selbsthilfe" />
+
           <div className="border-start border-white/20" style={{ margin: '0.5rem 0' }}></div>
           <div className="d-flex align-items-center gap-2 px-3">
             <Form.Check

@@ -4,6 +4,15 @@ import { supabase } from '../../lib/supabase';
 import SelbsthilfeForm from './SelbsthilfeForm';
 import '../Einkommenserklaerung/EinkommenserklaerungContainer.css';
 
+// Email validation function
+const isValidEmail = (email: string): boolean => {
+  if (!email) return false;
+  
+  // Basic email regex pattern
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  return emailRegex.test(email);
+};
+
 interface Helper {
   id: string;
   name: string;
@@ -379,6 +388,8 @@ const SelbsthilfeReviewContainer: React.FC<SelbsthilfeReviewContainerProps> = ({
           }
           if (!helper.email?.trim()) {
             errors.helfer.push(`${helperType}: E-Mail-Adresse fehlt`);
+          } else if (!isValidEmail(helper.email)) {
+            errors.helfer.push(`${helperType}: Bitte geben Sie eine gültige E-Mail-Adresse ein`);
           }
           if (!helper.jobTitle?.trim()) {
             errors.helfer.push(`${helperType}: Berufsangabe fehlt`);

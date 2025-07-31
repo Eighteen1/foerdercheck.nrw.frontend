@@ -80,7 +80,7 @@ const Step5_Kostenaufstellung: React.FC<Step5Props> = ({ formData, updateFormDat
   // Check if foerderVariante has changed and reset appropriate sections
   useEffect(() => {
     if (foerderVariante !== previousFoerderVariante) {
-      const isNeubau = foerderVariante === 'neubau';
+      const isNeubau = foerderVariante.includes('neubau');
       const isBestandserwerbOrErsterwerb = foerderVariante.includes('bestandserwerb') || foerderVariante.includes('ersterwerb');
       const showBaukosten = isNeubau || foerderVariante === 'nutzungsaenderung';
 
@@ -104,7 +104,7 @@ const Step5_Kostenaufstellung: React.FC<Step5Props> = ({ formData, updateFormDat
   }, [foerderVariante]);
 
   const calculateTotal = () => {
-    const isNeubau = foerderVariante === 'neubau';
+    const isNeubau = foerderVariante.includes('neubau');
     const isBestandserwerbOrErsterwerb = foerderVariante.includes('bestandserwerb') || foerderVariante.includes('ersterwerb');
     const showBaukosten = isNeubau || foerderVariante === 'nutzungsaenderung';
     
@@ -173,7 +173,7 @@ const Step5_Kostenaufstellung: React.FC<Step5Props> = ({ formData, updateFormDat
     const errors: { [key: string]: string[] } = {};
     
     // Baugrundstück validation for Neubau
-    if (foerderVariante === 'neubau') {
+    if (foerderVariante.includes('neubau')) {
       const baugrundstuckErrors: string[] = [];
       if (!formData.baugrundstuck.kaufpreis) baugrundstuckErrors.push('Bitte geben Sie den Kaufpreis des Baugrundstücks ein (0,00€ wenn nicht vorhanden)');
       if (!formData.baugrundstuck.wert) baugrundstuckErrors.push('Bitte geben Sie den Wert des Baugrundstücks ein (0,00€ wenn nicht vorhanden)');
@@ -194,9 +194,9 @@ const Step5_Kostenaufstellung: React.FC<Step5Props> = ({ formData, updateFormDat
     }
 
     // Baukosten validation for Neubau or Nutzungsänderung
-    if (foerderVariante === 'neubau' || foerderVariante === 'nutzungsaenderung') {
+    if (foerderVariante.includes('neubau') || foerderVariante === 'nutzungsaenderung') {
       const baukostenErrors: string[] = [];
-      if (foerderVariante === 'neubau' && !formData.baukosten.kostenGebaeude) {
+      if (foerderVariante.includes('neubau') && !formData.baukosten.kostenGebaeude) {
         baukostenErrors.push('Bitte geben Sie die Kosten des Gebäudes ein (0,00€ wenn nicht vorhanden)');
       }
       if (!formData.baukosten.besondereBauausfuhrung) baukostenErrors.push('Bitte geben Sie die besondere Bauausführung ein (0,00€ wenn nicht vorhanden)');
@@ -239,7 +239,7 @@ const Step5_Kostenaufstellung: React.FC<Step5Props> = ({ formData, updateFormDat
     </Tooltip>
   );
 
-  const isNeubau = foerderVariante === 'neubau';
+  const isNeubau = foerderVariante.includes('neubau');
   const isBestandserwerb = foerderVariante.includes('bestandserwerb');
   const isErsterwerb = foerderVariante.includes('ersterwerb');
   const showBaukosten = isNeubau || foerderVariante === 'nutzungsaenderung';

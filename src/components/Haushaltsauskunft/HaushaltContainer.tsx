@@ -472,6 +472,50 @@ const HaushaltContainer: React.FC = () => {
     }
   };
 
+  // Validation helper functions
+  const isValidBirthDate = (birthDate: string): boolean => {
+    if (!birthDate) return false;
+    
+    const date = new Date(birthDate);
+    const now = new Date();
+    const minDate = new Date(now.getFullYear() - 115, now.getMonth(), now.getDate());
+    const maxDate = new Date(now.getFullYear(), now.getMonth() + 10, now.getDate());
+    
+    return date >= minDate && date <= maxDate;
+  };
+
+  const isValidEntryDate = (entryDate: string): boolean => {
+    if (!entryDate) return false;
+    
+    const date = new Date(entryDate);
+    const now = new Date();
+    const minDate = new Date(now.getFullYear() - 115, now.getMonth(), now.getDate());
+    const maxDate = new Date(now.getFullYear() + 3, now.getMonth(), now.getDate());
+    
+    return date >= minDate && date <= maxDate;
+  };
+
+  const isValidBehinderungsgrad = (behinderungsgrad: string): boolean => {
+    if (!behinderungsgrad) return false;
+    
+    const value = parseInt(behinderungsgrad, 10);
+    if (isNaN(value)) return false;
+    
+    // Valid values: 0, 20, 30, 40, 50, 60, 70, 80, 90, 100
+    const validValues = [0, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+    return validValues.includes(value);
+  };
+
+  const isValidPflegegrad = (pflegegrad: string): boolean => {
+    if (!pflegegrad) return false;
+    
+    const value = parseFloat(pflegegrad);
+    if (isNaN(value)) return false;
+    
+    // Must be a whole number between 0 and 5 (inclusive)
+    return Number.isInteger(value) && value >= 0 && value <= 5;
+  };
+
   // Validate form
   const validateForm = () => {
     const errors = {
@@ -489,18 +533,26 @@ const HaushaltContainer: React.FC = () => {
     }
     if (!String(formData.mainApplicant.birthDate || '').trim()) {
       errors.mainApplicant.push('Hauptantragsteller: Geburtsdatum ist erforderlich');
+    } else if (!isValidBirthDate(formData.mainApplicant.birthDate)) {
+      errors.mainApplicant.push('Hauptantragsteller: Geburtsdatum liegt außerhalb des gültigen Bereichs (nicht mehr als 115 Jahre in der Vergangenheit oder mehr als 10 Monate in der Zukunft)');
     }
     if (!String(formData.mainApplicant.employment_title || '').trim()) {
       errors.mainApplicant.push('Hauptantragsteller: Beruf ist erforderlich');
     }
     if (!String(formData.mainApplicant.entrydate || '').trim()) {
       errors.mainApplicant.push('Hauptantragsteller: Aufnahme in den Haushalt ist erforderlich');
+    } else if (!isValidEntryDate(formData.mainApplicant.entrydate)) {
+      errors.mainApplicant.push('Hauptantragsteller: Aufnahme in den Haushalt liegt außerhalb des gültigen Bereichs (nicht mehr als 115 Jahre in der Vergangenheit oder mehr als 3 Jahre in der Zukunft)');
     }
     if (!String(formData.mainApplicant.behinderungsgrad || '').trim()) {
       errors.mainApplicant.push('Hauptantragsteller: Grad der Behinderung ist erforderlich');
+    } else if (!isValidBehinderungsgrad(formData.mainApplicant.behinderungsgrad)) {
+      errors.mainApplicant.push('Hauptantragsteller: Grad der Behinderung muss einer der folgenden Werte sein: 0, 20, 30, 40, 50, 60, 70, 80, 90, 100');
     }
     if (!String(formData.mainApplicant.pflegegrad || '').trim()) {
       errors.mainApplicant.push('Hauptantragsteller: Pflegegrad ist erforderlich');
+    } else if (!isValidPflegegrad(formData.mainApplicant.pflegegrad)) {
+      errors.mainApplicant.push('Hauptantragsteller: Pflegegrad muss eine ganze Zahl zwischen 0 und 5 sein');
     }
 
     // Additional persons validation
@@ -514,18 +566,26 @@ const HaushaltContainer: React.FC = () => {
       }
       if (!String(person.birthDate || '').trim()) {
         errors.additionalPersons.push(`${personName}: Geburtsdatum ist erforderlich`);
+      } else if (!isValidBirthDate(person.birthDate)) {
+        errors.additionalPersons.push(`${personName}: Geburtsdatum liegt außerhalb des gültigen Bereichs (nicht mehr als 115 Jahre in der Vergangenheit oder mehr als 10 Monate in der Zukunft)`);
       }
       if (!String(person.employment_title || '').trim()) {
         errors.additionalPersons.push(`${personName}: Beruf ist erforderlich`);
       }
       if (!String(person.entrydate || '').trim()) {
         errors.additionalPersons.push(`${personName}: Aufnahme in den Haushalt ist erforderlich`);
+      } else if (!isValidEntryDate(person.entrydate)) {
+        errors.additionalPersons.push(`${personName}: Aufnahme in den Haushalt liegt außerhalb des gültigen Bereichs (nicht mehr als 115 Jahre in der Vergangenheit oder mehr als 3 Jahre in der Zukunft)`);
       }
       if (!String(person.behinderungsgrad || '').trim()) {
         errors.additionalPersons.push(`${personName}: Grad der Behinderung ist erforderlich`);
+      } else if (!isValidBehinderungsgrad(person.behinderungsgrad)) {
+        errors.additionalPersons.push(`${personName}: Grad der Behinderung muss einer der folgenden Werte sein: 0, 20, 30, 40, 50, 60, 70, 80, 90, 100`);
       }
       if (!String(person.pflegegrad || '').trim()) {
         errors.additionalPersons.push(`${personName}: Pflegegrad ist erforderlich`);
+      } else if (!isValidPflegegrad(person.pflegegrad)) {
+        errors.additionalPersons.push(`${personName}: Pflegegrad muss eine ganze Zahl zwischen 0 und 5 sein`);
       }
     });
 
@@ -668,7 +728,7 @@ const HaushaltContainer: React.FC = () => {
         </div>
       )}
         
-    {/*<PDFDownloadButton formType="haushalt" /> */}
+    <PDFDownloadButton formType="haushalt" /> 
 
       {/* Header ellipse */}
       <div className="blue-corner">

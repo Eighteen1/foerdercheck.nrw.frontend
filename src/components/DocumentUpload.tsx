@@ -596,7 +596,7 @@ const DocumentUpload: React.FC = () => {
       result.general.push('meldebescheinigung');
 
       // Conditional general documents based on object data
-      if (objectData?.foerderVariante === 'neubau') {
+      if (objectData?.foerderVariante.includes('neubau')) {
         result.general.push('bauzeichnung', 'lageplan');
       }
 
@@ -604,15 +604,15 @@ const DocumentUpload: React.FC = () => {
         result.general.push('grundbuchblattkopie');
       }
 
-      if (['neubau', 'ersterwerb-wohnung', 'ersterwerb-eigenheim'].includes(objectData?.foerderVariante) && objectData?.baugenehmigung_erforderlich) {
+      if (['neubau', 'neubau-wohnung', 'ersterwerb-wohnung', 'ersterwerb-eigenheim'].includes(objectData?.foerderVariante) && objectData?.baugenehmigung_erforderlich) {
         result.general.push('baugenehmigung_vorbescheid');
       }
 
-      if (['neubau', 'ersterwerb-wohnung', 'ersterwerb-eigenheim', 'nutzungsaenderung'].includes(objectData?.foerderVariante) && objectData?.bergsenkungsGebiet) {
+      if (['neubau', 'neubau-wohnung', 'ersterwerb-wohnung', 'ersterwerb-eigenheim', 'nutzungsaenderung'].includes(objectData?.foerderVariante) && objectData?.bergsenkungsGebiet) {
         result.general.push('bergsenkungsGebiet_erklaerung');
       }
 
-      if (objectData?.foerderVariante === 'neubau') {
+      if (objectData?.foerderVariante.includes('neubau')) {
         result.general.push('neubau_kaufvertrag');
       }
 
