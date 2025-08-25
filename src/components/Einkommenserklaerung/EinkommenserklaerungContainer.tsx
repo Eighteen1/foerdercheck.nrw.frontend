@@ -228,12 +228,15 @@ const generateUUID = (): string => {
 // Date validation helper functions
 const isValidFutureDate = (date: string): boolean => {
   if (!date) return false;
-  
+
   const inputDate = new Date(date);
   const now = new Date();
-  const maxDate = new Date(now.getFullYear() + 1, now.getMonth(), now.getDate());
-  
-  return inputDate > now && inputDate <= maxDate;
+
+  // Calculate 12 months (1 year) in the past and future from today
+  const minDate = new Date(now.getFullYear(), now.getMonth() - 12, now.getDate());
+  const maxDate = new Date(now.getFullYear(), now.getMonth() + 12, now.getDate());
+
+  return inputDate >= minDate && inputDate <= maxDate;
 };
 
 // Employment date validation helper functions
@@ -1458,26 +1461,38 @@ const EinkommenserklaerungContainer: React.FC<EinkommenserklaerungContainerProps
     legal: 'Gesetzliche Angaben',
   };
 
+  // Helper function to parse German number format (e.g., "1.234,56 €" -> 1234.56)
+  const parseGermanNumber = (value: string): number => {
+    if (!value) return 0;
+    // Remove currency symbol and spaces
+    let cleaned = value.replace(/[€\s]/g, '');
+    // Remove all dots (thousands separators)
+    cleaned = cleaned.replace(/\./g, '');
+    // Replace comma with dot for decimal
+    cleaned = cleaned.replace(',', '.');
+    return parseFloat(cleaned) || 0;
+  };
+
   // Helper function to get current value for a given type
   const getCurrentValueForType = (applicant: MainFinancials | AdditionalApplicantFinancials, type: string): number => {
     // Handle weitereEinkuenfte types
     if (applicant.weitereEinkuenfte?.selectedTypes?.includes(type)) {
       const weitereData = (applicant.weitereEinkuenfte as any)[type];
       if (weitereData?.betrag) {
-        return parseFloat(weitereData.betrag.replace(/[^\d.,]/g, '').replace(',', '.')) || 0;
+        return parseGermanNumber(weitereData.betrag);
       }
     }
     
     // Handle cost types
     switch (type) {
       case 'werbungskosten':
-        return parseFloat(applicant.werbungskosten?.replace(/[^\d.,]/g, '').replace(',', '.') || '0') || 0;
+        return parseGermanNumber(applicant.werbungskosten || '0');
       case 'kinderbetreuungskosten':
-        return parseFloat(applicant.kinderbetreuungskosten?.replace(/[^\d.,]/g, '').replace(',', '.') || '0') || 0;
+        return parseGermanNumber(applicant.kinderbetreuungskosten || '0');
       case 'unterhaltszahlungen':
         if (applicant.unterhaltszahlungen && applicant.unterhaltszahlungen.length > 0) {
           return applicant.unterhaltszahlungen.reduce((sum: number, item: any) => {
-            return sum + (parseFloat(item.amount?.replace(/[^\d.,]/g, '').replace(',', '.') || '0') || 0);
+            return sum + parseGermanNumber(item.amount || '0');
           }, 0);
         }
         return 0;
@@ -1492,8 +1507,29 @@ const EinkommenserklaerungContainer: React.FC<EinkommenserklaerungContainerProps
       return null; // Let other validations handle missing values
     }
     
+    // For types that have turnus options, check if the turnus values match
+    if (type === 'ausland' || type === 'arbeitslosengeld') {
+      const originalTurnus = applicant.weitereEinkuenfte?.[type]?.turnus;
+      const changeTurnus = change.isNewIncomeMonthly === true ? 'monatlich' : change.isNewIncomeMonthly === false ? 'jährlich' : null;
+      
+      // If either turnus is null/undefined, don't validate
+      if (!originalTurnus || changeTurnus === null) {
+        return null;
+      }
+      
+      // For arbeitslosengeld, if original is 'täglich', don't validate (no matching option in change)
+      if (type === 'arbeitslosengeld' && originalTurnus === 'täglich') {
+        return null;
+      }
+      
+      // If turnus values don't match, don't validate
+      if (originalTurnus !== changeTurnus) {
+        return null;
+      }
+    }
+    
     const currentValue = getCurrentValueForType(applicant, type);
-    const newValue = parseFloat(change.newAmount.replace(/[^\d.,]/g, '').replace(',', '.') || '0') || 0;
+    const newValue = parseGermanNumber(change.newAmount);
     
     const typeLabel = typeLabels[type] || additionalChangeTypeLabels[type] || type;
     
@@ -1557,7 +1593,7 @@ const EinkommenserklaerungContainer: React.FC<EinkommenserklaerungContainerProps
         if (!mainFinancials.incomeChangeDate) {
           mainSectionErrors.income.push('Bitte geben Sie das Datum der Einkommensänderung an.');
         } else if (!isValidFutureDate(mainFinancials.incomeChangeDate)) {
-          mainSectionErrors.income.push('Das Datum der Einkommensänderung darf nicht in der Vergangenheit liegen und nicht mehr als 12 Monate in der Zukunft.');
+          mainSectionErrors.income.push('Das Datum der Einkommensänderung darf nicht mehr als 12 Monate in der Vergangenheit liegen und nicht mehr als 12 Monate in der Zukunft.');
         }
         if (mainFinancials.willChangeIncrease === null) mainSectionErrors.income.push('Bitte geben Sie an, ob das Einkommen steigt oder sinkt.');
         if (!mainFinancials.newIncome) mainSectionErrors.income.push('Bitte geben Sie den neuen Betrag an.');
@@ -1647,7 +1683,7 @@ const EinkommenserklaerungContainer: React.FC<EinkommenserklaerungContainerProps
         if (!change.date) {
           mainSectionErrors.changes.push(`Bitte geben Sie das Änderungsdatum für ${typeLabels[type] || additionalChangeTypeLabels[type] || type} an.`);
         } else if (!isValidFutureDate(change.date)) {
-          mainSectionErrors.changes.push(`Das Änderungsdatum für ${typeLabels[type] || additionalChangeTypeLabels[type] || type} darf weder in der Vergangenheit noch mehr als 12 Monate in der Zukunft liegen.`);
+          mainSectionErrors.changes.push(`Das Änderungsdatum für ${typeLabels[type] || additionalChangeTypeLabels[type] || type} darf weder mehr als 12 Monate in der Vergangenheit noch mehr als 12 Monate in der Zukunft liegen.`);
         }
         if (!change.newAmount) mainSectionErrors.changes.push(`Bitte geben Sie den neuen Betrag für ${typeLabels[type] || additionalChangeTypeLabels[type] || type} an.`);
         if (typeof change.increase !== 'boolean') {
@@ -1711,7 +1747,7 @@ const EinkommenserklaerungContainer: React.FC<EinkommenserklaerungContainerProps
           if (!applicant.incomeChangeDate) {
             applicantSectionErrors.income.push('Bitte geben Sie das Datum der Einkommensänderung an.');
           } else if (!isValidFutureDate(applicant.incomeChangeDate)) {
-            applicantSectionErrors.income.push('Das Datum der Einkommensänderung darf nicht in der Vergangenheit liegen und nicht mehr als 12 Monate in der Zukunft.');
+            applicantSectionErrors.income.push('Das Datum der Einkommensänderung darf nicht  mehr als 12 Monate in der Vergangenheit liegen und nicht mehr als 12 Monate in der Zukunft.');
           }
           if (applicant.willChangeIncrease === null) applicantSectionErrors.income.push('Bitte geben Sie an, ob sich ihr Einkommen erhöht oder verringert.');
           if (!applicant.newIncome) applicantSectionErrors.income.push('Bitte geben Sie den neuen Betrag an.');
@@ -1801,7 +1837,7 @@ const EinkommenserklaerungContainer: React.FC<EinkommenserklaerungContainerProps
           if (!change.date) {
             applicantSectionErrors.changes.push(`Bitte geben Sie das Änderungsdatum für ${typeLabels[type] || additionalChangeTypeLabels[type] || type} an.`);
           } else if (!isValidFutureDate(change.date)) {
-            applicantSectionErrors.changes.push(`Das Änderungsdatum für ${typeLabels[type] || additionalChangeTypeLabels[type] || type} darf nicht in der Vergangenheit liegen und nicht mehr als 12 Monate in der Zukunft.`);
+            applicantSectionErrors.changes.push(`Das Änderungsdatum für ${typeLabels[type] || additionalChangeTypeLabels[type] || type} darf nicht mehr als 12 Monate in der Vergangenheit liegen und nicht mehr als 12 Monate in der Zukunft.`);
           }
           if (!change.newAmount) applicantSectionErrors.changes.push(`Bitte geben Sie den neuen Betrag für ${typeLabels[type] || additionalChangeTypeLabels[type] || type} an.`);
           if (typeof change.increase !== 'boolean') {

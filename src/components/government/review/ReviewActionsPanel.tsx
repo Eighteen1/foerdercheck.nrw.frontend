@@ -160,7 +160,7 @@ const DOCUMENT_TYPES: { [id: string]: {title: string, description: string, categ
     category: 'General',
     supports_multiple: true
   },
-  'pregnancy_cert': {
+  'pregnancy-cert': {
     title: 'Schwangerschafts Nachweis',
     description: 'Nachweis über die Schwangerschaft',
     category: 'General',
@@ -172,15 +172,33 @@ const DOCUMENT_TYPES: { [id: string]: {title: string, description: string, categ
     category: 'General',
     supports_multiple: true
   },
-  'disability_cert': {
+  'nachweis_disability': {
     title: 'Nachweis über die Schwerbehinderteneigenschaft/GdB',
-    description: 'Nachweis über die Schwerbehinderteneigenschaft/Grad der Behinderung (GdB)',
+    description: 'Nachweis über die Schwerbehinderteneigenschaft/Grad der Behinderung (GdB). Wie z.B. Schwerbehindertenausweis oder Feststellungsbescheid nach § 152 Abs. 1 SGB IX',
+    category: 'Applicant',
+    supports_multiple: true
+  },
+  'pflegegrad_nachweis': {
+    title: 'Nachweis der Pflegebedürftigkeit',
+    description: 'Nachweis über die in der Haushaltsauskunft ausgewiesene Pflegebedürftigkeit/Pflegegrad',
+    category: 'Applicant',
+    supports_multiple: true
+  },
+  'vollmacht-cert': {
+    title: 'Vollmachtsurkunde',
+    description: 'Vollmachtsurkunde für die bevollmächtigte Person/Firma',
     category: 'General',
     supports_multiple: true
   },
-  'vollmacht_cert': {
-    title: 'Vollmachtsurkunde',
-    description: 'Vollmachtsurkunde für die bevollmächtigte Person/Firma',
+  'nachweis_darlehen': {
+    title: 'Darlehenszusage(n)',
+    description: 'Darlehenszusage(n) von Banken oder anderen Kreditgebern',
+    category: 'General',
+    supports_multiple: true
+  },
+  'eigenkapital_nachweis': {
+    title: 'Nachweis Eigenkapital',
+    description: 'Nachweis über verfügbares Eigenkapital (z.B. Bankauszüge, Sparbücher, Wertpapiere)',
     category: 'General',
     supports_multiple: true
   },
@@ -261,6 +279,18 @@ const DOCUMENT_TYPES: { [id: string]: {title: string, description: string, categ
   'sonstige_dokumente': {
     title: 'Sonstige Dokumente',
     description: 'Weitere relevante Dokumente',
+    category: 'Applicant',
+    supports_multiple: true
+  },
+  'freiwillige_krankenversicherung_nachweis': {
+    title: 'Nachweis über freiwillige Beiträge zur Krankenversicherung',
+    description: 'Nachweis über freiwillige Beiträge zur Krankenversicherung',
+    category: 'Applicant',
+    supports_multiple: true
+  },
+  'freiwillige_versicherungsbeitraege_nachweis': {
+    title: 'Nachweis über freiwillige Renten- und Lebensversicherungsbeiträge',
+    description: 'Nachweis über freiwillige Renten- und Lebensversicherungsbeiträge',
     category: 'Applicant',
     supports_multiple: true
   }
@@ -1135,8 +1165,8 @@ const ReviewActionsPanel: React.FC<ReviewActionsPanelProps> = ({
               {(() => {
                 const groups = groupChecklistItems(finishChecklist);
                 const sections: { key: SectionKey; label: string; color: string }[] = [
-                  { key: 'correct', label: 'Korrekte Angaben', color: '#388e3c' },
-                  { key: 'wrong', label: 'Fehlerhafte Angaben', color: '#d32f2f' },
+                  { key: 'correct', label: 'Gültige Angaben', color: '#388e3c' },
+                  { key: 'wrong', label: 'Ungültige Angaben', color: '#d32f2f' },
                   { key: 'undefined', label: 'Ungeprüfte Angaben', color: '#757575' },
                 ];
                 return <>
@@ -1480,9 +1510,13 @@ const ReviewActionsPanel: React.FC<ReviewActionsPanelProps> = ({
                   disabled={documentRequestLoading}
                 >
                   <option value="">Bitte wählen Sie ein Dokument aus...</option>
-                  {Object.entries(DOCUMENT_TYPES).map(([id, doc]) => (
-                    <option key={id} value={id}>{doc.title}</option>
-                  ))}
+                  {Object.entries(DOCUMENT_TYPES)
+                    .sort(([, docA], [, docB]) => 
+                      docA.title.localeCompare(docB.title, 'de', { sensitivity: 'base' })
+                    )
+                    .map(([id, doc]) => (
+                      <option key={id} value={id}>{doc.title}</option>
+                    ))}
                 </select>
               </div>
 

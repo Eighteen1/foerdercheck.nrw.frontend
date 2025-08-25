@@ -25,14 +25,14 @@ interface MainFinancials {
   // Core employment income fields (matching database structure)
   hasSalaryIncome: boolean | null;
   // All Selbstauskunft fields matching database columns
-  wheinachtsgeld_next12?: string;
-  urlaubsgeld_next12?: string;
-  incomeagriculture?: string;
-  incomerent?: string;
+  wheinachtsgeld_next12_net?: string;
+  urlaubsgeld_next12_net?: string;
+  incomeagriculture_net?: string;
+  incomerent_net?: string;
   hastaxfreeunterhaltincome?: boolean;
   hastaxableunterhaltincome?: boolean;
   incomeunterhalttaxfree?: string;
-  incomeunterhalttaxable?: string;
+  incomeunterhalttaxable_net?: string;
   ispayingunterhalt: boolean | null;
   unterhaltszahlungenTotal?: any;
   hasbusinessincome?: boolean;
@@ -102,10 +102,10 @@ const initialMainFinancials: MainFinancials = {
   firstName: '',
   lastName: '',
   hasSalaryIncome: null,
-  wheinachtsgeld_next12: '',
-  urlaubsgeld_next12: '',
-  incomeagriculture: '',
-  incomerent: '',
+  wheinachtsgeld_next12_net: '',
+  urlaubsgeld_next12_net: '',
+  incomeagriculture_net: '',
+  incomerent_net: '',
   hastaxfreeunterhaltincome: false,
   hastaxableunterhaltincome: false,
   ispayingunterhalt: false,
@@ -153,7 +153,7 @@ const initialMainFinancials: MainFinancials = {
     selectedTypes: [],
   },
   incomeunterhalttaxfree: '',
-  incomeunterhalttaxable: ''
+  incomeunterhalttaxable_net: ''
 };
 
 // Add search terms for each section (aligned with EK pattern)
@@ -337,8 +337,8 @@ const SelbstauskunftContainer: React.FC<SelbstauskunftContainerProps> = ({ resid
           lastName: userData?.lastname || '',
           hasSalaryIncome: financialData?.hasSalaryIncome ?? null,
           // Extended fields for Selbstauskunft - salary-related fields only if hasSalaryIncome is true
-          wheinachtsgeld_next12: financialData?.hasSalaryIncome ? safeFormatCurrencyForDisplay(financialData.wheinachtsgeld_next12) : '',
-          urlaubsgeld_next12: financialData?.hasSalaryIncome ? safeFormatCurrencyForDisplay(financialData.urlaubsgeld_next12) : '',
+          wheinachtsgeld_next12_net: financialData?.hasSalaryIncome ? safeFormatCurrencyForDisplay(financialData.wheinachtsgeld_next12_net) : '',
+          urlaubsgeld_next12_net: financialData?.hasSalaryIncome ? safeFormatCurrencyForDisplay(financialData.urlaubsgeld_next12_net) : '',
           monthlynetsalary: financialData?.hasSalaryIncome ? safeFormatCurrencyForDisplay(financialData.monthlynetsalary) : '',
           otheremploymentmonthlynetincome: financialData?.hasSalaryIncome ? (financialData?.otheremploymentmonthlynetincome || []) : [],
           hastaxfreeunterhaltincome: !!financialData?.hastaxfreeunterhaltincome,
@@ -353,8 +353,8 @@ const SelbstauskunftContainer: React.FC<SelbstauskunftContainerProps> = ({ resid
           yearlyselfemployednetincome: financialData?.hasbusinessincome ? safeFormatCurrencyForDisplay(financialData.yearlyselfemployednetincome) : '',
           yearlybusinessnetincome: financialData?.hasbusinessincome ? safeFormatCurrencyForDisplay(financialData.yearlybusinessnetincome) : '',
           yearlycapitalnetincome: financialData?.hascapitalincome ? safeFormatCurrencyForDisplay(financialData.yearlycapitalnetincome) : '',
-          incomeagriculture: financialData?.hasagricultureincome ? safeFormatCurrencyForDisplay(financialData.incomeagriculture) : '',
-          incomerent: financialData?.hasrentincome ? safeFormatCurrencyForDisplay(financialData.incomerent) : '',
+          incomeagriculture_net: financialData?.hasagricultureincome ? safeFormatCurrencyForDisplay(financialData.incomeagriculture_net) : '',
+          incomerent_net: financialData?.hasrentincome ? safeFormatCurrencyForDisplay(financialData.incomerent_net) : '',
           pensionmonthlynetincome: financialData?.haspensionincome ? (financialData?.pensionmonthlynetincome || []) : [],
           haskindergeldincome: !!financialData?.haskindergeldincome,
           monthlykindergeldnetincome: safeFormatCurrencyForDisplay(financialData?.monthlykindergeldnetincome),
@@ -400,7 +400,7 @@ const SelbstauskunftContainer: React.FC<SelbstauskunftContainerProps> = ({ resid
             ].filter(Boolean)) as string[]
           },
           incomeunterhalttaxfree: safeFormatCurrencyForDisplay(financialData?.incomeunterhalttaxfree),
-          incomeunterhalttaxable: safeFormatCurrencyForDisplay(financialData?.incomeunterhalttaxable)
+          incomeunterhalttaxable_net: safeFormatCurrencyForDisplay(financialData?.incomeunterhalttaxable_net)
         });
 
                 // Load additional applicants data (UUID-based structure)
@@ -494,14 +494,14 @@ const SelbstauskunftContainer: React.FC<SelbstauskunftContainerProps> = ({ resid
               lastName: person.lastName || '',
               hasSalaryIncome: fin.hasSalaryIncome ?? null,
               // Extended fields for Selbstauskunft - salary-related fields only if hasSalaryIncome is true
-              wheinachtsgeld_next12: fin.hasSalaryIncome ? safeFormatCurrencyForDisplay(fin.wheinachtsgeld_next12) : '',
-              urlaubsgeld_next12: fin.hasSalaryIncome ? safeFormatCurrencyForDisplay(fin.urlaubsgeld_next12) : '',
+              wheinachtsgeld_next12_net: fin.hasSalaryIncome ? safeFormatCurrencyForDisplay(fin.wheinachtsgeld_next12_net) : '',
+              urlaubsgeld_next12_net: fin.hasSalaryIncome ? safeFormatCurrencyForDisplay(fin.urlaubsgeld_next12_net) : '',
               monthlynetsalary: fin.hasSalaryIncome ? safeFormatCurrencyForDisplay(fin.monthlynetsalary) : '',
               otheremploymentmonthlynetincome: fin.hasSalaryIncome ? (fin.otheremploymentmonthlynetincome || []) : [],  
               hastaxfreeunterhaltincome: !!fin.hastaxfreeunterhaltincome,
               hastaxableunterhaltincome: !!fin.hastaxableunterhaltincome,
               incomeunterhalttaxfree: fin.hastaxfreeunterhaltincome ? safeFormatCurrencyForDisplay(fin.incomeunterhalttaxfree) : '',
-              incomeunterhalttaxable: fin.hastaxableunterhaltincome ? safeFormatCurrencyForDisplay(fin.incomeunterhalttaxable) : '',
+              incomeunterhalttaxable_net: fin.hastaxableunterhaltincome ? safeFormatCurrencyForDisplay(fin.incomeunterhalttaxable_net) : '',
               ispayingunterhalt: fin.ispayingunterhalt === null ? null : !!fin.ispayingunterhalt,
               unterhaltszahlungenTotal: fin.ispayingunterhalt ? (fin.unterhaltszahlungenTotal || []) : null,
               hasbusinessincome: !!fin.hasbusinessincome,
@@ -512,8 +512,8 @@ const SelbstauskunftContainer: React.FC<SelbstauskunftContainerProps> = ({ resid
               yearlyselfemployednetincome: fin.hasbusinessincome ? safeFormatCurrencyForDisplay(fin.yearlyselfemployednetincome) : '',
               yearlybusinessnetincome: fin.hasbusinessincome ? safeFormatCurrencyForDisplay(fin.yearlybusinessnetincome) : '',
               yearlycapitalnetincome: fin.hascapitalincome ? safeFormatCurrencyForDisplay(fin.yearlycapitalnetincome) : '',
-              incomeagriculture: fin.hasagricultureincome ? safeFormatCurrencyForDisplay(fin.incomeagriculture) : '',
-              incomerent: fin.hasrentincome ? safeFormatCurrencyForDisplay(fin.incomerent) : '',
+              incomeagriculture_net: fin.hasagricultureincome ? safeFormatCurrencyForDisplay(fin.incomeagriculture_net) : '',
+              incomerent_net: fin.hasrentincome ? safeFormatCurrencyForDisplay(fin.incomerent_net) : '',
               pensionmonthlynetincome: fin.haspensionincome ? (fin.pensionmonthlynetincome || []) : [],
               haskindergeldincome: !!fin.haskindergeldincome,
               monthlykindergeldnetincome: safeFormatCurrencyForDisplay(fin.monthlykindergeldnetincome),
@@ -732,16 +732,16 @@ const SelbstauskunftContainer: React.FC<SelbstauskunftContainerProps> = ({ resid
         return {
           hasSalaryIncome: applicant.hasSalaryIncome,
           // Salary-related fields only if hasSalaryIncome is true
-          wheinachtsgeld_next12: applicant.hasSalaryIncome && applicant.wheinachtsgeld_next12 ? safeFormatCurrencyForDatabase(applicant.wheinachtsgeld_next12) : null,
-          urlaubsgeld_next12: applicant.hasSalaryIncome && applicant.urlaubsgeld_next12 ? safeFormatCurrencyForDatabase(applicant.urlaubsgeld_next12) : null,
+          wheinachtsgeld_next12_net: applicant.hasSalaryIncome && applicant.wheinachtsgeld_next12_net ? safeFormatCurrencyForDatabase(applicant.wheinachtsgeld_next12_net) : null,
+          urlaubsgeld_next12_net: applicant.hasSalaryIncome && applicant.urlaubsgeld_next12_net ? safeFormatCurrencyForDatabase(applicant.urlaubsgeld_next12_net) : null,
           monthlynetsalary: applicant.hasSalaryIncome && applicant.monthlynetsalary ? safeFormatCurrencyForDatabase(applicant.monthlynetsalary) : null,
           otheremploymentmonthlynetincome: applicant.hasSalaryIncome ? (applicant.otheremploymentmonthlynetincome || []) : null,
-          incomeagriculture: hasAgricultureIncome && applicant.incomeagriculture ? safeFormatCurrencyForDatabase(applicant.incomeagriculture) : null,
-          incomerent: hasRentIncome && applicant.incomerent ? safeFormatCurrencyForDatabase(applicant.incomerent) : null,
+          incomeagriculture_net: hasAgricultureIncome && applicant.incomeagriculture_net ? safeFormatCurrencyForDatabase(applicant.incomeagriculture_net) : null,
+          incomerent_net: hasRentIncome && applicant.incomerent_net ? safeFormatCurrencyForDatabase(applicant.incomerent_net) : null,
           hastaxfreeunterhaltincome: hasTaxFreeUnterhalt,
           incomeunterhalttaxfree: hasTaxFreeUnterhalt && applicant.incomeunterhalttaxfree ? safeFormatCurrencyForDatabase(applicant.incomeunterhalttaxfree) : null,
           hastaxableunterhaltincome: hasTaxableUnterhalt,
-          incomeunterhalttaxable: hasTaxableUnterhalt && applicant.incomeunterhalttaxable ? safeFormatCurrencyForDatabase(applicant.incomeunterhalttaxable) : null,
+          incomeunterhalttaxable_net: hasTaxableUnterhalt && applicant.incomeunterhalttaxable_net ? safeFormatCurrencyForDatabase(applicant.incomeunterhalttaxable_net) : null,
           ispayingunterhalt: applicant.ispayingunterhalt === null ? null : !!applicant.ispayingunterhalt,
           unterhaltszahlungenTotal: applicant.ispayingunterhalt ? (applicant.unterhaltszahlungenTotal || []) : null,
           hasbusinessincome: applicant.weitereEinkuenfte?.selectedTypes?.includes('gewerbe') || false,
@@ -868,10 +868,10 @@ const SelbstauskunftContainer: React.FC<SelbstauskunftContainerProps> = ({ resid
       if (!mainFinancials.monthlynetsalary) {
         mainSectionErrors['1'].push('Lohn/Gehalt: Monatliches Nettoeinkommen ist erforderlich');
       }
-      if (!mainFinancials.wheinachtsgeld_next12) {
+      if (!mainFinancials.wheinachtsgeld_next12_net) {
         mainSectionErrors['1'].push('Weihnachtsgeld: Jahresbetrag ist erforderlich');
       }
-      if (!mainFinancials.urlaubsgeld_next12) {
+      if (!mainFinancials.urlaubsgeld_next12_net) {
         mainSectionErrors['1'].push('Urlaubsgeld: Jahresbetrag ist erforderlich');
       }
       // Validate sonstige beträge
@@ -891,13 +891,13 @@ const SelbstauskunftContainer: React.FC<SelbstauskunftContainerProps> = ({ resid
     if (mainFinancials.weitereEinkuenfte?.selectedTypes?.includes('gewerbe') && isCurrencyEmptyOrZero(mainFinancials.yearlybusinessnetincome) && isCurrencyEmptyOrZero(mainFinancials.yearlyselfemployednetincome)) {
       mainSectionErrors['1'].push('Summe aus Gewerbebetrieb/selbstständiger Arbeit muss größer als 0 sein');
     }
-    if (mainFinancials.weitereEinkuenfte?.selectedTypes?.includes('landforst') && isCurrencyEmptyOrZero(mainFinancials.incomeagriculture)) {
+    if (mainFinancials.weitereEinkuenfte?.selectedTypes?.includes('landforst') && isCurrencyEmptyOrZero(mainFinancials.incomeagriculture_net)) {
       mainSectionErrors['1'].push('Land- und Forstwirtschaft: Jahresbetrag fehlt oder ist 0');
     }
     if (mainFinancials.weitereEinkuenfte?.selectedTypes?.includes('kapital') && isCurrencyEmptyOrZero(mainFinancials.yearlycapitalnetincome)) {
       mainSectionErrors['1'].push('Kapitalvermögen: Jahresbetrag fehlt oder ist 0');
     }
-    if (mainFinancials.weitereEinkuenfte?.selectedTypes?.includes('vermietung') && isCurrencyEmptyOrZero(mainFinancials.incomerent)) {
+    if (mainFinancials.weitereEinkuenfte?.selectedTypes?.includes('vermietung') && isCurrencyEmptyOrZero(mainFinancials.incomerent_net)) {
       mainSectionErrors['1'].push('Vermietung und Verpachtung: Jahresbetrag fehlt oder ist 0');
     }
 
@@ -932,7 +932,7 @@ const SelbstauskunftContainer: React.FC<SelbstauskunftContainerProps> = ({ resid
     if (mainFinancials.weitereEinkuenfte2?.selectedTypes?.includes('unterhaltsteuerfrei') && isCurrencyEmptyOrZero(mainFinancials.incomeunterhalttaxfree)) {
       mainSectionErrors['2'].push('Unterhaltsleistungen steuerfrei: Monatliches Nettoeinkommen fehlt oder ist 0');
     }
-    if (mainFinancials.weitereEinkuenfte2?.selectedTypes?.includes('unterhaltsteuerpflichtig') && isCurrencyEmptyOrZero(mainFinancials.incomeunterhalttaxable)) {
+    if (mainFinancials.weitereEinkuenfte2?.selectedTypes?.includes('unterhaltsteuerpflichtig') && isCurrencyEmptyOrZero(mainFinancials.incomeunterhalttaxable_net)) {
       mainSectionErrors['2'].push('Unterhaltsleistungen steuerpflichtig: Monatliches Nettoeinkommen fehlt oder ist 0');
     }
     if (mainFinancials.weitereEinkuenfte2?.selectedTypes?.includes('elterngeld') && isCurrencyEmptyOrZero(mainFinancials.monthlyelterngeldnetincome)) {
@@ -1107,10 +1107,10 @@ const SelbstauskunftContainer: React.FC<SelbstauskunftContainerProps> = ({ resid
         if (!applicant.monthlynetsalary) {
           applicantSectionErrors['1'].push('Lohn/Gehalt: Monatliches Nettoeinkommen ist erforderlich');
         }
-        if (!applicant.wheinachtsgeld_next12) {
+        if (!applicant.wheinachtsgeld_next12_net) {
           applicantSectionErrors['1'].push('Weihnachtsgeld: Jahresbetrag ist erforderlich');
         }
-        if (!applicant.urlaubsgeld_next12) {
+        if (!applicant.urlaubsgeld_next12_net) {
           applicantSectionErrors['1'].push('Urlaubsgeld: Jahresbetrag ist erforderlich');
         }
         // Validate sonstige beträge
@@ -1130,13 +1130,13 @@ const SelbstauskunftContainer: React.FC<SelbstauskunftContainerProps> = ({ resid
       if (applicant.weitereEinkuenfte?.selectedTypes?.includes('gewerbe') && isCurrencyEmptyOrZero(applicant.yearlybusinessnetincome) && isCurrencyEmptyOrZero(applicant.yearlyselfemployednetincome)) {
         applicantSectionErrors['1'].push('Summe aus Gewerbebetrieb/selbstständiger Arbeit muss größer als 0 sein');
       }
-      if (applicant.weitereEinkuenfte?.selectedTypes?.includes('landforst') && isCurrencyEmptyOrZero(applicant.incomeagriculture)) {
+      if (applicant.weitereEinkuenfte?.selectedTypes?.includes('landforst') && isCurrencyEmptyOrZero(applicant.incomeagriculture_net)) {
         applicantSectionErrors['1'].push('Land- und Forstwirtschaft: Jahresbetrag fehlt oder ist 0');
       }
       if (applicant.weitereEinkuenfte?.selectedTypes?.includes('kapital') && isCurrencyEmptyOrZero(applicant.yearlycapitalnetincome)) {
         applicantSectionErrors['1'].push('Kapitalvermögen: Jahresbetrag fehlt oder ist 0');
       }
-      if (applicant.weitereEinkuenfte?.selectedTypes?.includes('vermietung') && isCurrencyEmptyOrZero(applicant.incomerent)) {
+      if (applicant.weitereEinkuenfte?.selectedTypes?.includes('vermietung') && isCurrencyEmptyOrZero(applicant.incomerent_net)) {
         applicantSectionErrors['1'].push('Vermietung und Verpachtung: Jahresbetrag fehlt oder ist 0');
       }
 
@@ -1171,7 +1171,7 @@ const SelbstauskunftContainer: React.FC<SelbstauskunftContainerProps> = ({ resid
       if (applicant.weitereEinkuenfte2?.selectedTypes?.includes('unterhaltsteuerfrei') && isCurrencyEmptyOrZero(applicant.incomeunterhalttaxfree)) {
         applicantSectionErrors['2'].push('Unterhaltsleistungen steuerfrei: Monatliches Nettoeinkommen fehlt oder ist 0');
       }
-      if (applicant.weitereEinkuenfte2?.selectedTypes?.includes('unterhaltsteuerpflichtig') && isCurrencyEmptyOrZero(applicant.incomeunterhalttaxable)) {
+      if (applicant.weitereEinkuenfte2?.selectedTypes?.includes('unterhaltsteuerpflichtig') && isCurrencyEmptyOrZero(applicant.incomeunterhalttaxable_net)) {
         applicantSectionErrors['2'].push('Unterhaltsleistungen steuerpflichtig: Monatliches Nettoeinkommen fehlt oder ist 0');
       }
       if (applicant.weitereEinkuenfte2?.selectedTypes?.includes('elterngeld') && isCurrencyEmptyOrZero(applicant.monthlyelterngeldnetincome)) {
@@ -1384,10 +1384,10 @@ const SelbstauskunftContainer: React.FC<SelbstauskunftContainerProps> = ({ resid
     totalPotentialFields++; // hasSalaryIncome
     if (main.hasSalaryIncome === null) actualErrors++;
     if (main.hasSalaryIncome === true) {
-      totalPotentialFields += 3; // monthlynetsalary, wheinachtsgeld_next12, urlaubsgeld_next12
+      totalPotentialFields += 3; // monthlynetsalary, wheinachtsgeld_next12_net, urlaubsgeld_next12_net
       if (!main.monthlynetsalary) actualErrors++;
-      if (!main.wheinachtsgeld_next12) actualErrors++;
-      if (!main.urlaubsgeld_next12) actualErrors++;
+      if (!main.wheinachtsgeld_next12_net) actualErrors++;
+      if (!main.urlaubsgeld_next12_net) actualErrors++;
       // sonstige beträge
       if (main.otheremploymentmonthlynetincome && Array.isArray(main.otheremploymentmonthlynetincome)) {
         const { total, errors } = countArrayFieldsForCurrency(main.otheremploymentmonthlynetincome, ['type', 'amount']);
@@ -1402,7 +1402,7 @@ const SelbstauskunftContainer: React.FC<SelbstauskunftContainerProps> = ({ resid
     }
     if (main.weitereEinkuenfte?.selectedTypes?.includes('landforst')) {
       totalPotentialFields++;
-      if (isCurrencyEmptyOrZero(main.incomeagriculture)) actualErrors++;
+      if (isCurrencyEmptyOrZero(main.incomeagriculture_net)) actualErrors++;
     }
     if (main.weitereEinkuenfte?.selectedTypes?.includes('kapital')) {
       totalPotentialFields++;
@@ -1410,7 +1410,7 @@ const SelbstauskunftContainer: React.FC<SelbstauskunftContainerProps> = ({ resid
     }
     if (main.weitereEinkuenfte?.selectedTypes?.includes('vermietung')) {
       totalPotentialFields++;
-      if (isCurrencyEmptyOrZero(main.incomerent)) actualErrors++;
+      if (isCurrencyEmptyOrZero(main.incomerent_net)) actualErrors++;
     }
     // Section 2: Bezüge und Weitere Einkünfte
     totalPotentialFields++; // haspensionincome
@@ -1438,7 +1438,7 @@ const SelbstauskunftContainer: React.FC<SelbstauskunftContainerProps> = ({ resid
     }
     if (main.weitereEinkuenfte2?.selectedTypes?.includes('unterhaltsteuerpflichtig')) {
       totalPotentialFields++;
-      if (isCurrencyEmptyOrZero(main.incomeunterhalttaxable)) actualErrors++;
+      if (isCurrencyEmptyOrZero(main.incomeunterhalttaxable_net)) actualErrors++;
     }
     if (main.weitereEinkuenfte2?.selectedTypes?.includes('elterngeld')) {
       totalPotentialFields++;
@@ -1530,8 +1530,8 @@ const SelbstauskunftContainer: React.FC<SelbstauskunftContainerProps> = ({ resid
       if (applicant.hasSalaryIncome === true) {
         totalPotentialFields += 3;
         if (!applicant.monthlynetsalary) actualErrors++;
-        if (!applicant.wheinachtsgeld_next12) actualErrors++;
-        if (!applicant.urlaubsgeld_next12) actualErrors++;
+        if (!applicant.wheinachtsgeld_next12_net) actualErrors++;
+        if (!applicant.urlaubsgeld_next12_net) actualErrors++;
         if (applicant.otheremploymentmonthlynetincome && Array.isArray(applicant.otheremploymentmonthlynetincome)) {
           const { total, errors } = countArrayFieldsForCurrency(applicant.otheremploymentmonthlynetincome, ['type', 'amount']);
           totalPotentialFields += total;
@@ -1544,7 +1544,7 @@ const SelbstauskunftContainer: React.FC<SelbstauskunftContainerProps> = ({ resid
       }
       if (applicant.weitereEinkuenfte?.selectedTypes?.includes('landforst')) {
         totalPotentialFields++;
-        if (isCurrencyEmptyOrZero(applicant.incomeagriculture)) actualErrors++;
+        if (isCurrencyEmptyOrZero(applicant.incomeagriculture_net)) actualErrors++;
       }
       if (applicant.weitereEinkuenfte?.selectedTypes?.includes('kapital')) {
         totalPotentialFields++;
@@ -1552,7 +1552,7 @@ const SelbstauskunftContainer: React.FC<SelbstauskunftContainerProps> = ({ resid
       }
       if (applicant.weitereEinkuenfte?.selectedTypes?.includes('vermietung')) {
         totalPotentialFields++;
-        if (isCurrencyEmptyOrZero(applicant.incomerent)) actualErrors++;
+        if (isCurrencyEmptyOrZero(applicant.incomerent_net)) actualErrors++;
       }
       // Section 2: Bezüge und Weitere Einkünfte
       totalPotentialFields++;
@@ -1578,7 +1578,7 @@ const SelbstauskunftContainer: React.FC<SelbstauskunftContainerProps> = ({ resid
       }
       if (applicant.weitereEinkuenfte2?.selectedTypes?.includes('unterhaltsteuerpflichtig')) {
         totalPotentialFields++;
-        if (isCurrencyEmptyOrZero(applicant.incomeunterhalttaxable)) actualErrors++;
+        if (isCurrencyEmptyOrZero(applicant.incomeunterhalttaxable_net)) actualErrors++;
       }
       if (applicant.weitereEinkuenfte2?.selectedTypes?.includes('elterngeld')) {
         totalPotentialFields++;
@@ -1758,11 +1758,11 @@ const SelbstauskunftContainer: React.FC<SelbstauskunftContainerProps> = ({ resid
       total += parseFloat(salary.replace(/\./g, '').replace(',', '.')) || 0;
 
       // Christmas bonus (divided by 12 for monthly)
-      const christmasBonus = applicant.wheinachtsgeld_next12 || '';
+      const christmasBonus = applicant.wheinachtsgeld_next12_net || '';
       total += (parseFloat(christmasBonus.replace(/\./g, '').replace(',', '.')) || 0) / 12;
 
       // Vacation bonus (divided by 12 for monthly)
-      const vacationBonus = applicant.urlaubsgeld_next12 || '';
+      const vacationBonus = applicant.urlaubsgeld_next12_net || '';
       total += (parseFloat(vacationBonus.replace(/\./g, '').replace(',', '.')) || 0) / 12;
 
       // Other employment monthly net income (each euro value divided by 12)
@@ -1777,13 +1777,13 @@ const SelbstauskunftContainer: React.FC<SelbstauskunftContainerProps> = ({ resid
 
     // Agriculture income (divided by 12 for monthly)
     if (applicant.hasagricultureincome) {
-      const agricultureIncome = applicant.incomeagriculture || '';
+      const agricultureIncome = applicant.incomeagriculture_net || '';
       total += (parseFloat(agricultureIncome.replace(/\./g, '').replace(',', '.')) || 0) / 12;
     }
 
     // Rent income (divided by 12 for monthly)
     if (applicant.hasrentincome) {
-      const rentIncome = applicant.incomerent || '';
+      const rentIncome = applicant.incomerent_net || '';
       total += (parseFloat(rentIncome.replace(/\./g, '').replace(',', '.')) || 0) / 12;
     }
     
@@ -1821,7 +1821,7 @@ const SelbstauskunftContainer: React.FC<SelbstauskunftContainerProps> = ({ resid
 
     // Taxable maintenance income
     if (applicant.hastaxableunterhaltincome) {
-      const taxableMaintenance = applicant.incomeunterhalttaxable || '';
+      const taxableMaintenance = applicant.incomeunterhalttaxable_net || '';
       total += parseFloat(taxableMaintenance.replace(/\./g, '').replace(',', '.')) || 0;
     }
 

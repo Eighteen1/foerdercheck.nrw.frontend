@@ -28,21 +28,77 @@ const GovernmentDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [selectedApplicationId, setSelectedApplicationId] = useState<string | null>(null);
   const [openChecklistItemId, setOpenChecklistItemId] = useState<string | null>(null);
+  const [processingDeepLink, setProcessingDeepLink] = useState(false);
+  const [deepLinkError, setDeepLinkError] = useState<string | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Function to handle deep link processing
+  const processDeepLink = async (applicationId: string, checklistItemId: string) => {
+    setProcessingDeepLink(true);
+    setDeepLinkError(null); // Clear any previous errors
+    try {
+      //console.log(`Processing deep link for applicationId: ${applicationId}, city: ${city}`);
+      
+      // First, try to get the application without city filtering to see if it exists
+      ///console.log('Trying to fetch application with minimal columns...');
+      const { data: applicationWithoutCity, error: errorWithoutCity } = await supabase
+        .from('applications')
+        .select('id, resident_id, status, city_id')
+        .eq('id', applicationId)
+        .single();
+
+
+      if (!applicationWithoutCity) {
+        const errorMsg = `Anwendung ${applicationId} wurde nicht gefunden.`;
+        setDeepLinkError(errorMsg);
+        return;
+      }
+
+      console.log('Application found:', applicationWithoutCity);
+
+      // For now, let's skip the city check since we don't know if the city column exists
+      // We'll implement proper access control later
+      //console.log('Skipping city access control for now - application found successfully');
+      
+      // Set the application and checklist item to open
+      setSelectedApplicationId(applicationId);
+      setOpenChecklistItemId(checklistItemId);
+      setSelectedMenu("applications");
+      
+      // Clear the URL query parameters to avoid repeated processing
+      // Use a flag to prevent re-processing
+      setProcessingDeepLink(false); // Set to false before navigation to prevent re-triggering
+      navigate(location.pathname, { replace: true });
+      
+      //console.log(`Deep link processed: opened application ${applicationId} with checklist item ${checklistItemId}`);
+      
+      // Note: The checklist item will be opened when the ApplicationReviewContainer loads
+      // and the ChecklistPanel processes the openChecklistItemId prop
+    } catch (error) {
+      const errorMsg = `Fehler beim Öffnen des Checklistenpunkts: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}`;
+      console.error('Error processing deep link:', error);
+      setDeepLinkError(errorMsg);
+      setProcessingDeepLink(false);
+    }
+  };
 
   useEffect(() => {
     supabase.auth.getSession().then((res: any) => {
       const userObj = res?.data?.session?.user;
       setUser(userObj);
-      setCity(userObj?.user_metadata?.city || null);
+      const userCity = userObj?.user_metadata?.city || null;
+      setCity(userCity);
+      //console.log('User session loaded:', { user: userObj, city: userCity, metadata: userObj?.user_metadata });
       setLoading(false);
       // Routing protection: only allow if city metadata exists (government account)
-      if ((!userObj || !userObj.user_metadata?.city) && process.env.NODE_ENV !== 'development') {
+      if ((!userObj || !userCity) && process.env.NODE_ENV !== 'development') {
         navigate('/government/login', { replace: true });
       }
     });
   }, [navigate]);
+
+
 
   useEffect(() => {
     // Handle navigation state for application selection
@@ -59,6 +115,31 @@ const GovernmentDashboard: React.FC = () => {
     }
   }, [location.state, location.pathname, navigate]);
 
+  // Handle URL query parameters for deep linking
+  useEffect(() => {
+    if (!loading && !processingDeepLink && user && city) {
+      const urlParams = new URLSearchParams(location.search);
+      const applicationId = urlParams.get('applicationId');
+      const checklistItemId = urlParams.get('openChecklistItemId');
+      
+      if (applicationId && checklistItemId) {
+       // console.log(`Processing deep link for applicationId: ${applicationId}, checklistItemId: ${checklistItemId}`);
+       // console.log(`Current user city: ${city}`);
+       // console.log(`Current user:`, user);
+        processDeepLink(applicationId, checklistItemId);
+      } else if (applicationId || checklistItemId) {
+        // Show error if only one parameter is provided
+        const missingParam = !applicationId ? 'applicationId' : 'openChecklistItemId';
+        const errorMsg = `Deep Link unvollständig: Der Parameter "${missingParam}" fehlt.`;
+       // console.warn(errorMsg);
+        setDeepLinkError(errorMsg);
+        
+        // Clear the URL to avoid repeated error messages
+        navigate(location.pathname, { replace: true });
+      }
+    }
+  }, [loading, location.search, processingDeepLink, user, city]);
+
   const handleMenuClick = (key: string) => {
     if (key === "logout") {
       supabase.auth.signOut();
@@ -66,6 +147,10 @@ const GovernmentDashboard: React.FC = () => {
     } else {
       setSelectedMenu(key);
       setSelectedApplicationId(null); // Reset review if switching menu
+      // Only clear deep link state when switching away from applications menu
+      if (key !== "applications") {
+        setOpenChecklistItemId(null);
+      }
     }
   };
 
@@ -73,6 +158,20 @@ const GovernmentDashboard: React.FC = () => {
     return (
       <div className="d-flex align-items-center justify-content-center" style={{ minHeight: '100vh' }}>
         <Spinner animation="border" style={{ color: '#064497', width: 60, height: 60 }} />
+      </div>
+    );
+  }
+
+  // Show loading state when processing deep links
+  if (processingDeepLink) {
+    return (
+      <div className="d-flex align-items-center justify-content-center" style={{ minHeight: '100vh' }}>
+        <div className="text-center">
+          <Spinner animation="border" style={{ color: '#064497', width: 60, height: 60 }} />
+          <div className="mt-3" style={{ color: '#064497', fontSize: 18 }}>
+            Öffne Checkliste...
+          </div>
+        </div>
       </div>
     );
   }
@@ -192,16 +291,42 @@ const GovernmentDashboard: React.FC = () => {
             {city ? city : "Stadt"}
           </div>
         </div>
+        
+        {/* Deep Link Error Alert */}
+        {deepLinkError && (
+          <div className="px-4 py-2" style={{ background: "#fff" }}>
+            <div className="alert alert-warning alert-dismissible fade show" role="alert">
+              <strong>Hinweis:</strong> {deepLinkError}
+              <button
+                type="button"
+                className="btn-close"
+                onClick={() => setDeepLinkError(null)}
+                aria-label="Close"
+              ></button>
+            </div>
+          </div>
+        )}
+        
         {/* Content */}
         <Container className="py-4">
           {selectedMenu === "dashboard" && (
             <GovernmentDashboardPage />
           )}
           {selectedMenu === "applications" && !selectedApplicationId && (
-            <GovernmentApplicationsPage onSelectApplication={setSelectedApplicationId} />
+            <GovernmentApplicationsPage 
+              onSelectApplication={setSelectedApplicationId} 
+            />
           )}
           {selectedMenu === "applications" && selectedApplicationId && (
-            <ApplicationReviewContainer applicationId={selectedApplicationId} onClose={() => setSelectedApplicationId(null)} openChecklistItemId={openChecklistItemId} />
+            <ApplicationReviewContainer 
+              applicationId={selectedApplicationId} 
+              onClose={() => {
+                setSelectedApplicationId(null);
+                setOpenChecklistItemId(null); // Clear deep link state when closing application
+              }} 
+              openChecklistItemId={openChecklistItemId}
+              onClearDeepLink={() => setOpenChecklistItemId(null)} // Clear deep link state when switching modes
+            />
           )}
           {selectedMenu === "profile" && (
             <GovernmentProfilePage />

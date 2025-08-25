@@ -73,8 +73,16 @@ const RoutingProtection: React.FC<RoutingProtectionProps> = ({
     case '/din277':
     case '/selbsthilfe':
     case '/haushaltsauskunft':
+    case '/view-application':
+      console.log(`${currentPath} access check:`, {
+        isAuthenticated,
+        from: location.state?.from,
+        isDirectAccess: isDirectAccess(),
+        currentPath,
+        locationState: location.state
+      });
       if (!isAuthenticated && !isDevelopment) {
-        console.log('Redirecting from protected pages - not authenticated');
+        console.log(`Redirecting from ${currentPath} - not authenticated`);
         return <Navigate to="/" replace state={{ from: currentPath }} />;
       }
       
@@ -88,12 +96,20 @@ const RoutingProtection: React.FC<RoutingProtectionProps> = ({
         '/wofiv': ['document-upload', 'personal-space'],
         '/din277': ['document-upload', 'personal-space'],
         '/selbsthilfe': ['document-upload', 'personal-space'],
-        '/haushaltsauskunft': ['document-upload', 'personal-space']
+        '/haushaltsauskunft': ['document-upload', 'personal-space'],
+        '/view-application': ['personal-space']
       };
       
       // Check if navigation is from an allowed source
       const fromPage = location.state?.from;
       const allowedForCurrentPage = allowedSources[currentPath as keyof typeof allowedSources] || [];
+      
+      console.log(`${currentPath} routing check:`, {
+        fromPage,
+        allowedForCurrentPage,
+        isAllowed: fromPage && allowedForCurrentPage.includes(fromPage),
+        isDirectAccess: isDirectAccess()
+      });
       
       // Allow navigation if coming from an allowed source or if in development
       if (fromPage && allowedForCurrentPage.includes(fromPage)) {
@@ -103,8 +119,14 @@ const RoutingProtection: React.FC<RoutingProtectionProps> = ({
       
       // Block direct access to protected pages (except in development)
       if (isDirectAccess() && !isDevelopment) {
-        console.log('Redirecting from protected pages - direct access blocked');
-        return <Navigate to="/personal-space" replace />;
+        console.log(`Redirecting from ${currentPath} - direct access blocked`);
+        return <Navigate to="/personal-space" replace state={{ from: currentPath }} />;
+      }
+      
+      // Temporary bypass for view-application in development
+      if (currentPath === '/view-application' && isDevelopment) {
+        console.log('Development mode: allowing direct access to view-application');
+        break;
       }
       break;
 

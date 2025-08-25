@@ -76,6 +76,7 @@ interface Step6Props {
   readOnly?: boolean;
   selbsthilfeData?: {willProvideSelfHelp: boolean | null, totals: {totalSelbsthilfe: number}} | null;
   postcode?: string; // Add postcode prop
+  standortbedingteMehrkosten?: string; // Add this prop for validation
 }
 
 const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
@@ -93,7 +94,8 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
   showValidation = false,
   readOnly = false,
   selbsthilfeData = null,
-  postcode = ''
+  postcode = '',
+  standortbedingteMehrkosten = ''
 }) => {
   const [eigenleistungError, setEigenleistungError] = useState<string | null>(null);
   const [gesamtbetraegeError, setGesamtbetraegeError] = useState<string | null>(null);
@@ -582,7 +584,14 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
         const maxStandort = 2500000; // 25,000 EUR in cents
         
         if (standortValue > maxStandort) {
-          errors.push(`Standortbedingte Mehrkosten: Standortbedingte Mehrkosten dürfen maximal 25.000,00€ betragen (aktuell: ${formatCurrency(standortValue)})`);
+          errors.push(`Standortbedingte Mehrkosten: Das Zusatzdarlehn für standortbedingte Mehrkosten darf maximal 25.000,00€ betragen (aktuell: ${formatCurrency(standortValue)})`);
+        } else if (standortbedingteMehrkosten) {
+          const costValue = getNumericValue(standortbedingteMehrkosten);
+          const maxZusatzdarlehen = Math.round(costValue * 0.75);
+          
+          if (standortValue > maxZusatzdarlehen) {
+            errors.push(`Standortbedingte Mehrkosten: Der Nennbetrag des Zusatzdarlehens für standortbedingte Mehrkosten darf maximal 75 % der angegebenen förderfähigen standortbedingten Mehrkosten betragen (maximal ${formatCurrency(maxZusatzdarlehen)}, aktuell: ${formatCurrency(standortValue)})`);
+          }
         }
       }
 

@@ -2,11 +2,21 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Container, Row, Col, Button, Modal, Form, Spinner } from "react-bootstrap";
 import { useAuth } from "../contexts/AuthContext";
-import { supabase, storeEligibilityData, checkDocumentCheckStatus, ensureUserFinancialsExists } from "../lib/supabase";
-import postcodeMap from '../utils/postcode_map.json';
-import { AssignmentRule } from '../types/city';
-import { sendMessage, sendNewApplicationNotification } from '../utils/messages';
-import { is } from "date-fns/locale";
+import { supabase, storeEligibilityData, checkDocumentCheckStatus } from "../lib/supabase";
+import ApplicationTimeline from "./PersonalSpace/ApplicationTimeline";
+import OutstandingDocumentsInfo from "./PersonalSpace/OutstandingDocumentsInfo";
+import FinalStatusMessage from "./PersonalSpace/FinalStatusMessage";
+import { fetchOutstandingDocumentRequests, OutstandingDocumentRequest } from "../utils/outstandingRequests";
+import "./PersonalSpace/ApplicationTimeline.css";
+
+// Add material icons support
+const materialIcons = document.createElement('link');
+materialIcons.rel = 'stylesheet';
+materialIcons.href = 'https://fonts.googleapis.com/icon?family=Material+Icons';
+document.head.appendChild(materialIcons);
+
+
+
 
 const STATUS_DISPLAY = {
   pending: 'Ausstehend',
@@ -20,17 +30,7 @@ const STATUS_DISPLAY = {
 
 type ApplicationStatus = keyof typeof STATUS_DISPLAY;
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
 
-const TYPE_LABELS: Record<string, string> = {
-  "neubau": "Neubau Eigenheim",
-  "ersterwerb-eigenheim": "Ersterwerb Eigenheim",
-  "bestandserwerb-eigenheim": "Bestandserwerb Eigenheim",
-  "bestandserwerb-wohnung": "Bestandserwerb Eigentumswohnung",
-  "ersterwerb-wohnung": "Ersterwerb Eigentumswohnung",
-  "neubau-wohnung": "Neubau Eigentumswohnung",
-  "nutzungsaenderung": "Nutzungsänderung"
-};
 
 const PersonalSpace: React.FC = () => {
   const navigate = useNavigate();
@@ -49,15 +49,27 @@ const PersonalSpace: React.FC = () => {
     selbstauskunft: 0
   });
   const [isLoading, setIsLoading] = useState(false);
-  const [showValidationModal, setShowValidationModal] = useState(false);
-  const [validationResult, setValidationResult] = useState<'success' | 'warning' | null>(null);
-  const [handInStep, setHandInStep] = useState<'validation' | 'city' | 'sign' | null>(null);
-  const [cityInfo, setCityInfo] = useState<{ name: string; id: string } | null>(null);
-  const [cityDropdown, setCityDropdown] = useState('');
-  const [objectData, setObjectData] = useState<any>(null);
-  const [foerderVariante, setFoerderVariante] = useState('');
   const [applicationStatus, setApplicationStatus] = useState<ApplicationStatus>('pending');
-  const [handInError, setHandInError] = useState<string | null>(null);
+  const [applicationTimeline, setApplicationTimeline] = useState<Record<string, string>>({});
+  const [outstandingRequests, setOutstandingRequests] = useState<OutstandingDocumentRequest[]>([]);
+  const [outstandingRequestsLoading, setOutstandingRequestsLoading] = useState(false);
+  const [outstandingRequestsError, setOutstandingRequestsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Listen for messages from validation page
+    const handleMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      
+      if (event.data.type === 'HAND_IN_SUCCESS') {
+        // Update application status when hand-in is successful
+        setApplicationStatus('submitted');
+        // You can add additional success handling here if needed
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -81,7 +93,7 @@ const PersonalSpace: React.FC = () => {
         try {
           const { data, error } = await supabase
             .from('user_data')
-            .select('hauptantrag_progress, einkommenserklarung_progress, selbstauskunft_progress, haushaltsauskunft_progress, application_status')
+            .select('hauptantrag_progress, einkommenserklarung_progress, selbstauskunft_progress, haushaltsauskunft_progress, document_progress, application_status, application_status_timeline')
             .eq('id', user.id)
             .single();
 
@@ -95,10 +107,14 @@ const PersonalSpace: React.FC = () => {
               hauptantrag: data.hauptantrag_progress || 0,
               haushaltsauskunft: data.haushaltsauskunft_progress || 0,
               einkommenserklarung: data.einkommenserklarung_progress || 0,
-              selbstauskunft: data.selbstauskunft_progress || 0
+              selbstauskunft: data.selbstauskunft_progress || 0,
+              document_progress: data.document_progress || 0
             });
             if (data.application_status) {
               setApplicationStatus(data.application_status as ApplicationStatus);
+            }
+            if (data.application_status_timeline) {
+              setApplicationTimeline(data.application_status_timeline);
             }
           }
         } catch (error) {
@@ -112,30 +128,28 @@ const PersonalSpace: React.FC = () => {
     }
   }, [isAuthenticated, location.state, user?.id]);
 
+  // Fetch outstanding document requests when status is documents_requested
   useEffect(() => {
-    if (isAuthenticated && user?.id) {
-      const fetchStatusAndObject = async () => {
-        setIsLoading(true);
+    if (user?.id && applicationStatus === 'documents_requested') {
+      const fetchOutstandingRequests = async () => {
+        setOutstandingRequestsLoading(true);
+        setOutstandingRequestsError(null);
         try {
-          // Fetch object_data for address and foerderVariante
-          const { data: objData, error: objError } = await supabase
-            .from('object_data')
-            .select('obj_postal_code, foerderVariante')
-            .eq('user_id', user.id)
-            .single();
-          if (objData) {
-            setObjectData(objData);
-            setFoerderVariante(objData.foerderVariante || '');
-          }
-        } catch (e) {
-          // ignore
+          const requests = await fetchOutstandingDocumentRequests(user.id);
+          setOutstandingRequests(requests);
+        } catch (error) {
+          console.error('Error fetching outstanding requests:', error);
+          setOutstandingRequestsError('Fehler beim Laden der Dokumentenanfragen.');
         } finally {
-          setIsLoading(false);
+          setOutstandingRequestsLoading(false);
         }
       };
-      fetchStatusAndObject();
+
+      fetchOutstandingRequests();
     }
-  }, [isAuthenticated, user?.id]);
+  }, [user?.id, applicationStatus]);
+
+
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -223,8 +237,9 @@ const PersonalSpace: React.FC = () => {
       setShowRegistrationModal(true);
       return;
     }
-
-    if (!user?.id) {
+    navigate('/document-upload', { state: { from: 'personal-space' } });
+    
+    /*if (!user?.id) {
       console.error('No user ID found');
       navigate('/document-check', { state: { from: 'personal-space' } });
       return;
@@ -241,7 +256,7 @@ const PersonalSpace: React.FC = () => {
       console.error('Error checking document check status:', error);
       // Default to document-check if there's an error
       navigate('/document-check', { state: { from: 'personal-space' } });
-    }
+    }*/
   };
 
   const handleHauptantrag = () => {
@@ -281,269 +296,15 @@ const PersonalSpace: React.FC = () => {
       setShowRegistrationModal(true);
       return;
     }
-    // Check progress
-    if (formProgress.hauptantrag === 100 && formProgress.einkommenserklarung === 100) {
-      setValidationResult('success');
-    } else {
-      setValidationResult('warning');
-    }
-    setHandInStep('validation');
-    setShowValidationModal(true);
+    
+    // Open validation page in new tab
+    const validationUrl = `/validation?residentId=${user?.id}`;
+    window.open(validationUrl, '_blank');
   };
 
-  const handleHandIn = async () => {
-    setHandInStep('city');
-    setHandInError(null);
-    setIsLoading(true);
-    try {
-      // Fetch latest object_data if not already loaded
-      let obj = objectData;
-      if (!obj && user?.id) {
-        try {
-          const { data: objData, error: objError } = await supabase
-            .from('object_data')
-            .select('obj_postal_code, foerderVariante')
-            .eq('user_id', user.id)
-            .single();
-          
-          if (!objError && objData) {
-            obj = objData;
-            setObjectData(objData);
-            setFoerderVariante(objData?.foerderVariante || '');
-          }
-        } catch (fetchError) {
-          console.warn('Failed to fetch object data:', fetchError);
-          // Continue without object data - user can still select city manually
-        }
-      }
-      const postcode = obj?.obj_postal_code;
-      if (!postcode) {
-        setCityInfo(null);
-        setHandInStep('city');
-        setIsLoading(false);
-        return;
-      }
-      const city = postcodeMap[postcode as keyof typeof postcodeMap];
-      if (city) {
-        setCityInfo(city);
-        setCityDropdown(city.id);
-      } else {
-        setCityInfo(null);
-        setCityDropdown('');
-      }
-      setHandInStep('city');
-    } catch (e) {
-      setHandInError('Fehler beim Laden der Objektadresse.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
-  const handleSignAndSubmit = async () => {
-    setIsLoading(true);
-    setHandInError(null);
-    try {
-      let cityId = cityInfo?.id || cityDropdown;
-      let cityName = cityInfo?.name || (cityDropdown ? 'Rhein-Kreis Neuss' : '');
-      if (!cityId) {
-        setHandInError('Bitte wählen Sie einen Kreis/Stadt aus.');
-        setIsLoading(false);
-        return;
-      }
-  
-      // Get city settings to check assignment rules
-      const { data: cityData, error: cityError } = await supabase
-        .from('cities')
-        .select('settings')
-        .eq('id', cityId)
-        .single();
 
-      if (cityError) throw cityError;
 
-      let assignedAgent = null;
-      if (cityData?.settings?.assignmentRules) {
-        const { filterType, rules } = cityData.settings.assignmentRules;
-
-        try {
-          // Get user data for household size and employment type
-          const { data: userData, error: userError } = await supabase
-            .from('user_data')
-            .select('adult_count, child_count, employment')
-            .eq('id', user?.id)
-            .single();
-
-          // Get object data for postcode
-          const { data: objectData, error: objectError } = await supabase
-            .from('object_data')
-            .select('obj_postal_code')
-            .eq('user_id', user?.id)
-            .single();
-
-          // Only proceed with assignment if we have the required data
-          if (!userError && !objectError && userData && objectData) {
-            // Determine assigned agent based on filter type
-            switch (filterType) {
-              case 'type':
-                if (foerderVariante && rules[foerderVariante]) {
-                  assignedAgent = rules[foerderVariante];
-                }
-                break;
-              case 'postcode':
-                if (objectData.obj_postal_code && rules[objectData.obj_postal_code]) {
-                  assignedAgent = rules[objectData.obj_postal_code];
-                }
-                break;
-              case 'household':
-                const adultCount = userData.adult_count || 0;
-                const childCount = userData.child_count || 0;
-                
-                // Format adult count
-                const adultKey = adultCount >= 3 ? '3+' : adultCount.toString();
-                // Format child count
-                const childKey = childCount >= 3 ? '3+' : childCount.toString();
-                
-                // Create the rule key in format "adultCount_childCount"
-                const ruleKey = `${adultKey}_${childKey}`;
-                if (rules[ruleKey]) {
-                  assignedAgent = rules[ruleKey];
-                }
-                break;
-              case 'employment':
-                if (userData.employment && rules[userData.employment]) {
-                  assignedAgent = rules[userData.employment];
-                }
-                break;
-            }
-          }
-          // If any error occurred or data is missing, assignedAgent remains null
-          // This allows the application to be submitted without assignment
-        } catch (assignmentError) {
-          console.warn('Assignment logic failed, proceeding without assignment:', assignmentError);
-          // Continue without assignment - assignedAgent remains null
-        }
-      }
-
-      // Log assignment result for debugging
-      if (!assignedAgent) {
-        console.log('Application submitted without assignment due to missing data or assignment rules');
-      }
-
-      // Ensure user_financials table exists for the user
-      if (user?.id) {
-        try {
-          await ensureUserFinancialsExists(user.id);
-        } catch (financialsError) {
-          console.warn('Failed to ensure user_financials exists, continuing with application submission:', financialsError);
-          // Continue with application submission even if user_financials creation fails
-        }
-      }
-
-      console.log('Attempting to insert application with data:', {
-        resident_id: user?.id,
-        city_id: cityId,
-        type: foerderVariante,
-        status: 'new',
-        assigned_agent: assignedAgent
-      });
-  
-      // Insert into applications
-      const { data, error: appError } = await supabase
-        .from('applications')
-        .insert({
-          resident_id: user?.id,
-          city_id: cityId,
-          type: foerderVariante,
-          status: 'new',
-          assigned_agent: assignedAgent
-        })
-        .select();
-  
-      if (appError) {
-        console.error('Application insert error:', appError);
-        throw appError;
-      }
-  
-      console.log('Successfully inserted application:', data);
-  
-      // Note: application_status in user_data is now automatically updated by database trigger
-
-      // Send notifications
-      if (assignedAgent) {
-        // Get assigned agent's settings
-        const { data: assignedAgentData, error: assignedAgentError } = await supabase
-          .from('agents')
-          .select('name, email, settings')
-          .eq('id', assignedAgent)
-          .single();
-
-        if (!assignedAgentError && assignedAgentData) {
-          const formattedType = TYPE_LABELS[foerderVariante] || foerderVariante;
-          const messageContent = `Ein neuer Antrag vom Typ "${formattedType}" (ID: ${data[0].id}) wurde Ihnen zugewiesen.`;
-
-          // Send in-app message
-          await sendMessage({
-            recipient_id: assignedAgent,
-            type: 'system',
-            category: 'application_assigned',
-            title: 'Neuer Antrag zugewiesen',
-            content: messageContent,
-            metadata: { application_id: data[0].id }
-          });
-
-          // Send email if enabled
-          const shouldSendEmail = assignedAgentData.settings?.notifications?.emailNotifications?.applicationAssigned === true;
-          if (shouldSendEmail) {
-            try {
-              // Get a system token
-              const tokenResponse = await fetch(`${BACKEND_URL}/api/system/token`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json'
-                }
-              });
-              if (!tokenResponse.ok) {
-                throw new Error('Failed to get system token');
-              }
-              const { token } = await tokenResponse.json();
-
-              const response = await fetch(`${BACKEND_URL}/api/send-assignment-message`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                  to_email: assignedAgentData.email,
-                  to_name: assignedAgentData.name,
-                  from_email: 'system@foerdercheck.nrw',
-                  from_name: 'Fördercheck.NRW',
-                  title: 'Neuer Antrag zugewiesen',
-                  content: messageContent
-                }),
-              });
-
-              if (!response.ok) {
-                console.error('Failed to send assignment email notification');
-              }
-            } catch (error) {
-              console.error('Error sending assignment email:', error);
-            }
-          }
-        }
-      }
-
-      // Send notifications to other team members about new application
-      await sendNewApplicationNotification(data[0].id, cityId, assignedAgent);
-  
-      setApplicationStatus('submitted');
-      setShowValidationModal(false);
-    } catch (e) {
-      console.error('Full error object:', e);
-      setHandInError('Fehler beim Einreichen des Antrags.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   return (
     <div className="relative bg-white flex flex-col">
@@ -1006,7 +767,7 @@ const PersonalSpace: React.FC = () => {
                     boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
                     color: isAuthenticated ? '#064497' : '#2d2d2d'
                   }}>
-                    0%
+                    {formProgress.document_progress}%
                   </div>
                 </div>
               </div>
@@ -1098,36 +859,115 @@ const PersonalSpace: React.FC = () => {
           alignItems: 'center',
           justifyContent: 'center',
         }}>
-          <div className="rounded p-5 shadow-lg" style={{ background: '#f8f9fa', maxWidth: 500 }}>
+          <div className="rounded p-5 shadow-lg" style={{ background: '#f8f9fa', maxWidth: 700, width: '90%', maxHeight: '90vh', overflowY: 'auto' }}>
             <h2 className="mb-4 text-[#064497]">Antrag eingereicht</h2>
             <p className="mb-4">Ihr Antrag wurde erfolgreich eingereicht und befindet sich nun in der Prüfung. Änderungen sind aktuell nicht mehr möglich. Sie werden per E-Mail über den weiteren Verlauf informiert.</p>
             
-            <div className="mb-4 p-3 rounded" style={{ 
-              background: '#ffffff', 
-              border: '1px solid #e0e0e0',
-              boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)'
-            }}>
-              <h6 className="mb-2 text-muted">Status Ihres Antrags:</h6>
-              <div className="d-flex align-items-center">
-                <div className="me-2" style={{ 
-                  width: '12px', 
-                  height: '12px', 
-                  borderRadius: '50%', 
-                  background: '#064497' 
-                }}></div>
-                <span style={{ color: '#064497', fontWeight: 500 }}>
-                  {STATUS_DISPLAY[applicationStatus]}
-                </span>
-              </div>
-            </div>
+            {/* Application Timeline */}
+            <ApplicationTimeline 
+              currentStatus={applicationStatus} 
+              timeline={applicationTimeline} 
+            />
+            
+            {/* Outstanding Documents Info - only show for documents_requested status and when there are outstanding requests */}
+            {applicationStatus === 'documents_requested' && (
+              <OutstandingDocumentsInfo
+                outstandingRequests={outstandingRequests}
+                isLoading={outstandingRequestsLoading}
+                error={outstandingRequestsError}
+              />
+            )}
+            
+            {/* Final Status Message - only show for approved/rejected status */}
+            {(applicationStatus === 'approved' || applicationStatus === 'rejected') && (
+              <FinalStatusMessage
+                status={applicationStatus}
+                timeline={applicationTimeline}
+              />
+            )}
 
             <div className="d-flex flex-column gap-3">
               <Button 
                 style={{ background: '#064497', border: 'none' }} 
-                onClick={() => navigate('/view-application')}
+                onClick={() => {
+                  console.log('Eingereichten Antrag Einsehen button clicked');
+                  console.log('Navigating to /view-application with state:', { from: 'personal-space' });
+                  navigate('/view-application', { state: { from: 'personal-space' } });
+                }}
               >
                 Eingereichten Antrag Einsehen
               </Button>
+              
+              {/* Take-back button - always visible */}
+              <Button 
+                style={{ background: '#D7DAEA', color: '#000000', border: 'none' }} 
+                onClick={async () => {
+                  // Check if application can be taken back
+                  if (applicationStatus !== 'submitted') {
+                    // Show warning modal instead of taking back
+                    alert('Ihr Antrag befindet sich bereits in Bearbeitung. Bei Fragen oder Änderungswünschen wenden Sie sich bitte direkt an die Bewilligungsbehörde.');
+                    return;
+                  }
+                  
+                  try {
+                    // First, find and remove the most recent application from the applications table
+                    if (user?.id) {
+                      // Get the most recent application for this user
+                      const { data: applications, error: fetchError } = await supabase
+                        .from('applications')
+                        .select('id')
+                        .eq('resident_id', user.id)
+                        .order('submitted_at', { ascending: false })
+                        .limit(1);
+                      
+                      if (fetchError) {
+                        console.error('Error fetching applications:', fetchError);
+                        return;
+                      }
+                      
+                      if (applications && applications.length > 0) {
+                        const applicationId = applications[0].id;
+                        
+                        // Delete the application from the applications table
+                        const { error: deleteError } = await supabase
+                          .from('applications')
+                          .delete()
+                          .eq('id', applicationId);
+                        
+                        if (deleteError) {
+                          console.error('Error deleting application:', deleteError);
+                          return;
+                        }
+                        
+                        console.log('Successfully deleted application:', applicationId);
+                      }
+                    }
+                    
+                    // Reset application status to pending in the database
+                    if (user?.id) {
+                      const { error } = await supabase
+                        .from('user_data')
+                        .update({ application_status: 'pending' })
+                        .eq('id', user.id);
+                      
+                      if (error) {
+                        console.error('Error resetting application status:', error);
+                      }
+                    }
+                    
+                    // Reset local state
+                    setApplicationStatus('pending');
+                    
+                    // Reload the page
+                    //window.location.reload();
+                  } catch (error) {
+                    console.error('Error during reset:', error);
+                  }
+                }}
+              >
+                Einreichung Rückgängig machen
+              </Button>
+              
               <Button 
                 style={{ background: '#D7DAEA', color: '#000000', border: 'none' }} 
                 onClick={() => logout()}
@@ -1202,86 +1042,7 @@ const PersonalSpace: React.FC = () => {
         </Modal.Body>
       </Modal>
 
-      <Modal show={showValidationModal} onHide={() => setShowValidationModal(false)} centered>
-        <Modal.Header closeButton>
-          <Modal.Title>Prüfung Ihrer Angaben</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          {handInStep === 'validation' && (
-            <>
-              {validationResult === 'success' ? (
-                <div className="alert alert-success mb-3">Alle erforderlichen Formulare sind vollständig ausgefüllt. Sie können Ihren Antrag jetzt einreichen.</div>
-              ) : (
-                <div className="alert alert-warning mb-3">Nicht alle Formulare sind vollständig ausgefüllt. Sie können trotzdem fortfahren, aber wir empfehlen, alle Angaben zu vervollständigen.</div>
-              )}
-              <div className="d-flex justify-content-end gap-2">
-                <Button variant="secondary" onClick={() => setShowValidationModal(false)}>Schließen</Button>
-                <Button
-                  style={{ background: validationResult === 'success' ? '#064497' : '#D7DAEA', color: validationResult === 'success' ? '#fff' : '#000', border: 'none' }}
-                  onClick={handleHandIn}
-                >
-                  Antrag einreichen
-                </Button>
-              </div>
-            </>
-          )}
-          {handInStep === 'city' && (
-            <>
-              {isLoading ? (
-                <div className="text-center"><Spinner animation="border" /></div>
-              ) : (
-                <>
-                  {objectData?.obj_postal_code ? (
-                    cityInfo ? (
-                      <div className="alert alert-success mb-3">Ihr Antrag wird an die Bewilligungsbehörde <b>{cityInfo.name}</b> gesendet.</div>
-                    ) : (
-                      <div className="alert alert-danger mb-3">Leider befindet sich Ihr Objekt in einem nicht unterstützten Kreis / Stadt.</div>
-                    )
-                  ) : (
-                    <>
-                      <div className="alert alert-warning mb-3">Sie haben keine vollständige Adresse Ihres Förderobjekts definiert.</div>
-                      <Form.Group className="mb-3">
-                        <Form.Label>Kreis/Stadt auswählen</Form.Label>
-                        <Form.Select value={cityDropdown} onChange={e => setCityDropdown(e.target.value)}>
-                          <option value="">Bitte wählen...</option>
-                          <option value="03e8b85b-1a8f-47ca-a4bb-c486c77e695a">Rhein-Kreis Neuss</option>
-                        </Form.Select>
-                      </Form.Group>
-                    </>
-                  )}
-                  {handInError && <div className="alert alert-danger mb-2">{handInError}</div>}
-                  <div className="d-flex justify-content-end gap-2">
-                    <Button variant="secondary" onClick={() => setShowValidationModal(false)}>Abbrechen</Button>
-                    <Button
-                      style={{ background: '#064497', color: '#fff', border: 'none' }}
-                      onClick={() => setHandInStep('sign')}
-                      disabled={(!cityInfo && !cityDropdown)}
-                    >
-                      Weiter zur Signatur
-                    </Button>
-                  </div>
-                </>
-              )}
-            </>
-          )}
-          {handInStep === 'sign' && (
-            <>
-              <div className="alert alert-info mb-3">Bitte bestätigen Sie die Einreichung Ihres Antrags. (Die digitale Signatur wird in Kürze verfügbar sein.)</div>
-              {handInError && <div className="alert alert-danger mb-2">{handInError}</div>}
-              <div className="d-flex justify-content-end gap-2">
-                <Button variant="secondary" onClick={() => setShowValidationModal(false)}>Abbrechen</Button>
-                <Button
-                  style={{ background: '#064497', color: '#fff', border: 'none' }}
-                  onClick={handleSignAndSubmit}
-                  disabled={isLoading}
-                >
-                  Antrag jetzt einreichen
-                </Button>
-              </div>
-            </>
-          )}
-        </Modal.Body>
-      </Modal>
+
     </div>
   );
 };

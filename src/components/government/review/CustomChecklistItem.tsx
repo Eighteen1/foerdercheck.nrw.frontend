@@ -447,8 +447,8 @@ const CustomChecklistItem: React.FC<CustomChecklistItemProps> = ({
               }}
             >
               <option value="undefined">Ungeprüft</option>
-              <option value="correct">Korrekt</option>
-              <option value="wrong">Falsch</option>
+              <option value="correct">Gültig</option>
+              <option value="wrong">Ungültig</option>
             </select>
             <span
               className="material-icons"

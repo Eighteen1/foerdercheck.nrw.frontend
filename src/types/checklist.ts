@@ -7,6 +7,7 @@ export interface ChecklistItem {
   agentStatus: ChecklistStatus;
   systemComment: string;
   systemErrors: string[];
+  systemWarnings?: string[]; // Optional field for warnings
   linkedForms: string[];
   linkedDocs: string[];
   agentNotes: string | null;

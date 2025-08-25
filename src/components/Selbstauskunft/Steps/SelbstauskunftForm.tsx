@@ -73,14 +73,14 @@ interface MainFinancials {
   // Core employment income fields (matching database structure)
   hasSalaryIncome: boolean | null;
   // All Selbstauskunft fields matching database columns
-  wheinachtsgeld_next12?: string;
-  urlaubsgeld_next12?: string;
-  incomeagriculture?: string;
-  incomerent?: string;
+  wheinachtsgeld_next12_net?: string;
+  urlaubsgeld_next12_net?: string;
+  incomeagriculture_net?: string;
+  incomerent_net?: string;
   hastaxfreeunterhaltincome?: boolean;
   hastaxableunterhaltincome?: boolean;
   incomeunterhalttaxfree?: string;
-  incomeunterhalttaxable?: string;
+  incomeunterhalttaxable_net?: string;
   ispayingincometax?: boolean;
   ispayinghealthinsurance?: boolean;
   ispayingpension?: boolean;
@@ -430,8 +430,8 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                     </div>
                     <div className="col-md-4">
                       <CurrencyInput
-                        value={data.wheinachtsgeld_next12 || ''}
-                        onChange={val => onChange({ wheinachtsgeld_next12: val })}
+                        value={data.wheinachtsgeld_next12_net || ''}
+                        onChange={val => onChange({ wheinachtsgeld_next12_net: val })}
                         placeholder="Jahresbetrag"
                         label="Jahresbetrag"
                         disabled={isReadOnly}
@@ -451,7 +451,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                           alignItems: 'center'
                         }}
                         type="text"
-                        value={data.wheinachtsgeld_next12 ? (parseFloat(data.wheinachtsgeld_next12.replace(/\./g, '').replace(',', '.')) / 12).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' }) : ''}
+                        value={data.wheinachtsgeld_next12_net ? (parseFloat(data.wheinachtsgeld_next12_net.replace(/\./g, '').replace(',', '.')) / 12).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' }) : ''}
                         disabled
                         placeholder="Monatlich (automatisch)"
                       />
@@ -479,8 +479,8 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                     </div>
                     <div className="col-md-4">
                       <CurrencyInput
-                        value={data.urlaubsgeld_next12 || ''}
-                        onChange={val => onChange({ urlaubsgeld_next12: val })}
+                        value={data.urlaubsgeld_next12_net || ''}
+                        onChange={val => onChange({ urlaubsgeld_next12_net: val })}
                         placeholder="Jahresbetrag"
                         label="Jahresbetrag"
                         disabled={isReadOnly}
@@ -500,7 +500,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                           alignItems: 'center'
                         }}
                         type="text"
-                        value={data.urlaubsgeld_next12 ? (parseFloat(data.urlaubsgeld_next12.replace(/\./g, '').replace(',', '.')) / 12).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' }) : ''}
+                        value={data.urlaubsgeld_next12_net ? (parseFloat(data.urlaubsgeld_next12_net.replace(/\./g, '').replace(',', '.')) / 12).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' }) : ''}
                         disabled
                         placeholder="Monatlich (automatisch)"
                       />
@@ -513,10 +513,10 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                     if (!data.monthlynetsalary) {
                       errors.push('Lohn/Gehalt: Monatliches Nettoeinkommen ist erforderlich');
                     }
-                    if (!data.wheinachtsgeld_next12) {
+                    if (!data.wheinachtsgeld_next12_net) {
                       errors.push('Weihnachtsgeld: Jahresbetrag ist erforderlich');
                     }
-                    if (!data.urlaubsgeld_next12) {
+                    if (!data.urlaubsgeld_next12_net) {
                       errors.push('Urlaubsgeld: Jahresbetrag ist erforderlich');
                     }
                     return errors.length > 0 ? (
@@ -821,8 +821,8 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                       </div>
                       <div className="col-md-4">
                         <CurrencyInput
-                          value={data.incomeagriculture || ''}
-                          onChange={val => onChange({ incomeagriculture: val })}
+                          value={data.incomeagriculture_net || ''}
+                          onChange={val => onChange({ incomeagriculture_net: val })}
                           placeholder="Jahresbetrag"
                           label="Jahresbetrag"
                           disabled={isReadOnly}
@@ -842,7 +842,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                             alignItems: 'center'
                           }}
                           type="text"
-                          value={data.incomeagriculture ? (parseFloat(data.incomeagriculture.replace(/\./g, '').replace(',', '.')) / 12).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' }) : ''}
+                          value={data.incomeagriculture_net ? (parseFloat(data.incomeagriculture_net.replace(/\./g, '').replace(',', '.')) / 12).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' }) : ''}
                           disabled
                           placeholder="Monatlich (automatisch)"
                         />
@@ -923,8 +923,8 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                       </div>
                       <div className="col-md-4">
                         <CurrencyInput
-                          value={data.incomerent || ''}
-                          onChange={val => onChange({ incomerent: val })}
+                          value={data.incomerent_net || ''}
+                          onChange={val => onChange({ incomerent_net: val })}
                           placeholder="Jahresbetrag"
                           label="Jahresbetrag"
                           disabled={isReadOnly}
@@ -944,7 +944,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                             alignItems: 'center'
                           }}
                           type="text"
-                          value={data.incomerent ? (parseFloat(data.incomerent.replace(/\./g, '').replace(',', '.')) / 12).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' }) : ''}
+                          value={data.incomerent_net ? (parseFloat(data.incomerent_net.replace(/\./g, '').replace(',', '.')) / 12).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' }) : ''}
                           disabled
                           placeholder="Monatlich (automatisch)"
                         />
@@ -958,13 +958,13 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                     if (data.weitereEinkuenfte?.selectedTypes?.includes('gewerbe') && isCurrencyEmptyOrZero(data.yearlybusinessnetincome) && isCurrencyEmptyOrZero(data.yearlyselfemployednetincome)) {
                       errors.push('Summe aus Gewerbebetrieb/selbstständiger Arbeit muss größer als 0 sein');
                     }
-                    if (data.weitereEinkuenfte?.selectedTypes?.includes('landforst') && isCurrencyEmptyOrZero(data.incomeagriculture)) {
+                    if (data.weitereEinkuenfte?.selectedTypes?.includes('landforst') && isCurrencyEmptyOrZero(data.incomeagriculture_net)) {
                       errors.push('Land- und Forstwirtschaft: Jahresbetrag fehlt oder ist 0');
                     }
                     if (data.weitereEinkuenfte?.selectedTypes?.includes('kapital') && isCurrencyEmptyOrZero(data.yearlycapitalnetincome)) {
                       errors.push('Kapitalvermögen: Jahresbetrag fehlt oder ist 0');
                     }
-                    if (data.weitereEinkuenfte?.selectedTypes?.includes('vermietung') && isCurrencyEmptyOrZero(data.incomerent)) {
+                    if (data.weitereEinkuenfte?.selectedTypes?.includes('vermietung') && isCurrencyEmptyOrZero(data.incomerent_net)) {
                       errors.push('Vermietung und Verpachtung: Jahresbetrag fehlt oder ist 0');
                     }
                     return errors.length > 0 ? (
@@ -1333,8 +1333,8 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                       </div>
                       <div className="col-md-4">
                         <CurrencyInput
-                          value={data.incomeunterhalttaxable || ''}
-                          onChange={val => onChange({ incomeunterhalttaxable: val })}
+                          value={data.incomeunterhalttaxable_net || ''}
+                          onChange={val => onChange({ incomeunterhalttaxable_net: val })}
                           placeholder="Monatliches Nettoeinkommen"
                           label="Monatliches Nettoeinkommen (€)"
                           disabled={isReadOnly}
@@ -1505,7 +1505,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                     }
                     
                     // Validate Unterhaltsleistungen steuerpflichtig
-                    if (data.weitereEinkuenfte2?.selectedTypes?.includes('unterhaltsteuerpflichtig') && isCurrencyEmptyOrZero(data.incomeunterhalttaxable)) {
+                    if (data.weitereEinkuenfte2?.selectedTypes?.includes('unterhaltsteuerpflichtig') && isCurrencyEmptyOrZero(data.incomeunterhalttaxable_net)) {
                       errors.push('Unterhaltsleistungen steuerpflichtig: Monatliches Nettoeinkommen fehlt oder ist 0');
                     }
                     

@@ -36,9 +36,17 @@ interface Step5Props {
   foerderVariante: string;
   showValidation?: boolean;
   readOnly?: boolean;
+  hasLocationCostLoan?: boolean | null;
 }
 
-const Step5_Kostenaufstellung: React.FC<Step5Props> = ({ formData, updateFormData, foerderVariante, showValidation = false, readOnly = false }) => {
+const Step5_Kostenaufstellung: React.FC<Step5Props> = ({ 
+  formData, 
+  updateFormData, 
+  foerderVariante, 
+  showValidation = false, 
+  readOnly = false,
+  hasLocationCostLoan = null
+}) => {
   const [totalCost, setTotalCost] = useState('0');
   const [previousFoerderVariante, setPreviousFoerderVariante] = useState(foerderVariante);
   const [validationErrors, setValidationErrors] = useState<{ [key: string]: string[] }>({});
@@ -110,16 +118,28 @@ const Step5_Kostenaufstellung: React.FC<Step5Props> = ({ formData, updateFormDat
     
     let total = 0;
 
-    // Only include Baugrundstück if it's Neubau
+    // Only include Baugrundstück if it's Neubau (excluding standortbedingteMehrkosten)
     if (isNeubau) {
-      Object.values(formData.baugrundstuck).forEach((value) => {
-        if (value) {
-          const numberValue = Number(value.replace(/[^0-9]/g, ''));
-          if (!isNaN(numberValue)) {
-            total += numberValue;
-          }
-        }
-      });
+      if (formData.baugrundstuck.kaufpreis) {
+        const numberValue = Number(formData.baugrundstuck.kaufpreis.replace(/[^0-9]/g, ''));
+        if (!isNaN(numberValue)) total += numberValue;
+      }
+      if (formData.baugrundstuck.wert) {
+        const numberValue = Number(formData.baugrundstuck.wert.replace(/[^0-9]/g, ''));
+        if (!isNaN(numberValue)) total += numberValue;
+      }
+      if (formData.baugrundstuck.erschliessungskosten) {
+        const numberValue = Number(formData.baugrundstuck.erschliessungskosten.replace(/[^0-9]/g, ''));
+        if (!isNaN(numberValue)) total += numberValue;
+      }
+    }
+
+    // Only include Standortbedingte Mehrkosten if it's Neubau or Ersterwerb with hasLocationCostLoan
+    if ((foerderVariante.includes('neubau') || foerderVariante.includes('ersterwerb')) && hasLocationCostLoan) {
+      if (formData.baugrundstuck.standortbedingteMehrkosten) {
+        const numberValue = Number(formData.baugrundstuck.standortbedingteMehrkosten.replace(/[^0-9]/g, ''));
+        if (!isNaN(numberValue)) total += numberValue;
+      }
     }
 
     // Only include Kaufpreis if it's Bestandserwerb or Ersterwerb
@@ -166,7 +186,7 @@ const Step5_Kostenaufstellung: React.FC<Step5Props> = ({ formData, updateFormDat
       ...formData,
       gesamtkosten: newTotal
     });
-  }, [formData.baugrundstuck, formData.kaufpreis, formData.baukosten, formData.nebenkosten]);
+  }, [formData.baugrundstuck, formData.kaufpreis, formData.baukosten, formData.nebenkosten, foerderVariante, hasLocationCostLoan]);
 
   // Add validation function
   const validateStep5 = () => {
@@ -178,9 +198,17 @@ const Step5_Kostenaufstellung: React.FC<Step5Props> = ({ formData, updateFormDat
       if (!formData.baugrundstuck.kaufpreis) baugrundstuckErrors.push('Bitte geben Sie den Kaufpreis des Baugrundstücks ein (0,00€ wenn nicht vorhanden)');
       if (!formData.baugrundstuck.wert) baugrundstuckErrors.push('Bitte geben Sie den Wert des Baugrundstücks ein (0,00€ wenn nicht vorhanden)');
       if (!formData.baugrundstuck.erschliessungskosten) baugrundstuckErrors.push('Bitte geben Sie die Erschließungskosten ein (0,00€ wenn nicht vorhanden)');
-      if (!formData.baugrundstuck.standortbedingteMehrkosten) baugrundstuckErrors.push('Bitte geben Sie die standortbedingten Mehrkosten ein (0,00€ wenn nicht vorhanden)');
       if (baugrundstuckErrors.length > 0) {
         errors['baugrundstuck'] = baugrundstuckErrors;
+      }
+    }
+
+    // Standortbedingte Mehrkosten validation for Neubau or Ersterwerb with hasLocationCostLoan
+    if ((foerderVariante.includes('neubau') || foerderVariante.includes('ersterwerb')) && hasLocationCostLoan) {
+      const standortbedingteMehrkostenErrors: string[] = [];
+      if (!formData.baugrundstuck.standortbedingteMehrkosten) standortbedingteMehrkostenErrors.push('Bitte geben Sie die standortbedingten Mehrkosten ein (0,00€ wenn nicht vorhanden)');
+      if (standortbedingteMehrkostenErrors.length > 0) {
+        errors['standortbedingteMehrkosten'] = standortbedingteMehrkostenErrors;
       }
     }
 
@@ -241,7 +269,7 @@ const Step5_Kostenaufstellung: React.FC<Step5Props> = ({ formData, updateFormDat
 
   const isNeubau = foerderVariante.includes('neubau');
   const isBestandserwerb = foerderVariante.includes('bestandserwerb');
-  const isErsterwerb = foerderVariante.includes('ersterwerb');
+  const isErsterwerbLocal = foerderVariante.includes('ersterwerb');
   const showBaukosten = isNeubau || foerderVariante === 'nutzungsaenderung';
 
   return (
@@ -311,16 +339,6 @@ const Step5_Kostenaufstellung: React.FC<Step5Props> = ({ formData, updateFormDat
                 disabled={readOnly}
               />
             </div>
-            <div className="col-12">
-              <CurrencyInput
-                value={formData.baugrundstuck.standortbedingteMehrkosten}
-                onChange={(value) => handleInputChange('baugrundstuck', 'standortbedingteMehrkosten', value)}
-                placeholder="Förderfähige standortbedingte Mehrkosten"
-                label="Förderfähige standortbedingte Mehrkosten"
-                isInvalid={showValidation && validationErrors['baugrundstuck']?.includes('Bitte geben Sie die standortbedingten Mehrkosten ein')}
-                disabled={readOnly}
-              />
-            </div>
           </div>
           {showValidation && validationErrors['baugrundstuck'] && (
             <div className="alert alert-danger mt-3" role="alert">
@@ -333,7 +351,7 @@ const Step5_Kostenaufstellung: React.FC<Step5Props> = ({ formData, updateFormDat
       )}
 
       {/* Kaufpreis Section */}
-      {(isBestandserwerb || isErsterwerb) && (
+      {(isBestandserwerb || isErsterwerbLocal) && (
         <div className="mb-5">
           <div className="d-flex align-items-center gap-2 mb-4">
             <h4 className="mb-0 text-[#000000] font-semibold italic">Kaufpreis</h4>
@@ -372,6 +390,53 @@ const Step5_Kostenaufstellung: React.FC<Step5Props> = ({ formData, updateFormDat
           {showValidation && validationErrors['kaufpreis'] && (
             <div className="alert alert-danger mt-3" role="alert">
               {validationErrors['kaufpreis'].map((error, index) => (
+                <div key={index}>{error}</div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Standortbedingte Mehrkosten Section */}
+      {(isNeubau || foerderVariante.includes('ersterwerb')) && hasLocationCostLoan && (
+        <div className="mb-5">
+          <div className="d-flex align-items-center gap-2 mb-4">
+            <h4 className="mb-0 text-[#000000] font-semibold italic">Standortbedingte Mehrkosten</h4>
+            <OverlayTrigger
+              placement="right"
+              overlay={renderTooltip("Förderfähige standortbedingte Mehrkosten")}
+            >
+              <Button
+                variant="outline-secondary"
+                className="rounded-circle p-0 d-flex align-items-center justify-content-center"
+                style={{
+                  width: '20px',
+                  height: '20px',
+                  color: '#064497',
+                  borderColor: '#D7DAEA',
+                  backgroundColor: '#D7DAEA'
+                }}
+              >
+                ?
+              </Button>
+            </OverlayTrigger>
+          </div>
+
+          <div className="row g-3">
+            <div className="col-12">
+              <CurrencyInput
+                value={formData.baugrundstuck.standortbedingteMehrkosten}
+                onChange={(value) => handleInputChange('baugrundstuck', 'standortbedingteMehrkosten', value)}
+                placeholder="Förderfähige standortbedingte Mehrkosten"
+                label="Förderfähige standortbedingte Mehrkosten"
+                isInvalid={showValidation && validationErrors['standortbedingteMehrkosten']?.includes('Bitte geben Sie die standortbedingten Mehrkosten ein')}
+                disabled={readOnly}
+              />
+            </div>
+          </div>
+          {showValidation && validationErrors['standortbedingteMehrkosten'] && (
+            <div className="alert alert-danger mt-3" role="alert">
+              {validationErrors['standortbedingteMehrkosten'].map((error, index) => (
                 <div key={index}>{error}</div>
               ))}
             </div>

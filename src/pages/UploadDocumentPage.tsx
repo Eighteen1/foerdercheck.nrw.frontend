@@ -28,7 +28,7 @@ interface DocumentRequest {
 
 const DOCUMENT_TYPES: { [id: string]: {title: string, description: string} } = {
   'meldebescheinigung': {title: 'Meldebescheinigung', description: 'Meldebescheinigung von allen Personen, die das Förderobjekt nach Fertigstellung beziehen sollen'},
-  'bauzeichnung': {title: 'Bauzeichnung', description: 'Bauzeichnung (im Maßstab 1:100 mit eingezeichneter Möbelstellung)'},
+  'bauzeichnung': {title: 'Bauzeichnung', description: 'Bauzeichnung (im Maßstab 1:100 mit eingezeichneter Möbelstellung). Dieses Dokument ist bei allen Neubauvorhaben verpflichtend einzureichen. Bei Ersterwerbvorhaben ist es nur erforderlich, wenn ein Zusatzdarlehen für Barrierefreiheit beantragt wird.'},
   'lageplan': {title: 'Lageplan', description: 'Lageplan nach den Vorschriften Bau NRW (2018)'},
   'grundbuchblattkopie': {title: 'Grundbuchblattkopie', description: 'Grundbuchblattkopie nach neuestem Stand'},
   'baugenehmigung_vorbescheid': {title: 'Baugenehmigung oder Vorbescheid', description: 'Baugenehmigung oder Vorbescheid gemäß § 7 BauO NRW (2018)'},
@@ -39,10 +39,13 @@ const DOCUMENT_TYPES: { [id: string]: {title: string, description: string} } = {
   'standortbedingte_mehrkosten': {title: 'Nachweis für standortbedingte Mehrkosten', description: 'Gutachten, Rechnungen oder Kostenvoranschläge'},
   'haswoodconstructionloan': {title: 'Nachweis: Zusatzdarlehen für Bauen mit Holz', description: 'Nachweis: Zusatzdarlehen für Bauen mit Holz'},
   'beg40standard_cert': {title: 'Nachweis: Zusatzdarlehen für BEG Effizienzstandard 40', description: 'Nachweis: Zusatzdarlehen für BEG Effizienzstandard 40'},
-  'pregnancy_cert': {title: 'Schwangerschafts Nachweis', description: 'Nachweis über die Schwangerschaft'},
+  'pregnancy-cert': {title: 'Schwangerschafts Nachweis', description: 'Nachweis über die Schwangerschaft'},
   'marriage_cert': {title: 'Heiratsurkunde/Lebenspartnerschaftsurkunde', description: 'Aktuelle Heiratsurkunde oder Lebenspartnerschaftsurkunde'},
-  'disability_cert': {title: 'Nachweis über die Schwerbehinderteneigenschaft/GdB', description: 'Nachweis über die Schwerbehinderteneigenschaft/Grad der Behinderung (GdB)'},
-  'vollmacht_cert': {title: 'Vollmachtsurkunde', description: 'Vollmachtsurkunde für die bevollmächtigte Person/Firma'},
+  'nachweis_disability': {title: 'Nachweis über die Schwerbehinderteneigenschaft/GdB', description: 'Nachweis über die Schwerbehinderteneigenschaft/Grad der Behinderung (GdB). Wie z.B. Schwerbehindertenausweis oder Feststellungsbescheid nach § 152 Abs. 1 SGB IX'},
+  'pflegegrad_nachweis': {title: 'Nachweis der Pflegebedürftigkeit', description: 'Nachweis über die in der Haushaltsauskunft ausgewiesene Pflegebedürftigkeit/Pflegegrad'},
+  'vollmacht-cert': {title: 'Vollmachtsurkunde', description: 'Vollmachtsurkunde für die bevollmächtigte Person/Firma'},
+  'nachweis_darlehen': {title: 'Darlehenszusage(n)', description: 'Darlehenszusage(n) von Banken oder anderen Kreditgebern'},
+  'eigenkapital_nachweis': {title: 'Nachweis Eigenkapital', description: 'Nachweis über verfügbares Eigenkapital (z.B. Bankauszüge, Sparbücher, Wertpapiere)'},
   'lohn_gehaltsbescheinigungen': {title: 'Lohn-/Gehaltsbescheinigungen', description: 'Lohn-/Gehaltsbescheinigungen'},
   'einkommenssteuerbescheid': {title: 'Letzter Einkommenssteuerbescheid', description: 'Letzter Einkommenssteuerbescheid'},
   'einkommenssteuererklaerung': {title: 'Letzte Einkommenssteuererklärung', description: 'Letzte Einkommenssteuererklärung'},
@@ -56,7 +59,9 @@ const DOCUMENT_TYPES: { [id: string]: {title: string, description: string} } = {
   'elterngeld_nachweis': {title: 'Nachweis Elterngeld', description: 'Nachweis über erhaltenes Elterngeld'},
   'guv_euer_nachweis': {title: 'Gewinn- und Verlustrechnung (GuV)/Einnahmenüberschussrechnung (EÜR)', description: 'Gewinn- und Verlustrechnung (GuV)/Einnahmenüberschussrechnung (EÜR)'},
   'ausbildungsfoerderung_nachweis': {title: 'Leistungen der Ausbildungsförderung (BAföG, Berufsausbildungsbeihilfe SGB III)', description: 'Leistungen der Ausbildungsförderung (BAföG, Berufsausbildungsbeihilfe SGB III) (optional)'},
-  'sonstige_dokumente': {title: 'Sonstige Dokumente', description: 'Weitere relevante Dokumente'}
+  'sonstige_dokumente': {title: 'Sonstige Dokumente', description: 'Weitere relevante Dokumente'},
+  'freiwillige_krankenversicherung_nachweis': {title: 'Nachweis über freiwillige Beiträge zur Krankenversicherung', description: 'Nachweis über freiwillige Beiträge zur Krankenversicherung'},
+  'freiwillige_versicherungsbeitraege_nachweis': {title: 'Nachweis über freiwillige Renten- und Lebensversicherungsbeiträge', description: 'Nachweis über freiwillige Renten- und Lebensversicherungsbeiträge'}
 };
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || '';

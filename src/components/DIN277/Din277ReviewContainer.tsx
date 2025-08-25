@@ -93,7 +93,7 @@ const Din277ReviewContainer: React.FC<Din277ReviewContainerProps> = ({ residentI
     );
 
     if (!hasData) {
-      errors.push('Bitte fügen Sie mindestens ein Volumenelement hinzu');
+      errors.push('Mindestens ein Volumenelement muss angelegt werden');
     }
 
     // Validate building levels

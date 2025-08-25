@@ -1,0 +1,148 @@
+.application-timeline {
+  width: 100%;
+}
+
+.timeline-container {
+  position: relative;
+  padding: 20px 0;
+}
+
+.timeline-step {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 30px;
+  position: relative;
+}
+
+.timeline-step:last-child {
+  margin-bottom: 0;
+}
+
+.timeline-connector {
+  position: relative;
+  margin-right: 20px;
+  flex-shrink: 0;
+}
+
+.timeline-circle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #e5e7eb;
+  border: 3px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 2;
+  transition: all 0.3s ease;
+}
+
+.timeline-circle.completed {
+  background: #064497;
+  border-color: #064497;
+}
+
+.timeline-circle.current {
+  background: #064497;
+  border-color: #064497;
+  box-shadow: 0 0 0 4px rgba(16, 83, 185, 0.1);
+}
+
+.timeline-check {
+  color: white;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.timeline-line {
+  position: absolute;
+  left: 50%;
+  top: 32px;
+  width: 3px;
+  height: 30px;
+  background: #e5e7eb;
+  transform: translateX(-50%);
+  z-index: 1;
+}
+
+.timeline-line.completed {
+  background: #064497;
+}
+
+.timeline-content {
+  flex: 1;
+  padding-top: 4px;
+}
+
+.timeline-label {
+  font-size: 16px;
+  font-weight: 500;
+  color: #6b7280;
+  margin-bottom: 0;
+  transition: color 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.timeline-label.current {
+  color: #064497;
+  font-weight: 600;
+}
+
+.timeline-date {
+  font-size: 14px;
+  color: #9ca3af;
+  font-weight: 500;
+  margin-left: auto;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .timeline-step {
+    margin-bottom: 25px;
+  }
+  
+  .timeline-connector {
+    margin-right: 15px;
+  }
+  
+  .timeline-circle {
+    width: 28px;
+    height: 28px;
+  }
+  
+  .timeline-line {
+    top: 28px;
+    height: 25px;
+  }
+  
+  .timeline-label {
+    font-size: 15px;
+  }
+  
+  .timeline-date {
+    font-size: 13px;
+  }
+}
+
+/* Animation for timeline appearance */
+@keyframes timelineFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.timeline-step {
+  animation: timelineFadeIn 0.5s ease forwards;
+}
+
+.timeline-step:nth-child(1) { animation-delay: 0.1s; }
+.timeline-step:nth-child(2) { animation-delay: 0.2s; }
+.timeline-step:nth-child(3) { animation-delay: 0.3s; }

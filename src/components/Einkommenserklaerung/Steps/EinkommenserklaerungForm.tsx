@@ -111,21 +111,24 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
   // Add state for expanded section
   const [expandedSection, setExpandedSection] = useState<string>('');
 
-      // Date validation helper functions
-  const isValidFutureDate = (date: string): boolean => {
-    if (!date) return false;
+    // Date validation helper functions
+    const isValidFutureDate = (date: string): boolean => {
+      if (!date) return false;
     
-    const inputDate = new Date(date);
-    const now = new Date();
-    const maxDate = new Date(now.getFullYear() + 1, now.getMonth(), now.getDate());
+      const inputDate = new Date(date);
+      const now = new Date();
     
-    return inputDate > now && inputDate <= maxDate;
-  };
+      // Calculate 12 months (1 year) in the past and future from today
+      const minDate = new Date(now.getFullYear(), now.getMonth() - 12, now.getDate());
+      const maxDate = new Date(now.getFullYear(), now.getMonth() + 12, now.getDate());
+    
+      return inputDate >= minDate && inputDate <= maxDate;
+    };
 
   const getDateValidationError = (date: string): string => {
     if (!date) return 'Bitte geben Sie das Datum an.';
     if (!isValidFutureDate(date)) {
-      return 'Das Datum darf weder in der Vergangenheit noch mehr als 12 Monate in der Zukunft liegen';
+      return 'Das Datum darf weder mehr als 12 Monate in der Vergangenheit noch mehr als 12 Monate in der Zukunft liegen';
     }
     return '';
   };
@@ -253,6 +256,37 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
       });
     }
   }, []); // only run on mount
+
+  // Auto-set monthly/yearly values for types that have restrictions
+  useEffect(() => {
+    if (data.additionalIncomeChanges?.changes) {
+      let hasChanges = false;
+      const newChanges = { ...data.additionalIncomeChanges.changes };
+      
+      Object.keys(newChanges).forEach(type => {
+        const change = newChanges[type];
+        const defaultValue = getDefaultValueForType(type);
+        
+        if ((change.isNewIncomeMonthly === null || change.isNewIncomeMonthly === undefined) && defaultValue !== null) {
+          newChanges[type] = {
+            ...change,
+            isNewIncomeMonthly: defaultValue,
+          };
+          hasChanges = true;
+        }
+      });
+      
+      if (hasChanges) {
+        onChange({
+          ...data,
+          additionalIncomeChanges: {
+            ...data.additionalIncomeChanges,
+            changes: newChanges,
+          },
+        });
+      }
+    }
+  }, [data.additionalIncomeChanges?.selectedTypes]); // Run when selected types change
 
   // Helper: Monthly income errors
   const getMonthlyIncomeErrors = () => {
@@ -455,26 +489,38 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
   const validationErrors = getSonderzuwendungenValidationErrors();
   const allSonderzuwendungenErrors = [...externalErrors, ...validationErrors];
 
+  // Helper function to parse German number format (e.g., "1.234,56 €" -> 1234.56)
+  const parseGermanNumber = (value: string): number => {
+    if (!value) return 0;
+    // Remove currency symbol and spaces
+    let cleaned = value.replace(/[€\s]/g, '');
+    // Remove all dots (thousands separators)
+    cleaned = cleaned.replace(/\./g, '');
+    // Replace comma with dot for decimal
+    cleaned = cleaned.replace(',', '.');
+    return parseFloat(cleaned) || 0;
+  };
+
   // Helper function to get current value for a given type
   const getCurrentValueForType = (type: string): number => {
     // Handle weitereEinkuenfte types
     if (data.weitereEinkuenfte?.selectedTypes?.includes(type)) {
       const weitereData = (data.weitereEinkuenfte as any)[type];
       if (weitereData?.betrag) {
-        return parseFloat(weitereData.betrag.replace(/[^\d.,]/g, '').replace(',', '.')) || 0;
+        return parseGermanNumber(weitereData.betrag);
       }
     }
     
     // Handle cost types
     switch (type) {
       case 'werbungskosten':
-        return parseFloat(data.werbungskosten?.replace(/[^\d.,]/g, '').replace(',', '.') || '0') || 0;
+        return parseGermanNumber(data.werbungskosten || '0');
       case 'kinderbetreuungskosten':
-        return parseFloat(data.kinderbetreuungskosten?.replace(/[^\d.,]/g, '').replace(',', '.') || '0') || 0;
+        return parseGermanNumber(data.kinderbetreuungskosten || '0');
       case 'unterhaltszahlungen':
         if (data.unterhaltszahlungen && data.unterhaltszahlungen.length > 0) {
           return data.unterhaltszahlungen.reduce((sum: number, item: any) => {
-            return sum + (parseFloat(item.amount?.replace(/[^\d.,]/g, '').replace(',', '.') || '0') || 0);
+            return sum + parseGermanNumber(item.amount || '0');
           }, 0);
         }
         return 0;
@@ -489,8 +535,29 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
       return null; // Let other validations handle missing values
     }
     
+    // For types that have turnus options, check if the turnus values match
+    if (type === 'ausland' || type === 'arbeitslosengeld') {
+      const originalTurnus = data.weitereEinkuenfte?.[type]?.turnus;
+      const changeTurnus = change.isNewIncomeMonthly === true ? 'monatlich' : change.isNewIncomeMonthly === false ? 'jährlich' : null;
+      
+      // If either turnus is null/undefined, don't validate
+      if (!originalTurnus || changeTurnus === null) {
+        return null;
+      }
+      
+      // For arbeitslosengeld, if original is 'täglich', don't validate (no matching option in change)
+      if (type === 'arbeitslosengeld' && originalTurnus === 'täglich') {
+        return null;
+      }
+      
+      // If turnus values don't match, don't validate
+      if (originalTurnus !== changeTurnus) {
+        return null;
+      }
+    }
+    
     const currentValue = getCurrentValueForType(type);
-    const newValue = parseFloat(change.newAmount.replace(/[^\d.,]/g, '').replace(',', '.') || '0') || 0;
+    const newValue = parseGermanNumber(change.newAmount);
     
     if (change.increase === true && newValue <= currentValue) {
       return 'Ihr neuer Betrag ist geringer als oder gleich dem alten Betrag.';
@@ -501,6 +568,40 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
     }
     
     return null;
+  };
+
+  // Helper function to determine which radio button should be disabled based on type
+  const getDisabledRadioOptions = (type: string): { disableMonthly: boolean; disableYearly: boolean } => {
+    // Types that should only allow yearly (disable monthly)
+    const yearlyOnlyTypes = ['vermietung', 'gewerbe', 'landforst', 'sonstige', 'werbungskosten', 'kinderbetreuungskosten'];
+    
+    // Types that should only allow monthly (disable yearly)
+    const monthlyOnlyTypes = ['renten', 'unterhaltsteuerfrei', 'unterhaltsteuerpflichtig', 'pauschal', 'unterhaltszahlungen'];
+    
+    // Types that allow both (no restrictions)
+    const bothAllowedTypes = ['ausland', 'arbeitslosengeld'];
+    
+    if (yearlyOnlyTypes.includes(type)) {
+      return { disableMonthly: true, disableYearly: false };
+    } else if (monthlyOnlyTypes.includes(type)) {
+      return { disableMonthly: false, disableYearly: true };
+    } else {
+      // For bothAllowedTypes or any other type, allow both
+      return { disableMonthly: false, disableYearly: false };
+    }
+  };
+
+  // Helper function to get the appropriate default value for a type when one option is disabled
+  const getDefaultValueForType = (type: string): boolean | null => {
+    const { disableMonthly, disableYearly } = getDisabledRadioOptions(type);
+    
+    if (disableMonthly && !disableYearly) {
+      return false; // Yearly only
+    } else if (disableYearly && !disableMonthly) {
+      return true; // Monthly only
+    } else {
+      return null; // Both options available, no default
+    }
   };
 
   return (
@@ -697,7 +798,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                 {/* Steuerpflichtige Einkünfte im Kalenderjahr vor Antragstellung */}
                 <div className="mb-3">
                   <div className="d-flex align-items-center gap-2 mb-4">
-                    <h3 className="mb-0 text-[#000000] font-semibold italic">Steuerpflichtige Einkünfte im Kalenderjahr vor Antragstellung</h3>
+                    <h3 className="mb-0 text-[#000000] font-semibold italic">Steuerpflichtige Einkünfte im Kalenderjahr vor Antragstellung (inklusive Sonderzuwendungen)</h3>
                     <OverlayTrigger
                       placement="right"
                       overlay={renderTooltip("Wählen Sie das Jahr und geben Sie den Jahresbetrag an.")}
@@ -756,7 +857,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                 {/* Einkünfte der letzten 12 Monate */}
                 <div className="mb-3 mt-4">
                   <div className="d-flex align-items-center gap-2 mb-4">
-                    <h3 className="mb-0 text-[#000000] font-semibold italic">Einkünfte der letzten 12 Monate</h3>
+                    <h3 className="mb-0 text-[#000000] font-semibold italic">Einkünfte der letzten 12 Monate (ohne Sonderzuwendungen und steuerfreie Einnahmen)</h3>
                     <OverlayTrigger
                       placement="right"
                       overlay={renderTooltip("Wählen Sie den letzten Monat des Betrachtungszeitraums. Die 12 Monate werden automatisch generiert.")}
@@ -2338,56 +2439,63 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                         <Form.Label className="mb-2 mt-2">Zeitraum für den neuen Betrag auswählen:</Form.Label>
                       </div>
                       <div className="d-flex gap-3 ms-5">
-                        <Form.Check
-                          inline
-                          type="radio"
-                          label="pro Monat"
-                          name={`isNewIncomeMonthly-${type}`}
-                          checked={change.isNewIncomeMonthly === true}
-                          onChange={() => {
-                            onChange({
-                              ...data,
-                              additionalIncomeChanges: {
-                                ...data.additionalIncomeChanges,
-                                changes: {
-                                  ...data.additionalIncomeChanges?.changes,
-                                  [type]: {
-                                    ...change,
-                                    isNewIncomeMonthly: true,
-                                  }
-                                }
-                              }
-                            });
-                          }}
-                          disabled={isReadOnly}
-                        />
-                        <Form.Check
-                          inline
-                          type="radio"
-                          label="pro Jahr"
-                          name={`isNewIncomeMonthly-${type}`}
-                          checked={change.isNewIncomeMonthly === false}
-                          onChange={() => {
-                            onChange({
-                              ...data,
-                              additionalIncomeChanges: {
-                                ...data.additionalIncomeChanges,
-                                changes: {
-                                  ...data.additionalIncomeChanges?.changes,
-                                  [type]: {
-                                    ...change,
-                                    isNewIncomeMonthly: false,
-                                  }
-                                }
-                              }
-                            });
-                          }}
-                          disabled={isReadOnly}
-                        />
+                        {(() => {
+                          const { disableMonthly, disableYearly } = getDisabledRadioOptions(type);
+                          return (
+                            <>
+                              <Form.Check
+                                inline
+                                type="radio"
+                                label="pro Monat"
+                                name={`isNewIncomeMonthly-${type}`}
+                                checked={change.isNewIncomeMonthly === true}
+                                onChange={() => {
+                                  onChange({
+                                    ...data,
+                                    additionalIncomeChanges: {
+                                      ...data.additionalIncomeChanges,
+                                      changes: {
+                                        ...data.additionalIncomeChanges?.changes,
+                                        [type]: {
+                                          ...change,
+                                          isNewIncomeMonthly: true,
+                                        }
+                                      }
+                                    }
+                                  });
+                                }}
+                                disabled={isReadOnly || disableMonthly}
+                              />
+                              <Form.Check
+                                inline
+                                type="radio"
+                                label="pro Jahr"
+                                name={`isNewIncomeMonthly-${type}`}
+                                checked={change.isNewIncomeMonthly === false}
+                                onChange={() => {
+                                  onChange({
+                                    ...data,
+                                    additionalIncomeChanges: {
+                                      ...data.additionalIncomeChanges,
+                                      changes: {
+                                        ...data.additionalIncomeChanges?.changes,
+                                        [type]: {
+                                          ...change,
+                                          isNewIncomeMonthly: false,
+                                        }
+                                      }
+                                    }
+                                  });
+                                }}
+                                disabled={isReadOnly || disableYearly}
+                              />
+                            </>
+                          );
+                        })()}
                       </div>
                     </div>
                     {showValidation && (change.isNewIncomeMonthly === null || change.isNewIncomeMonthly === undefined) && (
-                      <div className="text-danger mt-1">Bitte geben Sie an, ob der neue Betrag monatlich oder jährlich ist.</div>
+                      <div className="text-danger mt-1">Bitte geben Sie an, den Zeitraum für den neuen Betrag an.</div>
                     )}
                   </div>
                   {/* Begründung field below, full width */}

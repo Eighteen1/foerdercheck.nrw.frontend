@@ -108,7 +108,7 @@ const WoFIVReviewContainer: React.FC<WoFIVReviewContainerProps> = ({ residentId 
     );
 
     if (!hasWohnflaecheData && !hasNutzflaecheData) {
-      errors.push('Bitte fügen Sie mindestens einen Raum hinzu');
+      errors.push('Mindestens ein Raum muss angelegt werden');
     }
 
     // Validate floor names

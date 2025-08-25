@@ -32,6 +32,7 @@ interface Step3Data {
     begEffizienzhaus40Standard: boolean | null;
     hasLocationCostLoan: boolean | null;
     hasWoodConstructionLoan: boolean | null;
+    bergsenkungsGebiet: boolean | null;
   };
   objektDetailsEigentumswohnung: {
     anzahlVollgeschosse: string;
@@ -158,6 +159,13 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
     }
     if (formData.objektDetailsAllgemein.hasWoodConstructionLoan === null) {
       errors.push('Bitte geben Sie an, ob Sie ein Zusatzdarlehen für Bauen mit Holz beantragen');
+    }
+
+    // Bergsenkungsgebiet validation - only for neubau, ersterwerb, or nutzungsänderung
+    if (formData.foerderVariante?.includes('neubau') || formData.foerderVariante?.includes('ersterwerb') || formData.foerderVariante === 'nutzungsaenderung') {
+      if (formData.objektDetailsAllgemein.bergsenkungsGebiet === null) {
+        errors.push('Bitte geben Sie an, ob sich das Objekt in einem Bergsenkungsgebiet befindet');
+      }
     }
 
     // Eigentumswohnung validation
@@ -808,6 +816,64 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
             <div className="text-danger mt-1">
               Bitte geben Sie an, ob Sie ein Zusatzdarlehen für Bauen mit Holz beantragen
             </div>
+          )}
+
+          {/* Bergsenkungsgebiet question - only for neubau, ersterwerb, or nutzungsänderung */}
+          {(formData.foerderVariante?.includes('neubau') || 
+            formData.foerderVariante?.includes('ersterwerb') || 
+            formData.foerderVariante === 'nutzungsaenderung') && (
+            <>
+              <div className="d-flex align-items-center mb-3 mt-4">
+                <div className="d-flex align-items-center gap-2">
+                  <Form.Label className="mb-0">Befindet sich das Objekt in einem Bergsenkungsgebiet?</Form.Label>
+                  <OverlayTrigger
+                    placement="right"
+                    overlay={renderTooltip("Geben Sie an, ob sich das Objekt in einem Bergsenkungsgebiet befindet. In Bergsenkungsgebieten ist eine Erklärung der Bergbaugesellschaft über die Notwendigkeit von baulichen Anpassungs- und Sicherungsmaßnahmen und gegebenenfalls die Kostenübernahme erforderlich.")}
+                  >
+                    <Button
+                      variant="outline-secondary"
+                      className="rounded-circle p-0 d-flex align-items-center justify-content-center"
+                      style={{
+                        width: '20px',
+                        height: '20px',
+                        color: '#064497',
+                        borderColor: '#D7DAEA',
+                        backgroundColor: '#D7DAEA'
+                      }}
+                    >
+                      ?
+                    </Button>
+                  </OverlayTrigger>
+                </div>
+                <div className="d-flex gap-3 ms-auto">
+                  <Form.Check
+                    inline
+                    type="radio"
+                    label="Ja"
+                    name="bergsenkungsGebiet"
+                    checked={formData.objektDetailsAllgemein.bergsenkungsGebiet === true}
+                    onChange={() => handleRadioChange('objektDetailsAllgemein', 'bergsenkungsGebiet', true)}
+                    className="custom-radio"
+                    disabled={readOnly}
+                  />
+                  <Form.Check
+                    inline
+                    type="radio"
+                    label="Nein"
+                    name="bergsenkungsGebiet"
+                    checked={formData.objektDetailsAllgemein.bergsenkungsGebiet === false}
+                    onChange={() => handleRadioChange('objektDetailsAllgemein', 'bergsenkungsGebiet', false)}
+                    className="custom-radio"
+                    disabled={readOnly}
+                  />
+                </div>
+              </div>
+              {showValidation && getFieldError('Bergsenkungsgebiet') && (
+                <div className="text-danger mt-1">
+                  Bitte geben Sie an, ob sich das Objekt in einem Bergsenkungsgebiet befindet
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

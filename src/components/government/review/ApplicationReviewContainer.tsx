@@ -18,10 +18,11 @@ interface ApplicationReviewContainerProps {
   applicationId: string;
   onClose: () => void;
   openChecklistItemId?: string | null;
+  onClearDeepLink?: () => void;
 }
 
 // Modes: 'checklist' | 'forms'
-const ApplicationReviewContainer: React.FC<ApplicationReviewContainerProps> = ({ applicationId, onClose, openChecklistItemId }) => {
+const ApplicationReviewContainer: React.FC<ApplicationReviewContainerProps> = ({ applicationId, onClose, openChecklistItemId, onClearDeepLink }) => {
   const [mode, setMode] = useState<'checklist' | 'forms'>('checklist');
   const [splitViewFormId, setSplitViewFormId] = useState<string | null>(null);
   const [splitViewDocId, setSplitViewDocId] = useState<string | null>(null);
@@ -255,7 +256,11 @@ const ApplicationReviewContainer: React.FC<ApplicationReviewContainerProps> = ({
             Checkliste
           </button>
           <button 
-            onClick={() => setMode('forms')} 
+            onClick={() => {
+              setMode('forms');
+              // Clear deep link state when switching to forms mode
+              if (onClearDeepLink) onClearDeepLink();
+            }} 
             disabled={mode === 'forms'}
             style={{
               flex: 1,
@@ -303,6 +308,7 @@ const ApplicationReviewContainer: React.FC<ApplicationReviewContainerProps> = ({
                   onExpand={handleExpandForm}
                   onProgressUpdate={handleProgressUpdate}
                   openChecklistItemId={openChecklistItemId}
+                  onClearDeepLink={onClearDeepLink}
                 />
               </div>
             ) : (splitViewFormId && splitViewFormId !== '') ? (
@@ -317,6 +323,7 @@ const ApplicationReviewContainer: React.FC<ApplicationReviewContainerProps> = ({
                     onExpand={handleExpandForm}
                     onProgressUpdate={handleProgressUpdate}
                     openChecklistItemId={openChecklistItemId}
+                    onClearDeepLink={onClearDeepLink}
                   />
                 </div>
                 <div style={{ flex: 3, minWidth: 0, borderLeft: '1px solid #eee', background: '#F7F8FA' }}>
@@ -343,6 +350,7 @@ const ApplicationReviewContainer: React.FC<ApplicationReviewContainerProps> = ({
                     onExpand={handleExpandForm}
                     onProgressUpdate={handleProgressUpdate}
                     openChecklistItemId={openChecklistItemId}
+                    onClearDeepLink={onClearDeepLink}
                   />
                 </div>
                 <div style={{ flex: 3, minWidth: 0, borderLeft: '1px solid #eee', background: '#F7F8FA' }}>

@@ -1,12 +1,12 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { supabase } from '../../../lib/supabase';
-import EinkommenserklaerungReviewContainer from '../../Einkommenserklaerung/EinkommenserklaerungReviewContainer';
-import HauptantragReviewContainer from '../../Hauptantrag/HauptantragReviewContainer';
-import SelbstauskunftReviewContainer from '../../Selbstauskunft/SelbstauskunftReviewContainer';
-import WoFIVReviewContainer from '../../WoFIV/WoFIVReviewContainer';
-import Din277ReviewContainer from '../../DIN277/Din277ReviewContainer';
-import SelbsthilfeReviewContainer from '../../Selbsthilfe/SelbsthilfeReviewContainer';
-import HaushaltReviewContainer from '../../Haushaltsauskunft/HaushaltReviewContainer';
+import { supabase } from '../lib/supabase';
+import EinkommenserklaerungReviewContainer from './Einkommenserklaerung/EinkommenserklaerungReviewContainer';
+import HauptantragReviewContainer from './Hauptantrag/HauptantragReviewContainer';
+import SelbstauskunftReviewContainer from './Selbstauskunft/SelbstauskunftReviewContainer';
+import WoFIVReviewContainer from './WoFIV/WoFIVReviewContainer';
+import Din277ReviewContainer from './DIN277/Din277ReviewContainer';
+import SelbsthilfeReviewContainer from './Selbsthilfe/SelbsthilfeReviewContainer';
+import HaushaltReviewContainer from './Haushaltsauskunft/HaushaltReviewContainer';
 
 type DocumentStatus = {
   fileName: string;
@@ -26,7 +26,7 @@ type CategoryDocuments = {
   [categoryKey: string]: DocumentStatusMap;
 };
 
-type FormsDocsPanelProps = {
+type UserFormsDocsPanelProps = {
   openForms: string[];
   openDocuments: string[];
   onCloseForm: (formId: string) => void;
@@ -82,13 +82,6 @@ export const DOCUMENT_LABELS: Record<string, string> = {
   'bauenmitholz_cert': 'Nachweis: Zusatzdarlehen für Bauen mit Holz'
 };
 
-// Category display names
-const CATEGORY_LABELS: Record<string, string> = {
-  'general': 'Allgemeine Dokumente',
-  'hauptantragsteller': 'Hauptantragsteller',
-  // Remove the hardcoded applicant_2, applicant_3, etc. as they will be generated dynamically
-};
-
 export const availableForms = [
   { id: 'hauptantrag', label: 'Hauptantrag' },
   { id: 'einkommenserklaerung', label: 'Einkommenserklärung' },
@@ -118,7 +111,7 @@ if (typeof window !== 'undefined' && document && !document.getElementById('mater
   document.head.appendChild(link);
 }
 
-const FormsDocsPanel: React.FC<FormsDocsPanelProps> = ({ 
+const UserFormsDocsPanel: React.FC<UserFormsDocsPanelProps> = ({ 
   openForms, 
   openDocuments, 
   onCloseForm, 
@@ -129,13 +122,8 @@ const FormsDocsPanel: React.FC<FormsDocsPanelProps> = ({
 }) => {
   const [userData, setUserData] = useState<any>(null);
   const [documentUrls, setDocumentUrls] = useState<{[key: string]: string}>({});
-  const [menuOpenFor, setMenuOpenFor] = useState<string | null>(null);
-  const [formMenuOpenFor, setFormMenuOpenFor] = useState<string | null>(null);
-  const menuRef = useRef<HTMLDivElement | null>(null);
-  const formMenuRef = useRef<HTMLDivElement | null>(null);
   const [sidebarVisible, setSidebarVisible] = useState(sidebarInitiallyVisible);
   const [applicantNames, setApplicantNames] = useState<Record<string, string>>({});
-  const [isDownloadingForm, setIsDownloadingForm] = useState<string | null>(null);
 
   // Function to get person name abbreviation
   const getPersonNameAbbreviation = (firstName: string, lastName: string): string => {
@@ -230,117 +218,13 @@ const FormsDocsPanel: React.FC<FormsDocsPanelProps> = ({
     fetchUserData();
   }, [residentId]);
 
-  // Close menu on outside click
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setMenuOpenFor(null);
-      }
-      if (formMenuRef.current && !formMenuRef.current.contains(event.target as Node)) {
-        setFormMenuOpenFor(null);
-      }
-    }
-    if (menuOpenFor || formMenuOpenFor) {
-      document.addEventListener('mousedown', handleClickOutside);
-    } else {
-      document.removeEventListener('mousedown', handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [menuOpenFor, formMenuOpenFor]);
-
-  const handleOpenInsideApp = (uniqueId: string) => {
-    setMenuOpenFor(null);
-    if (!openDocuments.includes(uniqueId)) {
-      onPopOut(uniqueId, 'doc');
-    }
-  };
-
-  const handleOpenExternalTab = (uniqueId: string) => {
-    setMenuOpenFor(null);
-    if (documentUrls[uniqueId]) {
-      window.open(documentUrls[uniqueId], '_blank');
-    }
-  };
-
-  const handleDownload = async (file: DocumentStatus, uniqueId: string) => {
-    setMenuOpenFor(null);
-    if (file?.filePath) {
-      const { data, error } = await supabase.storage
-        .from('documents')
-        .createSignedUrl(file.filePath, 60, { download: true });
-      if (data?.signedUrl) {
-        const link = document.createElement('a');
-        link.href = data.signedUrl;
-        link.download = file.fileName || uniqueId;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      }
-    }
-  };
-
   const handleFormOpen = (formId: string) => {
-    setFormMenuOpenFor(null);
-    if (!openForms.includes(formId)) {
-      onPopOut(formId, 'form');
-    }
-  };
-
-  const handleFormDownload = async (formId: string) => {
-    if (!residentId) return;
+    // Close any previously open forms and documents
+    onCloseForm(openForms[0]);
+    onCloseDocument(openDocuments[0]);
     
-    setFormMenuOpenFor(null);
-    setIsDownloadingForm(formId);
-    
-    try {
-      // Get the current session token from Supabase
-      const { data: { session }, error } = await supabase.auth.getSession();
-      if (error || !session) {
-        throw new Error('No valid session found');
-      }
-
-      // Get the API base URL from environment or use relative path
-      const apiBaseUrl = process.env.REACT_APP_BACKEND_URL || '';
-      
-      // Make API call to generate PDF for agent
-      const response = await fetch(`${apiBaseUrl}/pdf/generate-haushalt-agent`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ resident_id: residentId }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      // Get the PDF blob
-      const pdfBlob = await response.blob();
-      
-      // Create download link
-      const url = window.URL.createObjectURL(pdfBlob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `haushalt_form_${residentId}.pdf`;
-      
-      // Trigger download
-      document.body.appendChild(link);
-      link.click();
-      
-      // Cleanup
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-      
-    } catch (error) {
-      console.error('Error downloading PDF:', error);
-      alert('Fehler beim Herunterladen der PDF. Bitte versuchen Sie es erneut.');
-    } finally {
-      setIsDownloadingForm(null);
-    }
+    // Open the new form
+    onPopOut(formId, 'form');
   };
 
   const renderDocumentButton = (docTypeId: string, file: DocumentStatus, index: number, categoryKey: string, totalFiles: number) => {
@@ -352,7 +236,14 @@ const FormsDocsPanel: React.FC<FormsDocsPanelProps> = ({
     return (
       <div key={uniqueId} style={{ marginBottom: 6, position: 'relative' }}>
         <button
-          onClick={() => setMenuOpenFor(uniqueId)}
+          onClick={() => {
+            // Close any previously open forms and documents
+            onCloseForm(openForms[0]);
+            onCloseDocument(openDocuments[0]);
+            
+            // Open the new document
+            onPopOut(uniqueId, 'doc');
+          }}
           style={{
             width: '100%',
             height: 64,
@@ -365,11 +256,11 @@ const FormsDocsPanel: React.FC<FormsDocsPanelProps> = ({
             fontFamily: 'Roboto, Arial, sans-serif',
             fontWeight: 400,
             fontSize: 15,
-            boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
+            boxShadow: isSelected ? '0 2px 8px rgba(6, 68, 151, 0.3)' : '0 1px 4px rgba(0,0,0,0.15)',
             border: 'none',
             padding: '0 14px',
             cursor: file.uploaded ? 'pointer' : 'not-allowed',
-            transition: 'background 0.2s, color 0.2s',
+            transition: 'all 0.2s ease',
             outline: 'none',
             textAlign: 'left',
             minHeight: 64,
@@ -379,73 +270,55 @@ const FormsDocsPanel: React.FC<FormsDocsPanelProps> = ({
             opacity: file.uploaded ? 1 : 0.5,
           }}
           disabled={!file.uploaded}
+          onMouseEnter={(e) => {
+            if (file.uploaded && !isSelected) {
+              e.currentTarget.style.background = '#f8f9fa';
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (file.uploaded && !isSelected) {
+              e.currentTarget.style.background = '#fff';
+            }
+          }}
         >
           {displayLabel}
         </button>
-        {menuOpenFor === uniqueId && file.uploaded && (
-          <div
-            ref={menuRef}
-            style={{
-              position: 'absolute',
-              top: 70,
-              left: 0,
-              background: '#fff',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-              borderRadius: 6,
-              zIndex: 10,
-              minWidth: 180,
-              padding: 8,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 4,
-            }}
-          >
-            <button
-              style={{ width: '100%', padding: '8px 0', border: 'none', background: '#f7f8fa', borderRadius: 4, cursor: 'pointer' }}
-              onClick={() => handleOpenInsideApp(uniqueId)}
-            >
-              Öffnen
-            </button>
-            <button
-              style={{ width: '100%', padding: '8px 0', border: 'none', background: '#f7f8fa', borderRadius: 4, cursor: 'pointer' }}
-              onClick={() => handleOpenExternalTab(uniqueId)}
-            >
-              In neuem Tab öffnen
-            </button>
-            <button
-              style={{ width: '100%', padding: '8px 0', border: 'none', background: '#f7f8fa', borderRadius: 4, cursor: 'pointer' }}
-              onClick={async () => await handleDownload(file, uniqueId)}
-            >
-              Herunterladen
-            </button>
-          </div>
-        )}
       </div>
     );
   };
 
   return (
-    <div style={{ display: 'flex', height: '100vh', margin: 0, padding: 0, position: 'relative', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', height: '100%', margin: 0, padding: 0, position: 'relative', overflow: 'hidden', background: '#f7f8fa' }}>
       {/* Main area for open forms/docs */}
-      <div style={{ flex: 1, display: 'flex', gap: 8, padding: '8px 0 8px 16px', transition: 'flex 0.3s' }}>
-        {[...openForms, ...openDocuments].slice(0, 2).map((id, idx) => (
+      <div style={{ 
+        flex: 1, 
+        display: 'flex', 
+        gap: 16, // Increased gap for better spacing
+        padding: '16px 24px 16px 24px', // Added left/right padding for better margins
+        transition: 'flex 0.3s', 
+        minHeight: 0,
+        background: '#f7f8fa'
+      }}>
+        {[...openForms, ...openDocuments].slice(0, 1).map((id, idx) => ( // Changed from slice(0, 2) to slice(0, 1)
           <div key={id} style={{
             flex: 1,
-            border: '1px solid #ccc',
+            border: '1px solid #e0e0e0',
             borderRadius: 8,
             background: '#fff',
             padding: 16,
             minWidth: 0,
             display: 'flex',
             flexDirection: 'column',
-            minHeight: 0
+            minHeight: 0,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
           }}>
             <div style={{ 
               display: 'flex', 
               alignItems: 'flex-start', 
               gap: 12,
               marginBottom: 16,
-              minHeight: 40 // Ensure minimum height for button alignment
+              minHeight: 40, // Ensure minimum height for button alignment
+              flexShrink: 0
             }}>
               <div 
                 lang="de" // Enable German hyphenation
@@ -528,13 +401,19 @@ const FormsDocsPanel: React.FC<FormsDocsPanelProps> = ({
                       fontSize: 14,
                       cursor: 'pointer',
                       gap: 4,
-                      transition: 'background 0.2s, color 0.2s',
+                      transition: 'all 0.2s ease',
                       boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
                       padding: 0,
                       whiteSpace: 'nowrap',
                       overflow: 'hidden'
                     }}
                     title="In neuem Tab öffnen"
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = '#e8f0fe';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = '#f7f8fa';
+                    }}
                   >
                     <span className="material-icons" style={{ fontSize: 18 }}>open_in_new</span>
                     <span style={{ fontSize: 13 }}>Extern öffnen</span>
@@ -557,24 +436,30 @@ const FormsDocsPanel: React.FC<FormsDocsPanelProps> = ({
                     fontSize: 14,
                     cursor: 'pointer',
                     gap: 4,
-                    transition: 'background 0.2s, color 0.2s',
+                    transition: 'all 0.2s ease',
                     boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
                     padding: 0,
                     whiteSpace: 'nowrap',
                     overflow: 'hidden'
                   }}
                   title="Schließen"
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = '#ffebee';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = '#fff';
+                  }}
                 >
                   <span className="material-icons" style={{ fontSize: 18 }}>close</span>
                   <span style={{ fontSize: 13 }}>Schließen</span>
                 </button>
               </div>
             </div>
-            <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
               {openDocuments.includes(id) && documentUrls[id] && (
                 <iframe 
                   src={documentUrls[id]} 
-                  style={{ width: '100%', height: '100%', border: 'none' }}
+                  style={{ width: '100%', height: '100%', border: 'none', borderRadius: '4px' }}
                   title={id}
                 />
               )}
@@ -593,7 +478,15 @@ const FormsDocsPanel: React.FC<FormsDocsPanelProps> = ({
           </div>
         ))}
         {[...openForms, ...openDocuments].length === 0 && (
-          <div style={{ flex: 1, color: '#aaa', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ 
+            flex: 1, 
+            color: '#aaa', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            fontSize: '18px',
+            fontWeight: '300'
+          }}>
             Kein Formular oder Dokument geöffnet
           </div>
         )}
@@ -604,16 +497,17 @@ const FormsDocsPanel: React.FC<FormsDocsPanelProps> = ({
         <div
           style={{
             width: 280, // Fixed width (increased slightly for better usability)
-            borderLeft: '1px solid #eee',
+            borderLeft: '1px solid #e0e0e0',
             background: '#f7f8fa',
-            height: '100vh',
+            height: '100%',
             overflow: 'hidden',
             boxSizing: 'border-box',
             display: 'flex',
             flexDirection: 'column',
             position: 'relative',
             zIndex: 20,
-            flexShrink: 0 // Prevent sidebar from shrinking
+            flexShrink: 0, // Prevent sidebar from shrinking
+            boxShadow: '-2px 0 8px rgba(0,0,0,0.08)'
           }}
         >
           {/* Hide sidebar button - always visible at the top inside sidebar */}
@@ -639,9 +533,16 @@ const FormsDocsPanel: React.FC<FormsDocsPanelProps> = ({
                 zIndex: 30,
                 marginTop: 0,
                 whiteSpace: 'nowrap',
-                overflow: 'hidden'
+                overflow: 'hidden',
+                transition: 'all 0.2s ease'
               }}
               title="Seitenleiste ausblenden"
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = '#f8f9fa';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = '#fff';
+              }}
             >
               <span style={{ color: '#064497', fontWeight: 400, fontSize: 13 }}>Minimieren</span>
               <span className="material-icons" style={{ color: '#064497', fontSize: 20 }}>chevron_right</span>
@@ -671,13 +572,11 @@ const FormsDocsPanel: React.FC<FormsDocsPanelProps> = ({
             </h4>
             {availableForms.map(form => {
               const isSelected = openForms.includes(form.id);
-              const showMenu = form.id === 'haushaltsauskunft';
-              const isDownloading = isDownloadingForm === form.id;
               
               return (
                 <div key={form.id} style={{ marginBottom: 6, position: 'relative' }}>
                   <button
-                    onClick={() => showMenu ? setFormMenuOpenFor(form.id) : onPopOut(form.id, 'form')}
+                    onClick={() => handleFormOpen(form.id)}
                     style={{
                       width: '100%',
                       height: 64,
@@ -690,63 +589,31 @@ const FormsDocsPanel: React.FC<FormsDocsPanelProps> = ({
                       fontFamily: 'Roboto, Arial, sans-serif',
                       fontWeight: 400,
                       fontSize: 15,
-                      boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
+                      boxShadow: isSelected ? '0 2px 8px rgba(6, 68, 151, 0.3)' : '0 1px 4px rgba(0,0,0,0.15)',
                       border: 'none',
                       padding: '0 14px',
                       cursor: 'pointer',
-                      transition: 'background 0.2s, color 0.2s',
+                      transition: 'background 0.2s ease',
                       outline: 'none',
                       textAlign: 'left',
                       minHeight: 64,
                       maxHeight: 64,
                       overflow: 'hidden',
                       whiteSpace: 'normal',
-                      opacity: isDownloading ? 0.7 : 1,
                     }}
-                    disabled={isDownloading}
+                    onMouseEnter={(e) => {
+                      if (!isSelected) {
+                        e.currentTarget.style.background = '#f8f9fa';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isSelected) {
+                        e.currentTarget.style.background = '#fff';
+                      }
+                    }}
                   >
-                    {isDownloading ? (
-                      <>
-                        <span style={{ marginRight: 8 }}>⏳</span>
-                        PDF wird erstellt...
-                      </>
-                    ) : (
-                      form.label
-                    )}
+                    {form.label}
                   </button>
-                  {showMenu && formMenuOpenFor === form.id && (
-                    <div
-                      ref={formMenuRef}
-                      style={{
-                        position: 'absolute',
-                        top: 70,
-                        left: 0,
-                        background: '#fff',
-                        boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-                        borderRadius: 6,
-                        zIndex: 10,
-                        minWidth: 180,
-                        padding: 8,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 4,
-                      }}
-                    >
-                      <button
-                        style={{ width: '100%', padding: '8px 0', border: 'none', background: '#f7f8fa', borderRadius: 4, cursor: 'pointer' }}
-                        onClick={() => handleFormOpen(form.id)}
-                      >
-                        Öffnen
-                      </button>
-                      <button
-                        style={{ width: '100%', padding: '8px 0', border: 'none', background: '#f7f8fa', borderRadius: 4, cursor: 'pointer' }}
-                        onClick={() => handleFormDownload(form.id)}
-                        disabled={isDownloading}
-                      >
-                        {isDownloading ? 'PDF wird erstellt...' : 'Herunterladen'}
-                      </button>
-                    </div>
-                  )}
                 </div>
               );
             })}
@@ -843,7 +710,7 @@ const FormsDocsPanel: React.FC<FormsDocsPanelProps> = ({
           style={{
             position: 'fixed',
             top: '50%',
-            right: 0,
+            right: 0, // Position at the very right edge of the screen
             transform: 'translateY(-50%)',
             width: 38,
             height: 48,
@@ -857,8 +724,15 @@ const FormsDocsPanel: React.FC<FormsDocsPanelProps> = ({
             justifyContent: 'center',
             cursor: 'pointer',
             zIndex: 100,
+            transition: 'all 0.2s ease'
           }}
           title="Seitenleiste einblenden"
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = '#0d4da6';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = '#064497';
+          }}
         >
           <span className="material-icons">chevron_left</span>
         </button>
@@ -867,4 +741,4 @@ const FormsDocsPanel: React.FC<FormsDocsPanelProps> = ({
   );
 };
 
-export default FormsDocsPanel; 
+export default UserFormsDocsPanel;

@@ -9,7 +9,7 @@ import ResultPage from './components/ResultPage';
 import PersonalSpace from './components/PersonalSpace';
 import LoginPage from './components/LoginPage';
 import VerifyEmail from './components/VerifyEmail';
-import DocumentCheck from './components/DocumentCheck';
+//import DocumentCheck from './components/DocumentCheck';
 import DocumentUpload from './components/DocumentUpload';
 import UploadDocumentPage from './pages/UploadDocumentPage';
 import Layout from './components/Layout';
@@ -28,6 +28,8 @@ import WoFIVContainer from './components/WoFIV/WoFIVContainer';
 import Din277Container from './components/DIN277/Din277Container';
 import SelbsthilfeContainer from './components/Selbsthilfe/SelbsthilfeContainer';
 import HaushaltContainer from './components/Haushaltsauskunft/HaushaltContainer';
+import ValidationPage from './components/ValidationPage';
+import UserApplicationReview from './components/UserApplicationReview';
 
 function App() {
   return (
@@ -56,11 +58,11 @@ function App() {
               <Route path="/login" element={<LoginPage />} />
               <Route path="/verify/:token" element={<VerifyEmail />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
-              <Route path="/document-check" element={
+              {/*<Route path="/document-check" element={
                 <RoutingProtection requireAuth>
                   <DocumentCheck />
                 </RoutingProtection>
-              } />
+              } />*/}
               <Route path="/document-upload" element={
                 <RoutingProtection requireAuth>
                   <DocumentUpload />
@@ -102,6 +104,16 @@ function App() {
                 </RoutingProtection>
               } />
               <Route path="/upload-document/:token" element={<UploadDocumentPage />} />
+              <Route path="/validation" element={
+                <RoutingProtection requireAuth>
+                  <ValidationPage />
+                </RoutingProtection>
+              } />
+              <Route path="/view-application" element={
+                <RoutingProtection requireAuth>
+                  <UserApplicationReview />
+                </RoutingProtection>
+              } />
             </Routes>
           </Layout>
         </PasswordProtectionMiddleware>

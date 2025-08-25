@@ -4,7 +4,7 @@ import { ChecklistItem, ReviewData } from '../../../types/checklist';
 import ChecklistItemComponent from './ChecklistItem';
 import CustomChecklistItem from './CustomChecklistItem';
 import AddChecklistItem from './AddChecklistItem';
-import { generateChecklistItems } from '../../../utils/checklistGenerator';
+import { generateChecklistItems, DOCUMENT_CATEGORY_MAPPING } from '../../../utils/checklistGenerator';
 
 type ChecklistPanelProps = {
   applicationId: string;
@@ -15,6 +15,41 @@ type ChecklistPanelProps = {
   onExpand: () => void;
   onProgressUpdate: (progress: number) => void;
   openChecklistItemId?: string | null;
+  onClearDeepLink?: () => void;
+};
+
+// Helper function to extract document ID from checklist item ID
+const extractDocumentIdFromChecklistId = (checklistId: string): string | null => {
+  // Checklist IDs for documents typically end with "_isvalid"
+  // Examples:
+  // "meldebescheinigung_isvalid" -> "meldebescheinigung"
+  // "lohn_gehaltsbescheinigungen_hauptantragsteller_isvalid" -> "lohn_gehaltsbescheinigungen"
+  // "einkommenssteuerbescheid_applicant_uuid_isvalid" -> "einkommenssteuerbescheid"
+  
+  if (!checklistId.endsWith('_isvalid')) {
+    return null;
+  }
+  
+  // Remove "_isvalid" suffix
+  const withoutSuffix = checklistId.replace('_isvalid', '');
+  
+  // Look for document IDs in the DOCUMENT_CATEGORY_MAPPING
+  const documentIds = Object.keys(DOCUMENT_CATEGORY_MAPPING);
+  
+  // Find the document ID that matches (the ID should be at the beginning)
+  for (const docId of documentIds) {
+    if (withoutSuffix.startsWith(docId)) {
+      return docId;
+    }
+  }
+  
+  return null;
+};
+
+// Helper function to get document category
+const getDocumentCategory = (documentId: string): 'general' | 'applicant' => {
+  const category = DOCUMENT_CATEGORY_MAPPING[documentId];
+  return category === 'applicant' ? 'applicant' : 'general';
 };
 
 const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
@@ -25,7 +60,8 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
   openDocId,
   onExpand,
   onProgressUpdate,
-  openChecklistItemId
+  openChecklistItemId,
+  onClearDeepLink
 }) => {
   const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,6 +72,7 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
   const [toast, setToast] = useState<{ message: string; visible: boolean }>({ message: '', visible: false });
   const [userData, setUserData] = useState<any>(null);
   const [residentId, setResidentId] = useState<string | null>(null);
+  const [expandedSection, setExpandedSection] = useState<string | null>('formular-vollstaendigkeit');
 
   // Function to show toast
   const showToast = (message: string) => {
@@ -50,6 +87,45 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
     setChecklistItems(prev => prev.map(item => 
       item.id === itemId ? { ...item, systemErrors: errors } : item
     ));
+  };
+
+  // Function to refresh checklist data from database
+  const refreshChecklistData = async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch the latest review data from database
+      const { data, error } = await supabase
+        .from('applications')
+        .select('review_data, resident_id, status')
+        .eq('id', applicationId)
+        .single();
+
+      if (error) throw error;
+
+      // Update checklist items with fresh data
+      if (data?.review_data && data.review_data.checklistItems && Array.isArray(data.review_data.checklistItems)) {
+        setChecklistItems(data.review_data.checklistItems);
+      }
+
+      // Also refresh user data if needed
+      if (data.resident_id) {
+        const { data: userDataResult, error: userError } = await supabase
+          .from('user_data')
+          .select('*')
+          .eq('id', data.resident_id)
+          .single();
+
+        if (!userError) {
+          setUserData(userDataResult);
+        }
+      }
+    } catch (error) {
+      console.error('Error refreshing checklist data:', error);
+      showToast('Fehler beim Aktualisieren der Daten');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Load or initialize review data
@@ -74,18 +150,18 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
 
         // Fetch user data for dynamic document checking
         if (data.resident_id) {
-          const { data: userDataResult, error: userError } = await supabase
-            .from('user_data')
-            .select('*')
+            const { data: userDataResult, error: userError } = await supabase
+              .from('user_data')
+              .select('*')
             .eq('id', data.resident_id)
-            .single();
+              .single();
 
-          if (!userError) {
-            setUserData(userDataResult);
+            if (!userError) {
+              setUserData(userDataResult);
           } else {
             console.warn('Failed to fetch user data:', userError);
+            }
           }
-        }
 
         if (data?.review_data && data.review_data.checklistItems && Array.isArray(data.review_data.checklistItems)) {
           // If review data exists, use it
@@ -123,13 +199,22 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
 
   // Effect to open a specific checklist item if openChecklistItemId is set
   useEffect(() => {
-    if (openChecklistItemId && checklistItems.length > 0) {
-      const idx = checklistItems.findIndex(item => item.id === openChecklistItemId);
+    if (openChecklistItemId && Array.isArray(checklistItems) && checklistItems.length > 0) {
+      const sortedItems = sortItemsBySection(checklistItems);
+      const idx = sortedItems.findIndex(item => item && item.id === openChecklistItemId);
       if (idx !== -1) {
         setSelectedIndex(idx);
+        // Also expand the appropriate section for the item
+        const item = sortedItems[idx];
+        if (item) {
+          const sectionKey = getSectionForItem(item);
+          setExpandedSection(sectionKey);
+        }
       }
     }
   }, [openChecklistItemId, checklistItems]);
+
+
 
   const handleStatusChange = async (itemId: string, newStatus: string) => {
     try {
@@ -195,7 +280,7 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
         item.id === itemId ? { ...item, agentNotes: notes } : item
       );
       setChecklistItems(updatedItems);
-      
+
       // Save to database with updated_at and last_edit_agent
       const user = await getCurrentUser();
       const { error: updateError } = await supabase
@@ -244,7 +329,7 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
 
   const handleEditCustomItem = async (itemId: string, updates: Partial<{ title: string; systemComment: string; systemErrors: string[] }>) => {
     try {
-      const updatedItems = checklistItems.map(item =>
+      const updatedItems = checklistItems.map(item => 
         item.id === itemId ? { ...item, ...updates } : item
       );
       setChecklistItems(updatedItems);
@@ -323,6 +408,174 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
     if (onOpenDocument && typeof onOpenDocument === 'function') onOpenDocument('');
   }
 
+  // Section categorization logic
+  const getSectionForItem = (item: ChecklistItem): string => {
+    // User-created items always go to custom section
+    if (item.systemStatus === 'created') {
+      return 'benutzerdefinierte-todos';
+    }
+
+    const id = item.id;
+
+    // Form completeness items
+    if (id.includes('-completeness')) {
+      return 'formular-vollstaendigkeit';
+    }
+
+    // Income calculation items
+    if (id.includes('household-income') || id.includes('income-group') || 
+        id.includes('available-monthly-income') || id.includes('additional-financial-criteria')) {
+      return 'einkommens-berechnungen';
+    }
+
+    // Additional loan validations
+    if (id.endsWith('darlehens_isvalid')) {
+      return 'zusatzdarlehen-pruefungen';
+    }
+
+    // Document validation items (items ending with _isvalid)
+    if (id.endsWith('_isvalid') && !id.endsWith('darlehens_isvalid') && !id.endsWith('general_isvalid')) {
+      // Extract document ID from the checklist item ID to determine if it's personal or general
+      const documentId = extractDocumentIdFromChecklistId(id);
+      if (documentId) {
+        const category = getDocumentCategory(documentId);
+        return category === 'applicant' ? 'personenbezogene-nachweis-pruefungen' : 'allgemeine-nachweis-pruefungen';
+      }
+      // Fallback to general if we can't determine the category
+      return 'allgemeine-nachweis-pruefungen';
+    }
+
+    // Additional loan validations
+    if (id.includes('cross-checks-validation') || id.includes('selbsthilfe-isbelieveable') || id.includes('document-non-required_general_isvalid')) {
+      return 'generale-pruefungen';
+    }
+
+    // Default fallback to general document proofs
+    return 'allgemeine-nachweis-pruefungen';
+  };
+
+  const getSectionTitle = (sectionKey: string): string => {
+    switch (sectionKey) {
+      case 'formular-vollstaendigkeit':
+        return 'Antrags Vollständigkeit';
+      case 'einkommens-berechnungen':
+        return 'Einkommens-Berechnungen';
+      case 'personenbezogene-nachweis-pruefungen':
+        return 'Personenbezogene Nachweis-Prüfungen';
+      case 'allgemeine-nachweis-pruefungen':
+        return 'Allgemeine Nachweis-Prüfungen';
+      case 'zusatzdarlehen-pruefungen':
+        return 'Zusatzdarlehen-Prüfungen';
+      case 'generale-pruefungen':
+        return 'Allgemeine Prüfungen';
+      case 'benutzerdefinierte-todos':
+        return 'Benutzerdefinierte To-Dos';
+      default:
+        return sectionKey;
+    }
+  };
+
+  // Sort items by section order
+  const sortItemsBySection = (items: ChecklistItem[]) => {
+    // Safety check for input
+    if (!Array.isArray(items)) {
+      return [];
+    }
+
+    // Define section order
+    const sectionOrder = [
+      'formular-vollstaendigkeit',
+      'einkommens-berechnungen', 
+      'personenbezogene-nachweis-pruefungen',
+      'allgemeine-nachweis-pruefungen',
+      'zusatzdarlehen-pruefungen',
+      'generale-pruefungen',
+      'benutzerdefinierte-todos'
+    ];
+
+    // Create a copy of items sorted by section
+    const sortedItems = [...items].sort((a, b) => {
+      const sectionA = getSectionForItem(a);
+      const sectionB = getSectionForItem(b);
+      
+      const indexA = sectionOrder.indexOf(sectionA);
+      const indexB = sectionOrder.indexOf(sectionB);
+      
+      // If both sections are found, sort by section order
+      if (indexA !== -1 && indexB !== -1) {
+        return indexA - indexB;
+      }
+      
+      // If only one section is found, prioritize it
+      if (indexA !== -1) return -1;
+      if (indexB !== -1) return 1;
+      
+      // If neither section is found, maintain original order
+      return 0;
+    });
+
+    return sortedItems;
+  };
+
+  // Group items by section (using sorted items)
+  const groupItemsBySection = (sortedItems: ChecklistItem[]) => {
+    const sections: Record<string, { items: ChecklistItem[]; startIndex: number }> = {};
+    let currentIndex = 0;
+
+    // Define section order
+    const sectionOrder = [
+      'formular-vollstaendigkeit',
+      'einkommens-berechnungen', 
+      'personenbezogene-nachweis-pruefungen',
+      'allgemeine-nachweis-pruefungen',
+      'zusatzdarlehen-pruefungen',
+      'generale-pruefungen',
+      'benutzerdefinierte-todos'
+    ];
+
+    // Initialize sections
+    sectionOrder.forEach(sectionKey => {
+      sections[sectionKey] = { items: [], startIndex: 0 };
+    });
+
+    // Group sorted items by section with safety checks
+    if (Array.isArray(sortedItems)) {
+      sortedItems.forEach(item => {
+        if (item && item.id) {
+          const sectionKey = getSectionForItem(item);
+          if (sectionKey && sections[sectionKey]) {
+            sections[sectionKey].items.push(item);
+          } else {
+            console.warn('Unknown section key for item:', item.id, sectionKey);
+            // Fallback to default section
+            if (sections['allgemeine-nachweis-pruefungen']) {
+              sections['allgemeine-nachweis-pruefungen'].items.push(item);
+            }
+          }
+        }
+      });
+    }
+
+    // Calculate start indices with safety check
+    sectionOrder.forEach(sectionKey => {
+      if (sectionKey && sections[sectionKey]) {
+        sections[sectionKey].startIndex = currentIndex;
+        currentIndex += sections[sectionKey].items.length;
+      }
+    });
+
+    return { sections, sectionOrder };
+  };
+
+  // Get progress for a section
+  const getSectionProgress = (sectionItems: ChecklistItem[]) => {
+    const totalItems = sectionItems.length;
+    const completedItems = sectionItems.filter(item => 
+    item.agentStatus === 'correct' || item.agentStatus === 'wrong'
+  ).length;
+    return { completed: completedItems, total: totalItems };
+  };
+
   if (generatingChecklist) {
     return (
       <div style={{ padding: 24, textAlign: 'center', color: '#666', position: 'relative', minHeight: 200 }}>
@@ -366,8 +619,16 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
 
   // List mode: show scrollable list of titles
   if (selectedIndex === null) {
-    const systemItems = checklistItems.filter(item => item.systemStatus !== 'created');
-    const customItems = checklistItems.filter(item => item.systemStatus === 'created');
+    // Add safety check for checklistItems
+    const safeChecklistItems = Array.isArray(checklistItems) ? checklistItems : [];
+    const sortedItems = sortItemsBySection(safeChecklistItems);
+    const { sections, sectionOrder } = groupItemsBySection(sortedItems);
+    
+    // Calculate overall progress
+    const totalItems = sortedItems.length;
+    const completedItems = sortedItems.filter(item => 
+      item.agentStatus === 'correct' || item.agentStatus === 'wrong'
+    ).length;
 
     return (
       <div style={{ width: '100%', background: 'none', padding: '0 0 24px 0' }}>
@@ -378,16 +639,28 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
           padding: '24px 24px 0 24px',
           marginBottom: 22
         }}>
-          <h4 style={{
-            fontFamily: 'Roboto',
-            fontWeight: 300,
-            fontSize: 22,
-            margin: 0,
-            color: '#000',
-            letterSpacing: 0.1,
-          }}>
-            Checkliste
-          </h4>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <h4 style={{
+              fontFamily: 'Roboto',
+              fontWeight: 300,
+              fontSize: 22,
+              margin: 0,
+              color: '#000',
+              letterSpacing: 0.1,
+            }}>
+              Checkliste
+            </h4>
+            <span style={{
+              background: '#e8f4f8',
+              color: '#064497',
+              borderRadius: 16,
+              padding: '6px 14px',
+              fontWeight: 600,
+              fontSize: 14,
+            }}>
+              {completedItems}/{totalItems} bearbeitet
+            </span>
+          </div>
           <button
             onClick={() => setShowAddItem(true)}
             style={{
@@ -426,96 +699,112 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
             </div>
           ) : (
             <>
-              {/* System-generated items */}
-              {systemItems.map((item, idx) => {
-                const stateLabel = getStateLabel(item);
-                const stateColor = getStateColor(stateLabel, item.agentStatus);
+              {sectionOrder.filter(key => key && sections[key]).map(sectionKey => {
+                const sectionData = sections[sectionKey];
+                if (!sectionData || !Array.isArray(sectionData.items) || sectionData.items.length === 0) return null;
+
+                const sectionTitle = getSectionTitle(sectionKey);
+                const progress = getSectionProgress(sectionData.items);
+                const isExpanded = expandedSection === sectionKey;
+                
                 return (
-                  <button
-                    key={item.id}
-                    onClick={() => { closeOpenFormDoc(); setSelectedIndex(idx); }}
-                    style={{
-                      width: '100%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '18px 18px',
-                      marginBottom: 12,
-                      borderRadius: 8,
-                      background: '#fff',
-                      border: 'none',
-                      boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
-                      cursor: 'pointer',
-                      fontSize: 17,
-                      fontWeight: 500,
-                      transition: 'background 0.2s',
-                    }}
-                  >
-                    <span style={{ color: '#064497', fontWeight: 500 }}>{item.title}</span>
-                    <span style={{
-                      ...stateColor,
-                      borderRadius: 14,
-                      padding: '4px 14px',
-                      fontWeight: 600,
-                      fontSize: 15,
-                      minWidth: 120,
-                      textAlign: 'center',
-                    }}>{stateLabel}</span>
+                  <div key={sectionKey} style={{ marginBottom: 16 }}>
+                    {/* Section Header */}
+                    <button
+                      onClick={() => {
+                        setExpandedSection(isExpanded ? null : sectionKey);
+                      }}
+                      style={{
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '16px 18px',
+                        marginBottom: 8,
+                        borderRadius: 10,
+                        background: isExpanded ? '#e3f2fd' : '#f5f5f5',
+                        border: 'none',
+                        cursor: 'pointer',
+                        fontSize: 16,
+                        fontWeight: 600,
+                        transition: 'all 0.2s',
+                        boxShadow: isExpanded ? '0 2px 8px rgba(6, 68, 151, 0.15)' : '0 1px 4px rgba(0,0,0,0.08)',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <span className="material-icons" style={{ 
+                          fontSize: 22, 
+                          color: isExpanded ? '#064497' : '#666',
+                          transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
+                          transition: 'transform 0.2s'
+                        }}>
+                          chevron_right
+                        </span>
+                        <span style={{ color: isExpanded ? '#064497' : '#333' }}>{sectionTitle}</span>
+                      </div>
+                              <span style={{
+                        background: isExpanded ? '#064497' : '#999',
+                        color: '#fff',
+                                borderRadius: 12,
+                        padding: '4px 12px',
+                                fontWeight: 600,
+                                fontSize: 14,
+                        minWidth: 60,
+                        textAlign: 'center',
+                      }}>
+                        {progress.completed}/{progress.total}
+                      </span>
                   </button>
+                  
+                    {/* Section Items */}
+                    {isExpanded && (
+                      <div style={{ paddingLeft: 0 }}>
+                        {sectionData.items.map((item, idx) => {
+                          const globalIndex = sectionData.startIndex + idx;
+                        const stateLabel = getStateLabel(item);
+                        const stateColor = getStateColor(stateLabel, item.agentStatus);
+                        return (
+                          <button
+                            key={item.id}
+                              onClick={() => { closeOpenFormDoc(); setSelectedIndex(globalIndex); }}
+                            style={{
+                                width: 'calc(100% - 32px)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                                padding: '16px 18px',
+                              marginBottom: 8,
+                                marginLeft: 32,
+                                borderRadius: 8,
+                              background: '#fff',
+                                border: 'none',
+                                boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+                              cursor: 'pointer',
+                              fontSize: 15,
+                              fontWeight: 500,
+                              transition: 'background 0.2s',
+                            }}
+                          >
+                              <span style={{ color: '#064497', fontWeight: 500, textAlign: 'left' }}>{item.title}</span>
+                            <span style={{
+                              ...stateColor,
+                                borderRadius: 14,
+                                padding: '4px 14px',
+                              fontWeight: 600,
+                              fontSize: 14,
+                                minWidth: 110,
+                              textAlign: 'center',
+                                flexShrink: 0,
+                                marginLeft: 12,
+                            }}>{stateLabel}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
                 );
               })}
-
-              {/* Custom items section */}
-              {customItems.length > 0 && (
-                <>
-                  <div style={{ 
-                    margin: '24px 0 12px 0',
-                    padding: '0 18px',
-                    color: '#666',
-                    fontSize: 17,
-                    fontWeight: 500
-                  }}>
-                    Erstellte To-Dos
-                  </div>
-                  {customItems.map((item, idx) => {
-                    const stateLabel = getStateLabel(item);
-                    const stateColor = getStateColor(stateLabel, item.agentStatus);
-                    return (
-                      <button
-                        key={item.id}
-                        onClick={() => { closeOpenFormDoc(); setSelectedIndex(systemItems.length + idx); }}
-                        style={{
-                          width: '100%',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          padding: '18px 18px',
-                          marginBottom: 12,
-                          borderRadius: 8,
-                          background: '#fff',
-                          border: 'none',
-                          boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
-                          cursor: 'pointer',
-                          fontSize: 17,
-                          fontWeight: 500,
-                          transition: 'background 0.2s',
-                        }}
-                      >
-                        <span style={{ color: '#064497', fontWeight: 500 }}>{item.title}</span>
-                        <span style={{
-                          ...stateColor,
-                          borderRadius: 14,
-                          padding: '4px 14px',
-                          fontWeight: 600,
-                          fontSize: 15,
-                          minWidth: 120,
-                          textAlign: 'center',
-                        }}>{stateLabel}</span>
-                      </button>
-                    );
-                  })}
-                </>
-              )}
             </>
           )}
         </div>
@@ -525,18 +814,20 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
 
   // Detail mode: show only the selected item
   if (selectedIndex !== null) {
-    if (selectedIndex < 0 || selectedIndex >= checklistItems.length) {
+    const safeChecklistItems = Array.isArray(checklistItems) ? checklistItems : [];
+    const sortedItems = sortItemsBySection(safeChecklistItems);
+    if (selectedIndex < 0 || selectedIndex >= sortedItems.length || !sortedItems[selectedIndex]) {
       setSelectedIndex(null);
       return null;
     }
-  }
-  const item = selectedIndex !== null ? checklistItems[selectedIndex] : null;
-  const isCustomItem = item && item.systemStatus === 'created';
+    
+    const item = sortedItems[selectedIndex];
+    const isCustomItem = item && item.systemStatus === 'created';
 
-  if (!item) return null;
+    if (!item) return null;
 
-  return (
-    <div style={{ width: '100%', background: 'none', padding: '0 0 24px 0', position: 'relative' }}>
+    return (
+      <div style={{ width: '100%', background: 'none', padding: '0 0 24px 0', position: 'relative' }}>
       {/* Toast Notification */}
       {toast.visible && (
         <div style={{
@@ -562,9 +853,9 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
 
       <div style={{ width: '100%', background: 'none', padding: 0, marginTop: 8 }}>
         <div style={{ padding: 0 }}>
-          {isCustomItem ? (
-            <CustomChecklistItem
-              item={item}
+        {isCustomItem ? (
+          <CustomChecklistItem
+            item={item}
               onStatusChange={async (itemId, newStatus) => {
                 await handleStatusChange(itemId, newStatus);
                 setChecklistItems((prev) => prev.map(i => i.id === itemId ? { ...i, agentStatus: newStatus as any } : i));
@@ -573,15 +864,15 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
                 await handleNotesChange(itemId, notes);
                 setChecklistItems((prev) => prev.map(i => i.id === itemId ? { ...i, agentNotes: notes } : i));
               }}
-              onOpenForm={onOpenForm}
-              onOpenDocument={onOpenDocument}
-              onDelete={handleDeleteItem}
+            onOpenForm={onOpenForm}
+            onOpenDocument={onOpenDocument}
+            onDelete={handleDeleteItem}
               onEdit={handleEditCustomItem}
               userData={userData}
-            />
-          ) : (
-            <ChecklistItemComponent
-              item={item}
+          />
+        ) : (
+          <ChecklistItemComponent
+            item={item}
               onStatusChange={async (itemId, newStatus) => {
                 await handleStatusChange(itemId, newStatus);
                 setChecklistItems((prev) => prev.map(i => i.id === itemId ? { ...i, agentStatus: newStatus as any } : i));
@@ -590,97 +881,122 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
                 await handleNotesChange(itemId, notes);
                 setChecklistItems((prev) => prev.map(i => i.id === itemId ? { ...i, agentNotes: notes } : i));
               }}
-              onOpenForm={onOpenForm}
-              onOpenDocument={onOpenDocument}
+            onOpenForm={onOpenForm}
+            onOpenDocument={onOpenDocument}
               residentId={residentId || undefined}
               userData={userData}
-              onSystemErrorsUpdate={handleSystemErrorsUpdate}
-            />
+            onSystemErrorsUpdate={handleSystemErrorsUpdate}
+              allChecklistItems={checklistItems}
+              applicationId={applicationId}
+              onRefreshData={refreshChecklistData}
+          />
+        )}
+      </div>
+        {/* Navigation Buttons */}
+        {/* Only show navigation buttons if not opened from deep link */}
+        {!openChecklistItemId && (
+          <div style={{ display: 'flex', width: '100%', marginTop: 0, gap: 16, justifyContent: 'center', background: 'none', position: 'relative', minHeight: 64, padding: '0px 0 0 0' }}>
+        <button
+          style={{
+                flex: 1,
+                padding: '12px 0',
+                background: '#fff',
+                color: '#064497',
+            border: 'none',
+                borderRadius: 10,
+                fontWeight: 600,
+                fontSize: 17,
+                cursor: 'pointer',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
+            display: 'flex',
+            alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                transition: 'background 0.2s, color 0.2s',
+                outline: 'none',
+                minWidth: 0
+              }}
+              onClick={() => { 
+              closeOpenFormDoc(); 
+              setSelectedIndex(null); 
+              // Clear deep link state when going back to list
+              if (onClearDeepLink) onClearDeepLink();
+            }}
+            >
+              <span className="material-icons" style={{ color: '#064497', fontSize: 22 }}>list</span>
+              Zur Liste
+        </button>
+        <button
+          style={{
+                flex: 1,
+                padding: '12px 0',
+                background: '#fff',
+                color: selectedIndex === 0 ? '#bdbdbd' : '#064497',
+                border: 'none',
+                borderRadius: 10,
+                fontWeight: 600,
+                fontSize: 17,
+                cursor: selectedIndex === 0 ? 'not-allowed' : 'pointer',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
+            display: 'flex',
+            alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                transition: 'background 0.2s, color 0.2s',
+                outline: 'none',
+                minWidth: 0
+              }}
+          onClick={() => {
+              if (selectedIndex > 0) { 
+                closeOpenFormDoc(); 
+                setSelectedIndex(selectedIndex - 1); 
+              } 
+            }}
+              disabled={selectedIndex === 0}
+            >
+              <span className="material-icons" style={{ color: selectedIndex === 0 ? '#bdbdbd' : '#064497', fontSize: 22 }}>chevron_left</span>
+              Letzter
+            </button>
+                        <button
+              style={{
+                flex: 1,
+                padding: '12px 0',
+                background: '#fff',
+                color: selectedIndex === sortedItems.length - 1 ? '#bdbdbd' : '#064497',
+                border: 'none',
+                borderRadius: 10,
+                fontWeight: 600,
+                fontSize: 17,
+                cursor: selectedIndex === sortedItems.length - 1 ? 'not-allowed' : 'pointer',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                transition: 'background 0.2s, color 0.2s',
+                outline: 'none',
+                minWidth: 0
+              }}
+              onClick={() => { 
+              if (selectedIndex < sortedItems.length - 1) { 
+                closeOpenFormDoc(); 
+                setSelectedIndex(selectedIndex + 1); 
+              } 
+            }}
+              disabled={selectedIndex === sortedItems.length - 1}
+            >
+              <span className="material-icons" style={{ color: selectedIndex === sortedItems.length - 1 ? '#bdbdbd' : '#064497', fontSize: 22 }}>chevron_right</span>
+              Nächster
+            </button>
+        </div>
           )}
         </div>
-        {/* Navigation Buttons */}
-        <div style={{ display: 'flex', width: '100%', marginTop: 0, gap: 16, justifyContent: 'center', background: 'none', position: 'relative', minHeight: 64, padding: '0px 0 0 0' }}>
-          <button
-            style={{
-              flex: 1,
-              padding: '12px 0',
-              background: '#fff',
-              color: '#064497',
-              border: 'none',
-              borderRadius: 10,
-              fontWeight: 600,
-              fontSize: 17,
-              cursor: 'pointer',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 8,
-              transition: 'background 0.2s, color 0.2s',
-              outline: 'none',
-              minWidth: 0
-            }}
-            onClick={() => { closeOpenFormDoc(); setSelectedIndex(null); }}
-          >
-            <span className="material-icons" style={{ color: '#064497', fontSize: 22 }}>list</span>
-            Zur Liste
-          </button>
-          <button
-            style={{
-              flex: 1,
-              padding: '12px 0',
-              background: '#fff',
-              color: selectedIndex === 0 ? '#bdbdbd' : '#064497',
-              border: 'none',
-              borderRadius: 10,
-              fontWeight: 600,
-              fontSize: 17,
-              cursor: selectedIndex === 0 ? 'not-allowed' : 'pointer',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 8,
-              transition: 'background 0.2s, color 0.2s',
-              outline: 'none',
-              minWidth: 0
-            }}
-            onClick={() => { if (selectedIndex > 0) { closeOpenFormDoc(); setSelectedIndex(selectedIndex - 1); } }}
-            disabled={selectedIndex === 0}
-          >
-            <span className="material-icons" style={{ color: selectedIndex === 0 ? '#bdbdbd' : '#064497', fontSize: 22 }}>chevron_left</span>
-            Letzter
-          </button>
-          <button
-            style={{
-              flex: 1,
-              padding: '12px 0',
-              background: '#fff',
-              color: selectedIndex === checklistItems.length - 1 ? '#bdbdbd' : '#064497',
-              border: 'none',
-              borderRadius: 10,
-              fontWeight: 600,
-              fontSize: 17,
-              cursor: selectedIndex === checklistItems.length - 1 ? 'not-allowed' : 'pointer',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 8,
-              transition: 'background 0.2s, color 0.2s',
-              outline: 'none',
-              minWidth: 0
-            }}
-            onClick={() => { if (selectedIndex < checklistItems.length - 1) { closeOpenFormDoc(); setSelectedIndex(selectedIndex + 1); } }}
-            disabled={selectedIndex === checklistItems.length - 1}
-          >
-            <span className="material-icons" style={{ color: selectedIndex === checklistItems.length - 1 ? '#bdbdbd' : '#064497', fontSize: 22 }}>chevron_right</span>
-            Nächster
-          </button>
-        </div>
       </div>
-    </div>
-  );
+    );
+  }
+
+  // Fallback return - should never reach here but prevents undefined return
+  return null;
 };
 
 export default ChecklistPanel; 

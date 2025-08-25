@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Container, Modal, Form, Button, Spinner } from 'react-bootstrap';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase, ensureUserFinancialsExists } from '../../lib/supabase';
-import { formatCurrencyForDisplay, safeFormatCurrencyForDisplay } from '../../utils/currencyUtils';
+import { formatCurrencyForDisplay, safeFormatCurrencyForDisplay, isCurrencyEmptyOrZero } from '../../utils/currencyUtils';
 import SelbstauskunftForm from './Steps/SelbstauskunftForm';
 import '../Einkommenserklaerung/EinkommenserklaerungContainer.css';
 
@@ -22,14 +22,14 @@ interface MainFinancials {
   // Core employment income fields (matching database structure)
   hasSalaryIncome: boolean | null;
   // All Selbstauskunft fields matching database columns
-  wheinachtsgeld_next12?: string;
-  urlaubsgeld_next12?: string;
-  incomeagriculture?: string;
-  incomerent?: string;
+  wheinachtsgeld_next12_net?: string;
+  urlaubsgeld_next12_net?: string;
+  incomeagriculture_net?: string;
+  incomerent_net?: string;
   hastaxfreeunterhaltincome?: boolean;
   hastaxableunterhaltincome?: boolean;
   incomeunterhalttaxfree?: string;
-  incomeunterhalttaxable?: string;
+  incomeunterhalttaxable_net?: string;
   ispayingunterhalt: boolean | null;
   unterhaltszahlungenTotal?: any;
   hasbusinessincome?: boolean;
@@ -160,6 +160,25 @@ const sectionTitles: Record<string, string> = {
   '4': 'Weitere Angaben',
 };
 
+// Validation interfaces (following Selbstauskunft pattern)
+interface SectionErrors {
+  '1': string[];
+  '2': string[];
+  '3': string[];
+  '4': string[];
+}
+
+interface ApplicantErrors {
+  [applicantName: string]: SectionErrors;
+}
+
+const sectionTitleMap: Record<string, string> = {
+  '1': 'Nettoeinkommen',
+  '2': 'Bezüge und Weitere Einkünfte',
+  '3': 'Monatliche Belastungen',
+  '4': 'Weitere Angaben',
+};
+
 interface SelbstauskunftReviewContainerProps {
   residentId: string;
 }
@@ -177,6 +196,11 @@ const SelbstauskunftReviewContainer: React.FC<SelbstauskunftReviewContainerProps
   const [showScrollHint, setShowScrollHint] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollHintTimeout = useRef<any>(null);
+
+  // Validation state variables (following Selbstauskunft pattern)
+  const [validationErrors, setValidationErrors] = useState<ApplicantErrors>({});
+  const [showValidationModal, setShowValidationModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   // Helper function to get applicant display name
   const getApplicantDisplayName = (applicant: MainFinancials | AdditionalApplicantFinancials, index: number): string => {
@@ -284,8 +308,8 @@ const SelbstauskunftReviewContainer: React.FC<SelbstauskunftReviewContainerProps
         lastName: userData?.lastname || '',
         hasSalaryIncome: financialData?.hasSalaryIncome ?? null,
         // Extended fields for Selbstauskunft - salary-related fields only if hasSalaryIncome is true
-        wheinachtsgeld_next12: financialData?.hasSalaryIncome ? safeFormatCurrencyForDisplay(financialData.wheinachtsgeld_next12) : '',
-        urlaubsgeld_next12: financialData?.hasSalaryIncome ? safeFormatCurrencyForDisplay(financialData.urlaubsgeld_next12) : '',
+        wheinachtsgeld_next12_net: financialData?.hasSalaryIncome ? safeFormatCurrencyForDisplay(financialData.wheinachtsgeld_next12_net) : '',
+        urlaubsgeld_next12_net: financialData?.hasSalaryIncome ? safeFormatCurrencyForDisplay(financialData.urlaubsgeld_next12_net) : '',
         monthlynetsalary: financialData?.hasSalaryIncome ? safeFormatCurrencyForDisplay(financialData.monthlynetsalary) : '',
         otheremploymentmonthlynetincome: financialData?.hasSalaryIncome ? (financialData?.otheremploymentmonthlynetincome || []) : [],
         hastaxfreeunterhaltincome: !!financialData?.hastaxfreeunterhaltincome,
@@ -300,8 +324,8 @@ const SelbstauskunftReviewContainer: React.FC<SelbstauskunftReviewContainerProps
         yearlyselfemployednetincome: financialData?.hasbusinessincome ? safeFormatCurrencyForDisplay(financialData.yearlyselfemployednetincome) : '',
         yearlybusinessnetincome: financialData?.hasbusinessincome ? safeFormatCurrencyForDisplay(financialData.yearlybusinessnetincome) : '',
         yearlycapitalnetincome: financialData?.hascapitalincome ? safeFormatCurrencyForDisplay(financialData.yearlycapitalnetincome) : '',
-        incomeagriculture: financialData?.hasagricultureincome ? safeFormatCurrencyForDisplay(financialData.incomeagriculture) : '',
-        incomerent: financialData?.hasrentincome ? safeFormatCurrencyForDisplay(financialData.incomerent) : '',
+        incomeagriculture_net: financialData?.hasagricultureincome ? safeFormatCurrencyForDisplay(financialData.incomeagriculture_net) : '',
+        incomerent_net: financialData?.hasrentincome ? safeFormatCurrencyForDisplay(financialData.incomerent_net) : '',
         pensionmonthlynetincome: financialData?.haspensionincome ? (financialData?.pensionmonthlynetincome || []) : [],
         haskindergeldincome: !!financialData?.haskindergeldincome,
         monthlykindergeldnetincome: safeFormatCurrencyForDisplay(financialData?.monthlykindergeldnetincome),
@@ -347,7 +371,7 @@ const SelbstauskunftReviewContainer: React.FC<SelbstauskunftReviewContainerProps
           ].filter(Boolean)) as string[]
         },
         incomeunterhalttaxfree: safeFormatCurrencyForDisplay(financialData?.incomeunterhalttaxfree),
-        incomeunterhalttaxable: safeFormatCurrencyForDisplay(financialData?.incomeunterhalttaxable)
+        incomeunterhalttaxable_net: safeFormatCurrencyForDisplay(financialData?.incomeunterhalttaxable_net)
       });
 
       // Load additional applicants data (UUID-based structure)
@@ -447,14 +471,14 @@ const SelbstauskunftReviewContainer: React.FC<SelbstauskunftReviewContainerProps
             lastName: person.lastName || '',
             hasSalaryIncome: fin.hasSalaryIncome ?? null,
             // Extended fields for Selbstauskunft - salary-related fields only if hasSalaryIncome is true
-            wheinachtsgeld_next12: fin.hasSalaryIncome ? safeFormatCurrencyForDisplay(fin.wheinachtsgeld_next12) : '',
-            urlaubsgeld_next12: fin.hasSalaryIncome ? safeFormatCurrencyForDisplay(fin.urlaubsgeld_next12) : '',
+            wheinachtsgeld_next12_net: fin.hasSalaryIncome ? safeFormatCurrencyForDisplay(fin.wheinachtsgeld_next12_net) : '',
+            urlaubsgeld_next12_net: fin.hasSalaryIncome ? safeFormatCurrencyForDisplay(fin.urlaubsgeld_next12_net) : '',
             monthlynetsalary: fin.hasSalaryIncome ? safeFormatCurrencyForDisplay(fin.monthlynetsalary) : '',
             otheremploymentmonthlynetincome: fin.hasSalaryIncome ? (fin.otheremploymentmonthlynetincome || []) : [],  
             hastaxfreeunterhaltincome: !!fin.hastaxfreeunterhaltincome,
             hastaxableunterhaltincome: !!fin.hastaxableunterhaltincome,
             incomeunterhalttaxfree: fin.hastaxfreeunterhaltincome ? safeFormatCurrencyForDisplay(fin.incomeunterhalttaxfree) : '',
-            incomeunterhalttaxable: fin.hastaxableunterhaltincome ? safeFormatCurrencyForDisplay(fin.incomeunterhalttaxable) : '',
+            incomeunterhalttaxable_net: fin.hastaxableunterhaltincome ? safeFormatCurrencyForDisplay(fin.incomeunterhalttaxable_net) : '',
             ispayingunterhalt: fin.ispayingunterhalt === null ? null : !!fin.ispayingunterhalt,
             unterhaltszahlungenTotal: fin.ispayingunterhalt ? (fin.unterhaltszahlungenTotal || []) : null,
             hasbusinessincome: !!fin.hasbusinessincome,
@@ -465,8 +489,8 @@ const SelbstauskunftReviewContainer: React.FC<SelbstauskunftReviewContainerProps
             yearlyselfemployednetincome: fin.hasbusinessincome ? safeFormatCurrencyForDisplay(fin.yearlyselfemployednetincome) : '',
             yearlybusinessnetincome: fin.hasbusinessincome ? safeFormatCurrencyForDisplay(fin.yearlybusinessnetincome) : '',
             yearlycapitalnetincome: fin.hascapitalincome ? safeFormatCurrencyForDisplay(fin.yearlycapitalnetincome) : '',
-            incomeagriculture: fin.hasagricultureincome ? safeFormatCurrencyForDisplay(fin.incomeagriculture) : '',
-            incomerent: fin.hasrentincome ? safeFormatCurrencyForDisplay(fin.incomerent) : '',
+            incomeagriculture_net: fin.hasagricultureincome ? safeFormatCurrencyForDisplay(fin.incomeagriculture_net) : '',
+            incomerent_net: fin.hasrentincome ? safeFormatCurrencyForDisplay(fin.incomerent_net) : '',
             pensionmonthlynetincome: fin.haspensionincome ? (fin.pensionmonthlynetincome || []) : [],
             haskindergeldincome: !!fin.haskindergeldincome,
             monthlykindergeldnetincome: safeFormatCurrencyForDisplay(fin.monthlykindergeldnetincome),
@@ -573,6 +597,499 @@ const SelbstauskunftReviewContainer: React.FC<SelbstauskunftReviewContainerProps
     return additionalApplicants[currentApplicantIndex - 1];
   };
 
+  // Validation helper functions
+  const isDateInFuture = (dateString: string): boolean => {
+    if (!dateString) return true; // Empty dates are handled by required validation
+    const inputDate = new Date(dateString);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset time to start of day for accurate comparison
+    return inputDate > today;
+  };
+
+  // Validation function
+  const validateForm = () => {
+    const errors: ApplicantErrors = {};
+
+    // --- Main Applicant ---
+    if (mainFinancials) {
+      const mainSectionErrors: SectionErrors = {
+        '1': [], '2': [], '3': [], '4': []
+      };
+
+      // Section 1: Nettoeinkommen
+      if (mainFinancials.hasSalaryIncome === null) {
+        mainSectionErrors['1'].push('Es wurde nicht angegeben, ob der Antragsteller Einkünfte aus nichtselbstständiger Arbeit erzielt');
+      }
+      if (mainFinancials.hasSalaryIncome === true) {
+        if (!mainFinancials.monthlynetsalary) {
+          mainSectionErrors['1'].push('Lohn/Gehalt: Monatliches Nettoeinkommen fehlt');
+        }
+        if (!mainFinancials.wheinachtsgeld_next12_net) {
+          mainSectionErrors['1'].push('Weihnachtsgeld: Jahresbetrag fehlt');
+        }
+        if (!mainFinancials.urlaubsgeld_next12_net) {
+          mainSectionErrors['1'].push('Urlaubsgeld: Jahresbetrag fehlt');
+        }
+        // Validate sonstige beträge
+        if (mainFinancials.otheremploymentmonthlynetincome && Array.isArray(mainFinancials.otheremploymentmonthlynetincome)) {
+          mainFinancials.otheremploymentmonthlynetincome.forEach((item: any, idx: number) => {
+            if (!item.type) {
+              mainSectionErrors['1'].push(`Sonstige Beträge ${idx + 1}: Art des Betrags fehlt`);
+            }
+            if (isCurrencyEmptyOrZero(item.amount)) {
+              mainSectionErrors['1'].push(`Sonstige Beträge ${idx + 1}: Jahresbetrag fehlt oder ist 0`);
+            }
+          });
+        }
+      }
+
+      // Validate weitere Einkünfte (Section 1.2)
+      if (mainFinancials.weitereEinkuenfte?.selectedTypes?.includes('gewerbe') && isCurrencyEmptyOrZero(mainFinancials.yearlybusinessnetincome) && isCurrencyEmptyOrZero(mainFinancials.yearlyselfemployednetincome)) {
+        mainSectionErrors['1'].push('Summe aus Gewerbebetrieb/selbstständiger Arbeit muss größer als 0 sein');
+      }
+      if (mainFinancials.weitereEinkuenfte?.selectedTypes?.includes('landforst') && isCurrencyEmptyOrZero(mainFinancials.incomeagriculture_net)) {
+        mainSectionErrors['1'].push('Land- und Forstwirtschaft: Jahresbetrag fehlt oder ist 0');
+      }
+      if (mainFinancials.weitereEinkuenfte?.selectedTypes?.includes('kapital') && isCurrencyEmptyOrZero(mainFinancials.yearlycapitalnetincome)) {
+        mainSectionErrors['1'].push('Kapitalvermögen: Jahresbetrag fehlt oder ist 0');
+      }
+      if (mainFinancials.weitereEinkuenfte?.selectedTypes?.includes('vermietung') && isCurrencyEmptyOrZero(mainFinancials.incomerent_net)) {
+        mainSectionErrors['1'].push('Vermietung und Verpachtung: Jahresbetrag fehlt oder ist 0');
+      }
+
+      // Section 2: Bezüge und Weitere Einkünfte
+      if (mainFinancials.haspensionincome === null) {
+        mainSectionErrors['2'].push('Es wurde nicht angegeben, ob der Antragsteller Rentenbezüge/Versorgungsbezüge bezieht');
+      }
+      if (mainFinancials.haspensionincome === true) {
+        const pensionRows = (mainFinancials.pensionmonthlynetincome && mainFinancials.pensionmonthlynetincome.length > 0)
+          ? mainFinancials.pensionmonthlynetincome
+          : [{ type: '', amount: '' }];
+        const pensionErrors = pensionRows.map((item: any, idx: number) => {
+          const rowErrors: string[] = [];
+          if (!item.type) {
+            rowErrors.push(`Rentenart ${idx + 1}: Rentenart fehlt`);
+          }
+          if (isCurrencyEmptyOrZero(item.amount)) {
+            rowErrors.push(`Rentenart ${idx + 1}: Monatliches Nettoeinkommen fehlt oder ist 0`);
+          }
+          return rowErrors;
+        }).flat();
+        mainSectionErrors['2'].push(...pensionErrors);
+      }
+
+      // Validate weitere Einkünfte 2 (Section 2.2)
+      if (mainFinancials.weitereEinkuenfte2?.selectedTypes?.includes('kindergeld') && isCurrencyEmptyOrZero(mainFinancials.monthlykindergeldnetincome)) {
+        mainSectionErrors['2'].push('Kindergeld: Monatliches Nettoeinkommen fehlt oder ist 0');
+      }
+      if (mainFinancials.weitereEinkuenfte2?.selectedTypes?.includes('pflegegeld') && isCurrencyEmptyOrZero(mainFinancials.monthlypflegegeldnetincome)) {
+        mainSectionErrors['2'].push('Pflegegeld: Monatliches Nettoeinkommen fehlt oder ist 0');
+      }
+      if (mainFinancials.weitereEinkuenfte2?.selectedTypes?.includes('unterhaltsteuerfrei') && isCurrencyEmptyOrZero(mainFinancials.incomeunterhalttaxfree)) {
+        mainSectionErrors['2'].push('Unterhaltsleistungen steuerfrei: Monatliches Nettoeinkommen fehlt oder ist 0');
+      }
+      if (mainFinancials.weitereEinkuenfte2?.selectedTypes?.includes('unterhaltsteuerpflichtig') && isCurrencyEmptyOrZero(mainFinancials.incomeunterhalttaxable_net)) {
+        mainSectionErrors['2'].push('Unterhaltsleistungen steuerpflichtig: Monatliches Nettoeinkommen fehlt oder ist 0');
+      }
+      if (mainFinancials.weitereEinkuenfte2?.selectedTypes?.includes('elterngeld') && isCurrencyEmptyOrZero(mainFinancials.monthlyelterngeldnetincome)) {
+        mainSectionErrors['2'].push('Elterngeld/Erziehungsgeld: Monatliches Nettoeinkommen fehlt oder ist 0');
+      }
+      if (mainFinancials.weitereEinkuenfte2?.selectedTypes?.includes('sonstiges')) {
+        const otherIncome = mainFinancials.othermonthlynetincome || [];
+        const itemsToValidate = otherIncome.length > 0 ? otherIncome : [{ type: '', amount: '' }];
+        const sonstigeErrors = itemsToValidate.map((item: any, idx: number) => {
+          const rowErrors: string[] = [];
+          if (!item.type) {
+            rowErrors.push(`Sonstiges Einkommen ${idx + 1}: Art des Einkommens fehlt`);
+          }
+          if (isCurrencyEmptyOrZero(item.amount)) {
+            rowErrors.push(`Sonstiges Einkommen ${idx + 1}: Monatliches Nettoeinkommen fehlt oder ist 0`);
+          }
+          return rowErrors;
+        }).flat();
+        mainSectionErrors['2'].push(...sonstigeErrors);
+      }
+
+      // Section 3: Monatliche Belastungen
+      // Validate taxes and contributions
+      if (mainFinancials.betragotherinsurancetaxexpenses && Array.isArray(mainFinancials.betragotherinsurancetaxexpenses)) {
+        const taxErrors = mainFinancials.betragotherinsurancetaxexpenses.map((item: any, idx: number) => {
+          const rowErrors: string[] = [];
+          if (!item.type) {
+            rowErrors.push(`Steuer/Beitrag ${idx + 1}: Art der Steuer bzw. Beitrag fehlt`);
+          }
+          if (isCurrencyEmptyOrZero(item.amount)) {
+            rowErrors.push(`Steuer/Beitrag ${idx + 1}: Monatlicher Betrag fehlt oder ist 0`);
+          }
+          return rowErrors;
+        }).flat();
+        mainSectionErrors['3'].push(...taxErrors);
+      }
+
+      // Validate loans
+      if (mainFinancials.ispayingloans === null) {
+        mainSectionErrors['3'].push('Es wurde nicht angegeben, ob der Antragsteller laufende Kredite hat');
+      }
+      if (mainFinancials.ispayingloans === true) {
+        const loanRows = (mainFinancials.loans && mainFinancials.loans.length > 0)
+          ? mainFinancials.loans
+          : [{ description: '', duration: '', amount: '' }];
+        const loanErrors = loanRows.map((item: any, idx: number) => {
+          const rowErrors: string[] = [];
+          if (!item.description) {
+            rowErrors.push(`Kredit ${idx + 1}: Kredit Beschreibung fehlt`);
+          }
+          if (!item.duration) {
+            rowErrors.push(`Kredit ${idx + 1}: Laufzeit bis fehlt`);
+          } else if (!isDateInFuture(item.duration)) {
+            rowErrors.push(`Kredit ${idx + 1}: Laufzeit bis muss in der Zukunft liegen`);
+          }
+          if (isCurrencyEmptyOrZero(item.amount)) {
+            rowErrors.push(`Kredit ${idx + 1}: Monatlicher Betrag fehlt oder ist 0`);
+          }
+          return rowErrors;
+        }).flat();
+        mainSectionErrors['3'].push(...loanErrors);
+      }
+
+      // Validate zwischenkredit
+      if (mainFinancials.ispayingzwischenkredit === null) {
+        mainSectionErrors['3'].push('Es wurde nicht angegeben, ob der Antragsteller einen laufenden Zwischenkredit für Bauspardarlehen hat');
+      }
+      if (mainFinancials.ispayingzwischenkredit === true) {
+        const zwischenRows = (mainFinancials.zwischenkredit && mainFinancials.zwischenkredit.length > 0)
+          ? mainFinancials.zwischenkredit
+          : [{ duration: '', amount: '' }];
+        const zwischenErrors = zwischenRows.map((item: any, idx: number) => {
+          const rowErrors: string[] = [];
+          if (!item.duration) {
+            rowErrors.push(`Zwischenkredit: Laufzeit bis fehlt`);
+          } else if (!isDateInFuture(item.duration)) {
+            rowErrors.push(`Zwischenkredit: Laufzeit bis muss in der Zukunft liegen`);
+          }
+          if (isCurrencyEmptyOrZero(item.amount)) {
+            rowErrors.push(`Zwischenkredit: Monatlicher Betrag fehlt oder ist 0`);
+          }
+          return rowErrors;
+        }).flat();
+        mainSectionErrors['3'].push(...zwischenErrors);
+      }
+
+      // Validate unterhalt
+      if (mainFinancials.ispayingunterhalt === null) {
+        mainSectionErrors['3'].push('Es wurde nicht angegeben, ob der Antragsteller Unterhalt zahlt');
+      }
+      if (mainFinancials.ispayingunterhalt === true && mainFinancials.unterhaltszahlungenTotal) {
+        const unterhaltErrors = mainFinancials.unterhaltszahlungenTotal.map((item: any, idx: number) => {
+          const rowErrors: string[] = [];
+          if (!item.duration) {
+            rowErrors.push(`Unterhalt: Laufzeit bis fehlt`);
+          } else if (!isDateInFuture(item.duration)) {
+            rowErrors.push(`Unterhalt: Laufzeit bis muss in der Zukunft liegen`);
+          }
+          if (isCurrencyEmptyOrZero(item.amountTotal)) {
+            rowErrors.push(`Unterhalt: Monatlicher Betrag fehlt oder ist 0`);
+          }
+          return rowErrors;
+        }).flat();
+        mainSectionErrors['3'].push(...unterhaltErrors);
+      }
+
+      // Validate other payment obligations
+      if (mainFinancials.hasotherzahlungsverpflichtung === null) {
+        mainSectionErrors['3'].push('Es wurde nicht angegeben, ob der Antragsteller sonstige Zahlungsverpflichtungen hat');
+      }
+      if (mainFinancials.hasotherzahlungsverpflichtung === true && mainFinancials.otherzahlungsverpflichtung) {
+        const otherErrors = mainFinancials.otherzahlungsverpflichtung.map((item: any, idx: number) => {
+          const rowErrors: string[] = [];
+          if (!item.type) {
+            rowErrors.push(`Zahlungsverpflichtung ${idx + 1}: Art der Zahlungsverpflichtung fehlt`);
+          }
+          if (!item.duration) {
+            rowErrors.push(`Zahlungsverpflichtung ${idx + 1}: Laufzeit bis fehlt`);
+          } else if (!isDateInFuture(item.duration)) {
+            rowErrors.push(`Zahlungsverpflichtung ${idx + 1}: Laufzeit bis muss in der Zukunft liegen`);
+          }
+          if (isCurrencyEmptyOrZero(item.amount)) {
+            rowErrors.push(`Zahlungsverpflichtung ${idx + 1}: Monatlicher Betrag fehlt oder ist 0`);
+          }
+          return rowErrors;
+        }).flat();
+        mainSectionErrors['3'].push(...otherErrors);
+      }
+
+      // Validate Bausparverträge
+      if (mainFinancials.hasBausparvertraege === null) {
+        mainSectionErrors['3'].push('Es wurde nicht angegeben, ob der Antragsteller monatlich Sparraten für Bausparverträge zahlt');
+      }
+      if (mainFinancials.hasBausparvertraege === true) {
+        if (!mainFinancials.institutbausparvertraege) {
+          mainSectionErrors['3'].push('Bausparverträge: Institut fehlt');
+        }
+        if (isCurrencyEmptyOrZero(mainFinancials.sparratebausparvertraege)) {
+          mainSectionErrors['3'].push('Bausparverträge: Monatlicher Betrag fehlt oder ist 0');
+        }
+      }
+
+      // Validate Rentenversicherung
+      if (mainFinancials.hasRentenversicherung === null) {
+        mainSectionErrors['3'].push('Es wurde nicht angegeben, ob der Antragsteller monatlich Prämien für Kapitallebens- und Rentenversicherungen zahlt');
+      }
+      if (mainFinancials.hasRentenversicherung === true) {
+        if (!mainFinancials.institutkapitalrentenversicherung) {
+          mainSectionErrors['3'].push('Rentenversicherung: Institut fehlt');
+        }
+        if (isCurrencyEmptyOrZero(mainFinancials.praemiekapitalrentenversicherung)) {
+          mainSectionErrors['3'].push('Rentenversicherung: Monatlicher Betrag fehlt oder ist 0');
+        }
+      }
+
+      errors[getApplicantDisplayName(mainFinancials, 0)] = mainSectionErrors;
+    }
+
+    // --- Additional Applicants ---
+    additionalApplicants.forEach((applicant, index) => {
+      const applicantSectionErrors: SectionErrors = {
+        '1': [], '2': [], '3': [], '4': []
+      };
+
+      // Section 1: Nettoeinkommen
+      if (applicant.hasSalaryIncome === null) {
+        applicantSectionErrors['1'].push('Es wurde nicht angegeben, ob der Antragsteller Einkünfte aus nichtselbstständiger Arbeit erzielt');
+      }
+      if (applicant.hasSalaryIncome === true) {
+        if (!applicant.monthlynetsalary) {
+          applicantSectionErrors['1'].push('Lohn/Gehalt: Monatliches Nettoeinkommen fehlt');
+        }
+        if (!applicant.wheinachtsgeld_next12_net) {
+          applicantSectionErrors['1'].push('Weihnachtsgeld: Jahresbetrag fehlt');
+        }
+        if (!applicant.urlaubsgeld_next12_net) {
+          applicantSectionErrors['1'].push('Urlaubsgeld: Jahresbetrag fehlt');
+        }
+        // Validate sonstige beträge
+        if (applicant.otheremploymentmonthlynetincome && Array.isArray(applicant.otheremploymentmonthlynetincome)) {
+          applicant.otheremploymentmonthlynetincome.forEach((item: any, idx: number) => {
+            if (!item.type) {
+              applicantSectionErrors['1'].push(`Sonstige Beträge ${idx + 1}: Art des Betrags fehlt`);
+            }
+            if (isCurrencyEmptyOrZero(item.amount)) {
+              applicantSectionErrors['1'].push(`Sonstige Beträge ${idx + 1}: Jahresbetrag fehlt oder ist 0`);
+            }
+          });
+        }
+      }
+
+      // Validate weitere Einkünfte (Section 1.2)
+      if (applicant.weitereEinkuenfte?.selectedTypes?.includes('gewerbe') && isCurrencyEmptyOrZero(applicant.yearlybusinessnetincome) && isCurrencyEmptyOrZero(applicant.yearlyselfemployednetincome)) {
+        applicantSectionErrors['1'].push('Summe aus Gewerbebetrieb/selbstständiger Arbeit muss größer als 0 sein');
+      }
+      if (applicant.weitereEinkuenfte?.selectedTypes?.includes('landforst') && isCurrencyEmptyOrZero(applicant.incomeagriculture_net)) {
+        applicantSectionErrors['1'].push('Land- und Forstwirtschaft: Jahresbetrag fehlt oder ist 0');
+      }
+      if (applicant.weitereEinkuenfte?.selectedTypes?.includes('kapital') && isCurrencyEmptyOrZero(applicant.yearlycapitalnetincome)) {
+        applicantSectionErrors['1'].push('Kapitalvermögen: Jahresbetrag fehlt oder ist 0');
+      }
+      if (applicant.weitereEinkuenfte?.selectedTypes?.includes('vermietung') && isCurrencyEmptyOrZero(applicant.incomerent_net)) {
+        applicantSectionErrors['1'].push('Vermietung und Verpachtung: Jahresbetrag fehlt oder ist 0');
+      }
+
+      // Section 2: Bezüge und Weitere Einkünfte
+      if (applicant.haspensionincome === null) {
+        applicantSectionErrors['2'].push('Es wurde nicht angegeben, ob der Antragsteller Rentenbezüge/Versorgungsbezüge bezieht');
+      }
+      if (applicant.haspensionincome === true) {
+        const pensionRows = (applicant.pensionmonthlynetincome && applicant.pensionmonthlynetincome.length > 0)
+          ? applicant.pensionmonthlynetincome
+          : [{ type: '', amount: '' }];
+        const pensionErrors = pensionRows.map((item: any, idx: number) => {
+          const rowErrors: string[] = [];
+          if (!item.type) {
+            rowErrors.push(`Rentenart ${idx + 1}: Rentenart fehlt`);
+          }
+          if (isCurrencyEmptyOrZero(item.amount)) {
+            rowErrors.push(`Rentenart ${idx + 1}: Monatliches Nettoeinkommen fehlt oder ist 0`);
+          }
+          return rowErrors;
+        }).flat();
+        applicantSectionErrors['2'].push(...pensionErrors);
+      }
+
+      // Validate weitere Einkünfte 2 (Section 2.2)
+      if (applicant.weitereEinkuenfte2?.selectedTypes?.includes('kindergeld') && isCurrencyEmptyOrZero(applicant.monthlykindergeldnetincome)) {
+        applicantSectionErrors['2'].push('Kindergeld: Monatliches Nettoeinkommen fehlt oder ist 0');
+      }
+      if (applicant.weitereEinkuenfte2?.selectedTypes?.includes('pflegegeld') && isCurrencyEmptyOrZero(applicant.monthlypflegegeldnetincome)) {
+        applicantSectionErrors['2'].push('Pflegegeld: Monatliches Nettoeinkommen fehlt oder ist 0');
+      }
+      if (applicant.weitereEinkuenfte2?.selectedTypes?.includes('unterhaltsteuerfrei') && isCurrencyEmptyOrZero(applicant.incomeunterhalttaxfree)) {
+        applicantSectionErrors['2'].push('Unterhaltsleistungen steuerfrei: Monatliches Nettoeinkommen fehlt oder ist 0');
+      }
+      if (applicant.weitereEinkuenfte2?.selectedTypes?.includes('unterhaltsteuerpflichtig') && isCurrencyEmptyOrZero(applicant.incomeunterhalttaxable_net)) {
+        applicantSectionErrors['2'].push('Unterhaltsleistungen steuerpflichtig: Monatliches Nettoeinkommen fehlt oder ist 0');
+      }
+      if (applicant.weitereEinkuenfte2?.selectedTypes?.includes('elterngeld') && isCurrencyEmptyOrZero(applicant.monthlyelterngeldnetincome)) {
+        applicantSectionErrors['2'].push('Elterngeld/Erziehungsgeld: Monatliches Nettoeinkommen fehlt oder ist 0');
+      }
+      if (applicant.weitereEinkuenfte2?.selectedTypes?.includes('sonstiges')) {
+        const otherIncome = applicant.othermonthlynetincome || [];
+        const itemsToValidate = otherIncome.length > 0 ? otherIncome : [{ type: '', amount: '' }];
+        const sonstigeErrors = itemsToValidate.map((item: any, idx: number) => {
+          const rowErrors: string[] = [];
+          if (!item.type) {
+            rowErrors.push(`Sonstiges Einkommen ${idx + 1}: Art des Einkommens fehlt`);
+          }
+          if (isCurrencyEmptyOrZero(item.amount)) {
+            rowErrors.push(`Sonstiges Einkommen ${idx + 1}: Monatliches Nettoeinkommen fehlt oder ist 0`);
+          }
+          return rowErrors;
+        }).flat();
+        applicantSectionErrors['2'].push(...sonstigeErrors);
+      }
+
+      // Section 3: Monatliche Belastungen
+      // Validate taxes and contributions
+      if (applicant.betragotherinsurancetaxexpenses && Array.isArray(applicant.betragotherinsurancetaxexpenses)) {
+        const taxErrors = applicant.betragotherinsurancetaxexpenses.map((item: any, idx: number) => {
+          const rowErrors: string[] = [];
+          if (!item.type) {
+            rowErrors.push(`Steuer/Beitrag ${idx + 1}: Art der Steuer bzw. Beitrag fehlt`);
+          }
+          if (isCurrencyEmptyOrZero(item.amount)) {
+            rowErrors.push(`Steuer/Beitrag ${idx + 1}: Monatlicher Betrag fehlt oder ist 0`);
+          }
+          return rowErrors;
+        }).flat();
+        applicantSectionErrors['3'].push(...taxErrors);
+      }
+
+      // Validate loans
+      if (applicant.ispayingloans === null) {
+        applicantSectionErrors['3'].push('Es wurde nicht angegeben, ob der Antragsteller laufende Kredite hat');
+      }
+      if (applicant.ispayingloans === true) {
+        const loanRows = (applicant.loans && applicant.loans.length > 0)
+          ? applicant.loans
+          : [{ description: '', duration: '', amount: '' }];
+        const loanErrors = loanRows.map((item: any, idx: number) => {
+          const rowErrors: string[] = [];
+          if (!item.description) {
+            rowErrors.push(`Kredit ${idx + 1}: Kredit Beschreibung fehlt`);
+          }
+          if (!item.duration) {
+            rowErrors.push(`Kredit ${idx + 1}: Laufzeit bis fehlt`);
+          } else if (!isDateInFuture(item.duration)) {
+            rowErrors.push(`Kredit ${idx + 1}: Laufzeit bis muss in der Zukunft liegen`);
+          }
+          if (isCurrencyEmptyOrZero(item.amount)) {
+            rowErrors.push(`Kredit ${idx + 1}: Monatlicher Betrag fehlt oder ist 0`);
+          }
+          return rowErrors;
+        }).flat();
+        applicantSectionErrors['3'].push(...loanErrors);
+      }
+
+      // Validate zwischenkredit
+      if (applicant.ispayingzwischenkredit === null) {
+        applicantSectionErrors['3'].push('Es wurde nicht angegeben, ob der Antragsteller einen laufenden Zwischenkredit für Bauspardarlehen hat');
+      }
+      if (applicant.ispayingzwischenkredit === true) {
+        const zwischenRows = (applicant.zwischenkredit && applicant.zwischenkredit.length > 0)
+          ? applicant.zwischenkredit
+          : [{ duration: '', amount: '' }];
+        const zwischenErrors = zwischenRows.map((item: any, idx: number) => {
+          const rowErrors: string[] = [];
+          if (!item.duration) {
+            rowErrors.push(`Zwischenkredit: Laufzeit bis fehlt`);
+          } else if (!isDateInFuture(item.duration)) {
+            rowErrors.push(`Zwischenkredit: Laufzeit bis muss in der Zukunft liegen`);
+          }
+          if (isCurrencyEmptyOrZero(item.amount)) {
+            rowErrors.push(`Zwischenkredit: Monatlicher Betrag fehlt oder ist 0`);
+          }
+          return rowErrors;
+        }).flat();
+        applicantSectionErrors['3'].push(...zwischenErrors);
+      }
+
+      // Validate unterhalt
+      if (applicant.ispayingunterhalt === null) {
+        applicantSectionErrors['3'].push('Es wurde nicht angegeben, ob der Antragsteller Unterhalt zahlt');
+      }
+      if (applicant.ispayingunterhalt === true && applicant.unterhaltszahlungenTotal) {
+        const unterhaltErrors = applicant.unterhaltszahlungenTotal.map((item: any, idx: number) => {
+          const rowErrors: string[] = [];
+          if (!item.duration) {
+            rowErrors.push(`Unterhalt: Laufzeit bis fehlt`);
+          } else if (!isDateInFuture(item.duration)) {
+            rowErrors.push(`Unterhalt: Laufzeit bis muss in der Zukunft liegen`);
+          }
+          if (isCurrencyEmptyOrZero(item.amountTotal)) {
+            rowErrors.push(`Unterhalt: Monatlicher Betrag fehlt oder ist 0`);
+          }
+          return rowErrors;
+        }).flat();
+        applicantSectionErrors['3'].push(...unterhaltErrors);
+      }
+
+      // Validate other payment obligations
+      if (applicant.hasotherzahlungsverpflichtung === null) {
+        applicantSectionErrors['3'].push('Es wurde nicht angegeben, ob der Antragsteller sonstige Zahlungsverpflichtungen hat');
+      }
+      if (applicant.hasotherzahlungsverpflichtung === true && applicant.otherzahlungsverpflichtung) {
+        const otherErrors = applicant.otherzahlungsverpflichtung.map((item: any, idx: number) => {
+          const rowErrors: string[] = [];
+          if (!item.type) {
+            rowErrors.push(`Zahlungsverpflichtung ${idx + 1}: Art der Zahlungsverpflichtung fehlt`);
+          }
+          if (!item.duration) {
+            rowErrors.push(`Zahlungsverpflichtung ${idx + 1}: Laufzeit bis fehlt`);
+          } else if (!isDateInFuture(item.duration)) {
+            rowErrors.push(`Zahlungsverpflichtung ${idx + 1}: Laufzeit bis muss in der Zukunft liegen`);
+          }
+          if (isCurrencyEmptyOrZero(item.amount)) {
+            rowErrors.push(`Zahlungsverpflichtung ${idx + 1}: Monatlicher Betrag fehlt oder ist 0`);
+          }
+          return rowErrors;
+        }).flat();
+        applicantSectionErrors['3'].push(...otherErrors);
+      }
+
+      // Validate Bausparverträge
+      if (applicant.hasBausparvertraege === null) {
+        applicantSectionErrors['3'].push('Es wurde nicht angegeben, ob der Antragsteller monatlich Sparraten für Bausparverträge zahlt');
+      }
+      if (applicant.hasBausparvertraege === true) {
+        if (!applicant.institutbausparvertraege) {
+          applicantSectionErrors['3'].push('Bausparverträge: Institut fehlt');
+        }
+        if (isCurrencyEmptyOrZero(applicant.sparratebausparvertraege)) {
+          applicantSectionErrors['3'].push('Bausparverträge: Monatlicher Betrag fehlt oder ist 0');
+        }
+      }
+
+      // Validate Rentenversicherung
+      if (applicant.hasRentenversicherung === null) {
+        applicantSectionErrors['3'].push('Es wurde nicht angegeben, ob der Antragsteller monatlich Prämien für Kapitallebens- und Rentenversicherungen zahlt');
+      }
+      if (applicant.hasRentenversicherung === true) {
+        if (!applicant.institutkapitalrentenversicherung) {
+          applicantSectionErrors['3'].push('Rentenversicherung: Institut fehlt');
+        }
+        if (isCurrencyEmptyOrZero(applicant.praemiekapitalrentenversicherung)) {
+          applicantSectionErrors['3'].push('Rentenversicherung: Monatlicher Betrag fehlt oder ist 0');
+        }
+      }
+
+      errors[getApplicantDisplayName(applicant, index + 1)] = applicantSectionErrors;
+    });
+
+    setValidationErrors(errors);
+    const hasAnyErrors = Object.values(errors).some(sectionObj => Object.values(sectionObj).some(arr => arr.length > 0));
+    setShowValidationModal(hasAnyErrors);
+    setShowSuccessModal(!hasAnyErrors);
+  };
+
   if (isLoading) {
     return <div>Formular lädt...</div>;
   }
@@ -585,14 +1102,23 @@ const SelbstauskunftReviewContainer: React.FC<SelbstauskunftReviewContainerProps
             max-width: 600px;
             width: 90%;
           }
+          .error-button {
+            color: #dc3545 !important;
+          }
+          .error-button:hover {
+            background: #f8d7da !important;
+          }
         `}
         </style>
         <div className="review-header">
-        <div className="search-container">
+        <div className="search-container gap-2">
                 <button onClick={() => setShowSearchModal(true)} title="Suchen">
                     <span className="material-icons" style={{ color: '#064497' }}>search</span>
                 </button>
-            </div>
+                <button onClick={validateForm} title="Validierung anzeigen">
+                    <span className="material-icons error-button">error</span>
+                </button>
+        </div>
             <div style={{ position: 'relative', flex: 1 }}>
               <div className="step-scrollbar" ref={scrollRef}>
                 <button
@@ -744,6 +1270,89 @@ const SelbstauskunftReviewContainer: React.FC<SelbstauskunftReviewContainerProps
                     Schließen
                 </Button>
             </Modal.Footer>
+        </Modal>
+
+        {/* Validation Modal */}
+        <Modal show={showValidationModal} onHide={() => setShowValidationModal(false)} centered>
+          <Modal.Header closeButton>
+            <Modal.Title>Validierung: Gefundene Fehler</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <div className="error-list">
+              {Object.entries(validationErrors).map(([applicant, sectionErrors], index) => {
+                // Only show if this applicant has any errors
+                const hasErrors = Object.values(sectionErrors).some(arr => arr.length > 0);
+                if (!hasErrors) return null;
+                
+                return (
+                  <div key={applicant} className="mb-3">
+                    {/* Person Headline */}
+                    <div className="d-flex justify-content-between align-items-center mb-2">
+                      <h5 className="text-black mb-0 fw-medium">{applicant}</h5>
+                    </div>
+                    {/* Red background only for error list */}
+                    <div className="alert alert-danger mb-0">
+                      {Object.entries(sectionErrors as SectionErrors).map(([section, sectionErrs]) =>
+                        sectionErrs.length > 0 && (
+                          <div key={section} className="mb-3">
+                            <div className="d-flex justify-content-between align-items-center mb-2">
+                              <h6 className="text-danger mb-0">{sectionTitleMap[section as keyof typeof sectionTitleMap]}:</h6>
+                            </div>
+                            <ul className="mb-0 ps-3">
+                              {sectionErrs.map((error: string, errorIndex: number) => (
+                                <li key={errorIndex} className="mb-2">
+                                  {error}
+                                  {errorIndex < sectionErrs.length - 1 && (
+                                    <hr className="my-2 border-danger opacity-25" />
+                                  )}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )
+                      )}
+                    </div>
+                    {/* Divider between persons */}
+                    {index < Object.keys(validationErrors).length - 1 && (
+                      <hr className="my-3 border-gray-300 opacity-50" />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button 
+              onClick={() => setShowValidationModal(false)}
+              style={{ backgroundColor: '#064497', border: 'none' }}
+            >
+              Schließen
+            </Button>
+          </Modal.Footer>
+        </Modal>
+
+        {/* Success Modal */}
+        <Modal show={showSuccessModal} onHide={() => setShowSuccessModal(false)} centered>
+          <Modal.Header closeButton>
+            <Modal.Title>Validierung erfolgreich</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <div className="alert alert-success mb-0">
+              <p className="mb-3"><strong>Die Selbstauskunft ist vollständig und entspricht den Anforderungen.</strong></p>
+              <p className="mb-3">Alle erforderlichen Angaben sind vorhanden und die Formulardaten sind korrekt ausgefüllt.</p>
+              <p className="text-muted small mb-0">Hinweis: Diese Validierung dient der Überprüfung der Formularvollständigkeit für die Bearbeitung.</p>
+            </div>
+          </Modal.Body>
+          <Modal.Footer>
+            <div className="d-flex justify-content-center align-items-center w-100">
+              <Button 
+                onClick={() => setShowSuccessModal(false)}
+                style={{ backgroundColor: '#064497', border: 'none', minWidth: 260 }}
+              >
+                Schließen
+              </Button>
+            </div>
+          </Modal.Footer>
         </Modal>
     </div>
   );
