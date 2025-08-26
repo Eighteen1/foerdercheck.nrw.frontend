@@ -695,6 +695,8 @@ const DocumentUpload: React.FC = () => {
         throw objectError;
       }
 
+      const foerderVariante = objectData?.foerderVariante || '';
+
       // Get financial data from user_financials table
       const { data: financialData, error: financialError } = await supabase
         .from('user_financials')
@@ -751,26 +753,26 @@ const DocumentUpload: React.FC = () => {
       }
 
       // Conditional general documents based on object data
-      if (objectData?.foerderVariante.includes('neubau') || (objectData?.foerderVariante.includes('ersterwerb') && objectData?.barrierefrei === true && financeStructureData?.zusatzdarlehen_barrierefreiheit_nennbetrag > 0)) {
+      if (foerderVariante.includes('neubau') || (foerderVariante.includes('ersterwerb') && objectData?.barrierefrei === true && financeStructureData?.zusatzdarlehen_barrierefreiheit_nennbetrag > 0)) {
         result.general.push('bauzeichnung');
       }
       // Conditional general documents based on object data
-      if (objectData?.foerderVariante.includes('neubau')) {
+      if (foerderVariante.includes('neubau')) {
         result.general.push('lageplan');
       }
       if (objectData?.eigentumsverhaeltnis) {
         result.general.push('grundbuchblattkopie');
       }
 
-      if (['neubau', 'neubau-wohnung', 'ersterwerb-wohnung', 'ersterwerb-eigenheim'].includes(objectData?.foerderVariante) && objectData?.baugenehmigung_erforderlich) {
+      if (['neubau', 'neubau-wohnung', 'ersterwerb-wohnung', 'ersterwerb-eigenheim'].includes(foerderVariante) && objectData?.baugenehmigung_erforderlich) {
         result.general.push('baugenehmigung_vorbescheid');
       }
 
-      if (['neubau', 'neubau-wohnung', 'ersterwerb-wohnung', 'ersterwerb-eigenheim', 'nutzungsaenderung'].includes(objectData?.foerderVariante) && objectData?.bergsenkungsGebiet) {
+      if (['neubau', 'neubau-wohnung', 'ersterwerb-wohnung', 'ersterwerb-eigenheim', 'nutzungsaenderung'].includes(foerderVariante) && objectData?.bergsenkungsGebiet) {
         result.general.push('bergsenkungsGebiet_erklaerung');
       }
 
-      if (objectData?.foerderVariante.includes('neubau')) {
+      if (foerderVariante.includes('neubau')) {
         result.general.push('neubau_kaufvertrag');
       }
 
@@ -778,11 +780,11 @@ const DocumentUpload: React.FC = () => {
         result.general.push('erbbaurechtsvertrag');
       }
 
-      if (objectData?.foerderVariante?.includes('ersterwerb') || objectData?.foerderVariante?.includes('bestandserwerb')) {
+      if (foerderVariante?.includes('ersterwerb') || foerderVariante?.includes('bestandserwerb')) {
         result.general.push('kaufvertrag');
       }
 
-      if ((objectData?.foerderVariante?.includes('neubau') || objectData?.foerderVariante?.includes('ersterwerb')) && objectData?.haslocationcostloan && financeStructureData?.zusatzdarlehen_standortbedingte_mehrkosten_nennbetrag > 0) {
+      if ((foerderVariante?.includes('neubau') || foerderVariante?.includes('ersterwerb')) && objectData?.haslocationcostloan && financeStructureData?.zusatzdarlehen_standortbedingte_mehrkosten_nennbetrag > 0) {
         result.general.push('standortbedingte_mehrkosten');
       }
 
@@ -790,7 +792,7 @@ const DocumentUpload: React.FC = () => {
         result.general.push('haswoodconstructionloan');
       }
 
-      if ((objectData?.foerderVariante?.includes('neubau') || objectData?.foerderVariante?.includes('ersterwerb')) && objectData?.beg_effizienzhaus_40_standard && financeStructureData?.zusatzdarlehen_effizienzhaus40_nennbetrag > 0) {
+      if ((foerderVariante?.includes('neubau') || foerderVariante?.includes('ersterwerb')) && objectData?.beg_effizienzhaus_40_standard && financeStructureData?.zusatzdarlehen_effizienzhaus40_nennbetrag > 0) {
         result.general.push('beg40standard_cert');
       }
 

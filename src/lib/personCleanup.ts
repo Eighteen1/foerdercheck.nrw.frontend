@@ -142,7 +142,7 @@ export const completelyRemovePerson = async (userId: string, personId: string) =
     // 7. Also try to delete any subfolders that might exist
     // This handles the case where files are stored in subfolders like {documentType}/
     try {
-      const documentTypes = ['einkommenssteuererklaerung', 'lohn_gehaltsbescheinigungen', 'gehaltsabrechnung', 'einkommenssteuerbescheid', 'rentenbescheid', 'arbeitslosengeldbescheid', 'werbungskosten_nachweis', 'kinderbetreuungskosten_nachweis', 'unterhaltsverpflichtung_nachweis', 'unterhaltsleistungen_nachweis', 'krankengeld_nachweis', 'elterngeld_nachweis', 'guv_euer_nachweis', 'ausbildungsfoerderung_nachweis', 'sonstige_dokumente'];
+      const documentTypes = ['einkommenssteuererklaerung', 'lohn_gehaltsbescheinigungen', 'einkommenssteuerbescheid', 'rentenbescheid', 'arbeitslosengeldbescheid', 'werbungskosten_nachweis', 'kinderbetreuungskosten_nachweis', 'unterhaltsverpflichtung_nachweis', 'unterhaltsleistungen_nachweis', 'krankengeld_nachweis', 'elterngeld_nachweis', 'guv_euer_nachweis', 'ausbildungsfoerderung_nachweis', 'sonstige_dokumente', 'nachweis_disability', 'pflegegrad_nachweis','freiwillige_krankenversicherung_nachweis', 'freiwillige_versicherungsbeitraege_nachweis'];
       
       for (const docType of documentTypes) {
         const subfolderPath = `${applicantFolderPath}/${docType}`;

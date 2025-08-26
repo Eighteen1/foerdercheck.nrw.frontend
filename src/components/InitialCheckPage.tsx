@@ -148,7 +148,7 @@ const InitialCheckPage: React.FC = () => {
             >
               <Button 
                 variant="outline-secondary"
-                className="rounded-circle p-0 d-flex align-items-center justify-content-center font-semibold"
+                className="rounded-circle p-0 d-flex align-items-center justify-content-center"
                 style={{ 
                   width: '20px', 
                   height: '20px',
@@ -236,7 +236,7 @@ const InitialCheckPage: React.FC = () => {
             >
               <Button 
                 variant="outline-secondary"
-                className="rounded-circle p-0 d-flex align-items-center justify-content-center font-semibold"
+                className="rounded-circle p-0 d-flex align-items-center justify-content-center"
                 style={{ 
                   width: '20px', 
                   height: '20px',

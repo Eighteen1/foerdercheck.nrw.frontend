@@ -38,7 +38,7 @@ const PersonalSpace: React.FC = () => {
   const { isAuthenticated, email, logout, login, user } = useAuth();
   const [showRegistrationModal, setShowRegistrationModal] = useState(false);
   const [emailInput, setEmailInput] = useState('');
-  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string, isHtml?: boolean } | null>(null);
   const [emailSubmitted, setEmailSubmitted] = useState(false);
   const [agbAccepted, setAgbAccepted] = useState(false);
   const [eligibilityData, setEligibilityData] = useState<any>(null);
@@ -172,7 +172,34 @@ const PersonalSpace: React.FC = () => {
       });
 
       if (!createUserResponse.ok) {
-        throw new Error('Failed to create user');
+        // Try to get the error message from the response
+        let errorMessage = 'Failed to create user';
+        let isEmailExistsError = false;
+        
+        try {
+          const errorData = await createUserResponse.json();
+          console.log('Backend error response:', errorData);
+          
+          // Check for error message in different possible fields
+          errorMessage = errorData.message || errorData.detail || errorMessage;
+          
+          // Check if the error message indicates email already exists
+          if (errorMessage.includes('existiert bereits') || errorMessage.includes('bereits registriert')) {
+            isEmailExistsError = true;
+          }
+        } catch (e) {
+          console.log('Could not parse error response as JSON:', e);
+          // If we can't parse the response, check if it's a 500 error which might indicate email already exists
+          if (createUserResponse.status === 500) {
+            errorMessage = 'Ein Konto mit dieser E-Mail-Adresse existiert bereits. Bitte melden Sie sich an oder verwenden Sie eine andere E-Mail-Adresse.';
+            isEmailExistsError = true;
+          }
+        }
+        
+        // Create a custom error with additional context
+        const customError = new Error(errorMessage) as Error & { isEmailExists?: boolean };
+        customError.isEmailExists = isEmailExistsError;
+        throw customError;
       }
 
       const { user } = await createUserResponse.json();
@@ -209,7 +236,7 @@ const PersonalSpace: React.FC = () => {
         
         setMessage({
           type: 'success',
-          text: 'Eine Bestätigungs-E-Mail wurde an Ihre E-Mail-Adresse gesendet. Bitte überprüfen Sie Ihren Posteingang oder Spam-Ordnerund bestätigen Sie Ihre E-Mail-Adresse.'
+          text: 'Eine Bestätigungs-E-Mail wurde an Ihre E-Mail-Adresse gesendet. Bitte überprüfen Sie Ihren Posteingang oder Spam-Ordner und bestätigen Sie Ihre E-Mail-Adresse.'
         });
         
         setEmailSubmitted(true);
@@ -217,10 +244,20 @@ const PersonalSpace: React.FC = () => {
       }
     } catch (error) {
       console.error('Error during registration:', error);
-      setMessage({
-        type: 'error',
-        text: error instanceof Error ? error.message : 'Ein Fehler ist aufgetreten.'
-      });
+      
+      // Check if it's an email already exists error
+      if (error instanceof Error && (error as any).isEmailExists) {
+        setMessage({
+          type: 'error',
+          text: 'Ein Konto mit dieser E-Mail-Adresse existiert bereits. Bitte ',
+          isHtml: true
+        });
+      } else {
+        setMessage({
+          type: 'error',
+          text: error instanceof Error ? error.message : 'Ein Fehler ist aufgetreten.'
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -986,7 +1023,24 @@ const PersonalSpace: React.FC = () => {
         <Modal.Body>
           {message && (
             <div className={`alert alert-${message.type === 'success' ? 'success' : 'danger'} mb-3`}>
-              {message.text}
+              {message.isHtml ? (
+                <>
+                  {message.text}
+                  <a 
+                    href="/login" 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      navigate('/login');
+                    }}
+                    style={{ color: 'inherit', textDecoration: 'underline', cursor: 'pointer' }}
+                  >
+                    melden Sie sich an
+                  </a>
+                  {' oder verwenden Sie eine andere E-Mail-Adresse.'}
+                </>
+              ) : (
+                message.text
+              )}
             </div>
           )}
           <p>Um fortzufahren, geben Sie bitte Ihre E-Mail-Adresse ein, um ein Konto zu erstellen.</p>

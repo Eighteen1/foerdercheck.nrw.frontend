@@ -744,12 +744,21 @@ const HauptantragContainer: React.FC = () => {
           setSelbsthilfeData(selbsthilfeObjectData.selbsthilfe_angaben);
         }
 
+                          // Helper variable to safely check foerderVariante
+        const foerderVariante = objectData?.foerderVariante || '';
+        const hasFV = foerderVariante !== '';
+        
+        // Helper functions to safely check foerderVariante values
+        const hasNeubau = hasFV && foerderVariante.includes('neubau');
+        const hasErsterwerb = hasFV && foerderVariante.includes('ersterwerb');
+        const hasBestandserwerb = hasFV && foerderVariante.includes('bestandserwerb');
         // Calculate total costs from cost data
         let totalCosts = 0;
         if (costData) {
-          const isNeubau = objectData?.foerderVariante.includes('neubau');
-          const isBestandserwerbOrErsterwerb = objectData?.foerderVariante?.includes('bestandserwerb') || objectData?.foerderVariante?.includes('ersterwerb');
-          const showBaukosten = isNeubau || objectData?.foerderVariante === 'nutzungsaenderung';
+          const isNeubau = hasNeubau;
+          const isBestandserwerbOrErsterwerb = hasBestandserwerb || hasErsterwerb;
+          const showBaukosten = isNeubau || foerderVariante === 'nutzungsaenderung';
+        
 
           // Add Baugrundstück costs if Neubau (excluding standortbedingteMehrkosten)
           if (isNeubau) {
@@ -759,7 +768,7 @@ const HauptantragContainer: React.FC = () => {
           }
 
           // Add Standortbedingte Mehrkosten if Neubau or Ersterwerb with hasLocationCostLoan
-          if ((isNeubau || objectData?.foerderVariante?.includes('ersterwerb')) && objectData?.haslocationcostloan) {
+          if ((isNeubau || hasErsterwerb) && objectData?.haslocationcostloan) {
             if (costData.standortbedingte_mehrkosten) totalCosts += costData.standortbedingte_mehrkosten;
           }
 
@@ -910,20 +919,20 @@ const HauptantragContainer: React.FC = () => {
               lageImGeschoss: (objectData?.foerderVariante === 'bestandserwerb-wohnung' || objectData?.foerderVariante === 'ersterwerb-wohnung') ? objectData?.lage_im_geschoss || '' : ''
             },
             objektDetailsNeubauErsterwerb: {
-              baugenehmigungErforderlich: (objectData?.foerderVariante.includes('neubau') || objectData?.foerderVariante === 'ersterwerb-eigenheim' || objectData?.foerderVariante === 'ersterwerb-wohnung') ? objectData?.baugenehmigung_erforderlich : null,
+              baugenehmigungErforderlich: (hasNeubau || objectData?.foerderVariante === 'ersterwerb-eigenheim' || objectData?.foerderVariante === 'ersterwerb-wohnung') ? objectData?.baugenehmigung_erforderlich : null,
               baugenehmigung: {
-                wurdeErteilt: (objectData?.foerderVariante.includes('neubau') || objectData?.foerderVariante === 'ersterwerb-eigenheim' || objectData?.foerderVariante === 'ersterwerb-wohnung') ? objectData?.baugenehmigung_wurde_erteilt : null,
-                erteilungsDatum: (objectData?.foerderVariante.includes('neubau') || objectData?.foerderVariante === 'ersterwerb-eigenheim' || objectData?.foerderVariante === 'ersterwerb-wohnung') && objectData?.baugenehmigung_wurde_erteilt ? objectData?.erteilungs_datum || '' : '',
-                aktenzeichen: (objectData?.foerderVariante.includes('neubau') || objectData?.foerderVariante === 'ersterwerb-eigenheim' || objectData?.foerderVariante === 'ersterwerb-wohnung') && objectData?.baugenehmigung_wurde_erteilt ? objectData?.aktenzeichen || '' : '',
-                erteilungsBehoerde: (objectData?.foerderVariante.includes('neubau') || objectData?.foerderVariante === 'ersterwerb-eigenheim' || objectData?.foerderVariante === 'ersterwerb-wohnung') && objectData?.baugenehmigung_wurde_erteilt ? objectData?.erteilungs_behoerde || '' : ''
+                wurdeErteilt: (hasNeubau || objectData?.foerderVariante === 'ersterwerb-eigenheim' || objectData?.foerderVariante === 'ersterwerb-wohnung') ? objectData?.baugenehmigung_wurde_erteilt : null,
+                erteilungsDatum: (hasNeubau || objectData?.foerderVariante === 'ersterwerb-eigenheim' || objectData?.foerderVariante === 'ersterwerb-wohnung') && objectData?.baugenehmigung_wurde_erteilt ? objectData?.erteilungs_datum || '' : '',
+                aktenzeichen: (hasNeubau || objectData?.foerderVariante === 'ersterwerb-eigenheim' || objectData?.foerderVariante === 'ersterwerb-wohnung') && objectData?.baugenehmigung_wurde_erteilt ? objectData?.aktenzeichen || '' : '',
+                erteilungsBehoerde: (hasNeubau || objectData?.foerderVariante === 'ersterwerb-eigenheim' || objectData?.foerderVariante === 'ersterwerb-wohnung') && objectData?.baugenehmigung_wurde_erteilt ? objectData?.erteilungs_behoerde || '' : ''
               },
-              bauanzeige: {
-                wurdeEingereicht: (objectData?.foerderVariante.includes('neubau') || objectData?.foerderVariante === 'ersterwerb-eigenheim' || objectData?.foerderVariante === 'ersterwerb-wohnung') ? objectData?.bauanzeige_wurde_eingereicht : null,
-                einreichungsDatum: (objectData?.foerderVariante.includes('neubau') || objectData?.foerderVariante === 'ersterwerb-eigenheim' || objectData?.foerderVariante === 'ersterwerb-wohnung') && objectData?.bauanzeige_wurde_eingereicht ? objectData?.bauanzeige_einreichungs_datum || '' : ''
+                              bauanzeige: {
+                  wurdeEingereicht: (hasNeubau || objectData?.foerderVariante === 'ersterwerb-eigenheim' || objectData?.foerderVariante === 'ersterwerb-wohnung') ? objectData?.bauanzeige_wurde_eingereicht : null,
+                  einreichungsDatum: (hasNeubau || objectData?.foerderVariante === 'ersterwerb-eigenheim' || objectData?.foerderVariante === 'ersterwerb-wohnung') && objectData?.bauanzeige_wurde_eingereicht ? objectData?.bauanzeige_einreichungs_datum || '' : ''
               },
-              bauarbeiten: {
-                wurdeBegonnen: (objectData?.foerderVariante.includes('neubau') || objectData?.foerderVariante === 'ersterwerb-eigenheim' || objectData?.foerderVariante === 'ersterwerb-wohnung') ? objectData?.bauarbeiten_wurde_begonnen : null,
-                beginnDatum: (objectData?.foerderVariante.includes('neubau') || objectData?.foerderVariante === 'ersterwerb-eigenheim' || objectData?.foerderVariante === 'ersterwerb-wohnung') && objectData?.bauarbeiten_wurde_begonnen ? objectData?.bauarbeiten_beginn_datum || '' : ''
+                                                              bauarbeiten: {
+                  wurdeBegonnen: (hasNeubau || objectData?.foerderVariante === 'ersterwerb-eigenheim' || objectData?.foerderVariante === 'ersterwerb-wohnung') ? objectData?.bauarbeiten_wurde_begonnen : null,
+                                  beginnDatum: (hasNeubau || objectData?.foerderVariante === 'ersterwerb-eigenheim' || objectData?.foerderVariante === 'ersterwerb-wohnung') && objectData?.bauarbeiten_wurde_begonnen ? objectData?.bauarbeiten_beginn_datum || '' : ''
               }
             },
             objektDetailsBestandserwerb: {

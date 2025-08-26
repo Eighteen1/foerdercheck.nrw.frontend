@@ -30,6 +30,7 @@ import SelbsthilfeContainer from './components/Selbsthilfe/SelbsthilfeContainer'
 import HaushaltContainer from './components/Haushaltsauskunft/HaushaltContainer';
 import ValidationPage from './components/ValidationPage';
 import UserApplicationReview from './components/UserApplicationReview';
+import PersoenlicheDaten from './components/PersoenlicheDaten';
 
 function App() {
   return (
@@ -53,6 +54,11 @@ function App() {
               <Route path="/personal-space" element={
                 <RoutingProtection>
                   <PersonalSpace />
+                </RoutingProtection>
+              } />
+              <Route path="/persoenliche-daten" element={
+                <RoutingProtection requireAuth>
+                  <PersoenlicheDaten />
                 </RoutingProtection>
               } />
               <Route path="/login" element={<LoginPage />} />

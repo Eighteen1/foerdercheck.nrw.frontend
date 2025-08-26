@@ -67,7 +67,7 @@ const ApplicationTypesPage: React.FC = () => {
               fontFamily: 'Roboto, Arial, sans-serif',
             }}
           >
-            Der Antrag für Mietwohnungen und Gruppenwohnungen wird ab Juli 2025 verfügbar sein. Wir arbeiten intensiv daran, diese Förderung bereitzustellen, damit Sie in Zukunft Unterstützung bei der Schaffung von neuem Wohnraum beantragen können.
+            Der Antrag für Mietwohnungen und Gruppenwohnungen wird bald verfügbar sein. Wir arbeiten intensiv daran, diese Förderung bereitzustellen, damit Sie in Zukunft Unterstützung bei der Schaffung von neuem Wohnraum beantragen können.
           </p>
         </div>
       </div>
@@ -165,7 +165,7 @@ const ApplicationTypesPage: React.FC = () => {
             className="fw-normal"
             style={{ fontSize: 16, color: '#6B6B6B', marginTop: 22, fontFamily: 'Roboto, Arial, sans-serif' }}
           >
-            Dieser Antrag steht Ihnen ab Juli 2025 zur Verfügung.
+            Dieser Antrag steht Ihnen bald zur Verfügung.
           </div>
         </div>
       </div>

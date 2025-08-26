@@ -1623,7 +1623,7 @@ const GovernmentSettingsPage: React.FC = () => {
             )}
           </div>
 
-          {/* City Settings Card - Deletion Settings */}
+          {/* City Settings Card - Deletion Settings 
           <div style={{ background: '#fff', borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', padding: 32, marginBottom: 24 }}>
             <div className="d-flex justify-content-between align-items-center mb-3">
               <h1 style={{ color: '#064497', marginBottom: 0, fontSize: '1.2rem', fontWeight: 500 }}>Stadteinstellungen</h1>
@@ -1673,6 +1673,7 @@ const GovernmentSettingsPage: React.FC = () => {
               </div>
             )}
           </div>
+          /*}
 
           {/* Team Members Card */}
           <div style={{ background: '#fff', borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', padding: 32 }}>
