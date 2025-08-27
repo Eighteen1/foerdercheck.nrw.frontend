@@ -5,6 +5,14 @@ import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
 
+// CSS for refresh button animation
+const refreshButtonStyles = `
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+`;
+
 interface Message {
   id: string;
   recipient_id: string;
@@ -37,6 +45,17 @@ const MessagesPage: React.FC = () => {
 
   useEffect(() => {
     fetchMessages();
+  }, []);
+
+  // Inject CSS for refresh button animation
+  useEffect(() => {
+    const styleElement = document.createElement('style');
+    styleElement.textContent = refreshButtonStyles;
+    document.head.appendChild(styleElement);
+
+    return () => {
+      document.head.removeChild(styleElement);
+    };
   }, []);
 
   const fetchMessages = async () => {
@@ -180,9 +199,55 @@ const MessagesPage: React.FC = () => {
         </button>
       </div>
 
-      <p style={{ marginBottom: 16, color: '#666', marginTop: 16 }}>
-        Wählen Sie eine Nachricht aus, um den vollständigen Inhalt anzuzeigen. Ungelesene Nachrichten sind blau markiert.
-      </p>
+      <div style={{ marginBottom: 16, marginTop: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <p style={{ color: '#666', margin: 0 }}>
+          Wählen Sie eine Nachricht aus, um den vollständigen Inhalt anzuzeigen. Ungelesene Nachrichten sind blau markiert.
+        </p>
+        <button
+          onClick={async () => {
+            setLoading(true);
+            await fetchMessages();
+          }}
+          disabled={loading}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: '#064497',
+            cursor: loading ? 'not-allowed' : 'pointer',
+            padding: 8,
+            borderRadius: '50%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            transition: 'all 0.2s ease',
+            marginRight: 8,
+            opacity: loading ? 0.6 : 1
+          }}
+          onMouseEnter={(e) => {
+            if (!loading) {
+              e.currentTarget.style.background = '#f5f5f5';
+              e.currentTarget.style.color = '#333';
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!loading) {
+              e.currentTarget.style.background = 'none';
+              e.currentTarget.style.color = '#064497';
+            }
+          }}
+          title="Aktualisieren"
+        >
+          <span 
+            className="material-icons" 
+            style={{ 
+              fontSize: 22,
+              animation: loading ? 'spin 1s linear infinite' : 'none'
+            }}
+          >
+            refresh
+          </span>
+        </button>
+      </div>
 
       <div style={{ background: '#fff', borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', padding: 32 }}>
         <div style={{ overflowX: 'auto' }}>

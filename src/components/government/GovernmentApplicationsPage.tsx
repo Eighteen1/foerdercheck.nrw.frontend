@@ -4,11 +4,16 @@ import { supabase } from "../../lib/supabase";
 import { useNavigate } from 'react-router-dom';
 import { sendApplicationAssignedMessage, sendApplicationReassignedMessage, sendApplicationUnassignedMessage, sendSharedApplicationMessage } from '../../utils/messages';
 
-// Add CSS styling for checkboxes
+// Add CSS styling for checkboxes and refresh button animation
 const styles = `
   .form-check-input:checked {
     background-color: #064497 !important;
     border-color: #064497 !important;
+  }
+  
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
   }
 `;
 
@@ -58,10 +63,11 @@ const cardShadow = "0 2px 8px rgba(0,0,0,0.08)";
 
 interface GovernmentApplicationsPageProps {
   onSelectApplication?: (applicationId: string) => void;
+  activeTab: "new" | "in_progress" | "finished";
+  onActiveTabChange: (tab: "new" | "in_progress" | "finished") => void;
 }
 
-const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({ onSelectApplication }) => {
-  const [activeTab, setActiveTab] = useState<"new" | "in_progress" | "finished">("new");
+const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({ onSelectApplication, activeTab, onActiveTabChange }) => {
   const [applications, setApplications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [counts, setCounts] = useState({ new: 0, in_progress: 0, finished: 0 });
@@ -97,6 +103,16 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
   const [shareAgentToAdd, setShareAgentToAdd] = useState("");
   const [shareMessage, setShareMessage] = useState("");
   const [isSharing, setIsSharing] = useState(false);
+  
+  // Sorting state
+  const [sortConfig, setSortConfig] = useState<{
+    field: string;
+    direction: 'asc' | 'desc';
+  }>({
+    field: 'submitted_at',
+    direction: 'desc'
+  });
+  
   const navigate = useNavigate();
 
   // Load current user and agents for their city
@@ -129,6 +145,8 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
     };
     fetchUserAndAgents();
   }, []);
+
+
 
   useEffect(() => {
     const fetchApplications = async () => {
@@ -221,11 +239,32 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
       );
     });
 
+  // Sort the filtered applications
+  const sortedApplications = [...filteredApplications].sort((a, b) => {
+    const aValue = a[sortConfig.field];
+    const bValue = b[sortConfig.field];
+    
+    if (!aValue && !bValue) return 0;
+    if (!aValue) return 1;
+    if (!bValue) return -1;
+    
+    const aDate = new Date(aValue);
+    const bDate = new Date(bValue);
+    
+    if (isNaN(aDate.getTime()) || isNaN(bDate.getTime())) return 0;
+    
+    if (sortConfig.direction === 'asc') {
+      return aDate.getTime() - bDate.getTime();
+    } else {
+      return bDate.getTime() - aDate.getTime();
+    }
+  });
+
   // Checkbox logic
-  const allSelected = filteredApplications.length > 0 && filteredApplications.every(app => selectedApplicationIds.includes(app.id));
+  const allSelected = sortedApplications.length > 0 && sortedApplications.every(app => selectedApplicationIds.includes(app.id));
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedApplicationIds(filteredApplications.map(app => app.id));
+      setSelectedApplicationIds(sortedApplications.map(app => app.id));
     } else {
       setSelectedApplicationIds([]);
     }
@@ -419,6 +458,14 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
     }
   }, [searchQuery]);
 
+  // Sorting function
+  const handleSort = (field: string) => {
+    setSortConfig(prev => ({
+      field,
+      direction: prev.field === field && prev.direction === 'asc' ? 'desc' : 'asc'
+    }));
+  };
+
   // Add this after the existing useEffect hooks
   useEffect(() => {
     const fetchUserRole = async () => {
@@ -543,7 +590,7 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
             transition: "all 0.15s"
           }}
           onClick={() => {
-            setActiveTab("new");
+            onActiveTabChange("new");
             setSelectedApplicationIds([]);
           }}
         >
@@ -566,7 +613,7 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
             transition: "all 0.15s"
           }}
           onClick={() => {
-            setActiveTab("in_progress");
+            onActiveTabChange("in_progress");
             setSelectedApplicationIds([]);
           }}
         >
@@ -589,7 +636,7 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
             transition: "all 0.15s"
           }}
           onClick={() => {
-            setActiveTab("finished");
+            onActiveTabChange("finished");
             setSelectedApplicationIds([]);
           }}
         >
@@ -601,6 +648,69 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
       <div className="d-flex align-items-center justify-content-between mb-0" style={{ width: "100%" }}>
         <h4 style={{ color: "#000000", fontWeight: 600, marginBottom: 0, marginLeft: 12 }}>Übersicht</h4>
         <div className="d-flex align-items-center gap-2">
+          <Button 
+            variant="link" 
+            style={{ color: "#064497", fontSize: 22 }}
+            onClick={async () => {
+              setLoading(true);
+              // Refetch applications data
+              try {
+                // First fetch applications
+                const { data: apps, error: appsError } = await supabase
+                  .from("applications")
+                  .select("id, status, submitted_at, updated_at, review_progress, type, assigned_agent, finished_at, resident_id")
+                  .order("submitted_at", { ascending: false });
+
+                if (appsError) throw appsError;
+
+                // Then fetch user data for all applications
+                const residentIds = apps?.map(app => app.resident_id).filter(Boolean) || [];
+                const { data: userData, error: userError } = await supabase
+                  .from("user_data")
+                  .select("id, firstname, lastname, email, phone")
+                  .in("id", residentIds);
+
+                if (userError) throw userError;
+
+                // Fetch object data for all applications
+                const { data: objectData, error: objectError } = await supabase
+                  .from("object_data")
+                  .select("user_id, obj_street, obj_house_number, obj_postal_code, obj_city")
+                  .in("user_id", residentIds);
+
+                if (objectError) throw objectError;
+
+                // Create maps for quick lookup
+                const userMap = new Map(userData?.map(user => [user.id, user]) || []);
+                const objectMap = new Map(objectData?.map(obj => [obj.user_id, obj]) || []);
+
+                // Combine the data
+                const combinedData = apps?.map(app => ({
+                  ...app,
+                  user_data: userMap.get(app.resident_id),
+                  object_data: objectMap.get(app.resident_id)
+                })) || [];
+
+                setApplications(combinedData);
+              } catch (error) {
+                console.error("Error refreshing applications:", error);
+              } finally {
+                setLoading(false);
+              }
+            }}
+            disabled={loading}
+            title="Aktualisieren"
+          >
+            <span 
+              className="material-icons" 
+              style={{ 
+                fontSize: 22,
+                animation: loading ? 'spin 1s linear infinite' : 'none'
+              }}
+            >
+              refresh
+            </span>
+          </Button>
           <Button 
             variant="link" 
             style={{ color: "#064497", fontSize: 22 }}
@@ -677,7 +787,25 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
                     </Form.Select>
                   </th>
                   <th style={{ minWidth: 140 }}>
-                    Antragsdatum
+                    <div className="d-flex align-items-center justify-content-between">
+                      <span>Antragsdatum</span>
+                      <div className="d-flex flex-column gap-1">
+                        <button
+                          onClick={() => handleSort('submitted_at')}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            padding: 2,
+                            cursor: 'pointer',
+                            color: sortConfig.field === 'submitted_at' ? '#064497' : '#666',
+                            fontSize: 12
+                          }}
+                          title={sortConfig.field === 'submitted_at' && sortConfig.direction === 'asc' ? 'Neueste zuerst' : 'Älteste zuerst'}
+                        >
+                          {sortConfig.field === 'submitted_at' && sortConfig.direction === 'asc' ? '↑' : '↓'}
+                        </button>
+                      </div>
+                    </div>
                     <Form.Control
                       size="sm"
                       type="text"
@@ -688,7 +816,25 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
                     />
                   </th>
                   <th style={{ minWidth: 140 }}>
-                    Letzte Änderung
+                    <div className="d-flex align-items-center justify-content-between">
+                      <span>Letzte Änderung</span>
+                      <div className="d-flex flex-column gap-1">
+                        <button
+                          onClick={() => handleSort('updated_at')}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            padding: 2,
+                            cursor: 'pointer',
+                            color: sortConfig.field === 'updated_at' ? '#064497' : '#666',
+                            fontSize: 12
+                          }}
+                          title={sortConfig.field === 'updated_at' && sortConfig.direction === 'asc' ? 'Neueste zuerst' : 'Älteste zuerst'}
+                        >
+                          {sortConfig.field === 'updated_at' && sortConfig.direction === 'asc' ? '↑' : '↓'}
+                        </button>
+                      </div>
+                    </div>
                     <Form.Control
                       size="sm"
                       type="text"
@@ -751,7 +897,25 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
                     />
                   </th>
                   <th style={{ minWidth: 140 }}>
-                    Antragsdatum
+                    <div className="d-flex align-items-center justify-content-between">
+                      <span>Antragsdatum</span>
+                      <div className="d-flex flex-column gap-1">
+                        <button
+                          onClick={() => handleSort('submitted_at')}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            padding: 2,
+                            cursor: 'pointer',
+                            color: sortConfig.field === 'submitted_at' ? '#064497' : '#666',
+                            fontSize: 12
+                          }}
+                          title={sortConfig.field === 'submitted_at' && sortConfig.direction === 'asc' ? 'Neueste zuerst' : 'Älteste zuerst'}
+                        >
+                          {sortConfig.field === 'submitted_at' && sortConfig.direction === 'asc' ? '↑' : '↓'}
+                        </button>
+                      </div>
+                    </div>
                     <Form.Control
                       size="sm"
                       type="text"
@@ -762,7 +926,25 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
                     />
                   </th>
                   <th style={{ minWidth: 140 }}>
-                    Prüfungsdatum
+                    <div className="d-flex align-items-center justify-content-between">
+                      <span>Prüfungsdatum</span>
+                      <div className="d-flex flex-column gap-1">
+                        <button
+                          onClick={() => handleSort('finished_at')}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            padding: 2,
+                            cursor: 'pointer',
+                            color: sortConfig.field === 'finished_at' ? '#064497' : '#666',
+                            fontSize: 12
+                          }}
+                          title={sortConfig.field === 'finished_at' && sortConfig.direction === 'asc' ? 'Neueste zuerst' : 'Älteste zuerst'}
+                        >
+                          {sortConfig.field === 'finished_at' && sortConfig.direction === 'asc' ? '↑' : '↓'}
+                        </button>
+                      </div>
+                    </div>
                     <Form.Control
                       size="sm"
                       type="text"
@@ -810,7 +992,25 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
                     />
                   </th>
                   <th style={{ minWidth: 140 }}>
-                    Antragsdatum
+                    <div className="d-flex align-items-center justify-content-between">
+                      <span>Antragsdatum</span>
+                      <div className="d-flex flex-column gap-1">
+                        <button
+                          onClick={() => handleSort('submitted_at')}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            padding: 2,
+                            cursor: 'pointer',
+                            color: sortConfig.field === 'submitted_at' ? '#064497' : '#666',
+                            fontSize: 12
+                          }}
+                          title={sortConfig.field === 'submitted_at' && sortConfig.direction === 'asc' ? 'Neueste zuerst' : 'Älteste zuerst'}
+                        >
+                          {sortConfig.field === 'submitted_at' && sortConfig.direction === 'asc' ? '↑' : '↓'}
+                        </button>
+                      </div>
+                    </div>
                     <Form.Control
                       size="sm"
                       type="text"
@@ -859,14 +1059,14 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
                     <Spinner animation="border" style={{ color: "#064497" }} />
                   </td>
                 </tr>
-              ) : filteredApplications.length === 0 ? (
+              ) : sortedApplications.length === 0 ? (
                 <tr>
                   <td colSpan={activeTab === "in_progress" ? 7 : 5} className="text-center py-5">
                     <Alert variant="secondary" className="mb-0">Keine Einträge gefunden.</Alert>
                   </td>
                 </tr>
               ) : activeTab === "in_progress" ? (
-                filteredApplications.map((app) => (
+                sortedApplications.map((app) => (
                   <tr
                     key={app.id}
                     style={{ cursor: "pointer" }}
@@ -915,7 +1115,7 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
                   </tr>
                 ))
               ) : activeTab === "finished" ? (
-                filteredApplications.map((app) => (
+                sortedApplications.map((app) => (
                   <tr
                     key={app.id}
                     style={{ cursor: "pointer" }}
@@ -951,7 +1151,7 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
                   </tr>
                 ))
               ) : (
-                filteredApplications.map((app) => (
+                sortedApplications.map((app) => (
                   <tr
                     key={app.id}
                     style={{ cursor: "pointer" }}

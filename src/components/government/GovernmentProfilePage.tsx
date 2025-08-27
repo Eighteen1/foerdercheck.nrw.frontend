@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Form, Button, Alert, Spinner } from 'react-bootstrap';
 import { supabase } from '../../lib/supabase';
+import { useAutoLogoutContext } from '../../contexts/AutoLogoutContext';
 import './GovernmentProfilePage.css';
 
 interface AgentData {
@@ -10,6 +11,12 @@ interface AgentData {
   role: 'admin' | 'agent' | 'readonly' | 'owner';
   mfa_enabled: boolean;
   city_id: string | null;
+  settings?: {
+    auto_logout?: {
+      enabled: boolean;
+      timeout_minutes: number;
+    };
+  };
 }
 
 interface TeamMember {
@@ -20,6 +27,7 @@ interface TeamMember {
 }
 
 const GovernmentProfilePage: React.FC = () => {
+  const { settings: autoLogoutSettings, updateSettings } = useAutoLogoutContext();
   const [agentData, setAgentData] = useState<AgentData | null>(null);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,10 +52,27 @@ const GovernmentProfilePage: React.FC = () => {
     new: false,
     confirm: false
   });
+  const [isEditingAutoLogout, setIsEditingAutoLogout] = useState(false);
+  const [autoLogoutData, setAutoLogoutData] = useState({
+    enabled: false,
+    timeout_minutes: 30
+  });
 
   useEffect(() => {
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (agentData?.settings?.auto_logout) {
+      setAutoLogoutData(agentData.settings.auto_logout);
+    }
+  }, [agentData]);
+
+  useEffect(() => {
+    if (autoLogoutSettings) {
+      setAutoLogoutData(autoLogoutSettings);
+    }
+  }, [autoLogoutSettings]);
 
   const fetchData = async () => {
     try {
@@ -233,6 +258,18 @@ const GovernmentProfilePage: React.FC = () => {
     } catch (err) {
       setError('Fehler beim Deaktivieren der Zwei-Faktor-Authentifizierung: ' + (err instanceof Error ? err.message : 'Unbekannter Fehler'));
       console.error('Error disabling MFA:', err);
+    }
+  };
+
+  const handleAutoLogoutUpdate = async () => {
+    try {
+      await updateSettings(autoLogoutData);
+      setIsEditingAutoLogout(false);
+      setSuccess('Auto-Logout-Einstellungen erfolgreich aktualisiert');
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError('Fehler beim Aktualisieren der Auto-Logout-Einstellungen');
+      console.error('Error updating auto-logout settings:', err);
     }
   };
 
@@ -504,6 +541,73 @@ const GovernmentProfilePage: React.FC = () => {
                 style={{ background: '#064497', border: 'none' }}
               >
                 Verifizieren und aktivieren
+              </Button>
+            </div>
+          )}
+        </div>
+
+        {/* Auto-Logout Section */}
+        <div style={{ marginTop: 24 }}>
+          <div className="d-flex justify-content-between align-items-center">
+            <div>
+              <h5 style={{ marginBottom: 4, fontWeight: 500 }}>Auto-Logout</h5>
+              <p style={{ color: '#666', margin: 0 }}>
+                {autoLogoutSettings?.enabled
+                  ? `Automatische Abmeldung nach ${autoLogoutSettings.timeout_minutes} Minuten Inaktivität`
+                  : 'Automatische Abmeldung bei Inaktivität ist deaktiviert'}
+              </p>
+            </div>
+            <Button
+              variant={isEditingAutoLogout ? "outline-secondary" : "outline-primary"}
+              onClick={() => setIsEditingAutoLogout(!isEditingAutoLogout)}
+              style={{ borderColor: '#064497', color: '#064497' }}
+              className={isEditingAutoLogout ? "btn-cancel" : "btn-primary-outline"}
+            >
+              {isEditingAutoLogout ? 'Abbrechen' : 'Ändern'}
+            </Button>
+          </div>
+
+          {isEditingAutoLogout && (
+            <div style={{ marginTop: 16, padding: 16, background: '#f8f9fa', borderRadius: 8 }}>
+              <Form.Group className="mb-3">
+                <Form.Check
+                  type="checkbox"
+                  id="autoLogoutEnabled"
+                  label="Auto-Logout aktivieren"
+                  checked={autoLogoutData.enabled}
+                  onChange={(e) => setAutoLogoutData(prev => ({ ...prev, enabled: e.target.checked }))}
+                />
+              </Form.Group>
+              
+              {autoLogoutData.enabled && (
+                <Form.Group className="mb-3">
+                  <Form.Label>Timeout bei Inaktivität</Form.Label>
+                  <div className="d-flex gap-2 align-items-center">
+                    <Form.Control
+                      type="number"
+                      min="1"
+                      max="1440"
+                      value={autoLogoutData.timeout_minutes}
+                      onChange={(e) => setAutoLogoutData(prev => ({ ...prev, timeout_minutes: parseInt(e.target.value) || 1 }))}
+                      style={{ width: '120px' }}
+                    />
+                    <span style={{ color: '#666' }}>
+                      {autoLogoutData.timeout_minutes === 1 ? 'Minute' : 'Minuten'}
+                    </span>
+                  </div>
+                  <Form.Text className="text-muted">
+                    Wählen Sie zwischen 1 Minute und 24 Stunden (1440 Minuten)
+                  </Form.Text>
+                </Form.Group>
+              )}
+              
+              <Button
+                variant="primary"
+                onClick={handleAutoLogoutUpdate}
+                style={{ background: '#064497', border: 'none' }}
+                disabled={autoLogoutData.enabled && (autoLogoutData.timeout_minutes < 1 || autoLogoutData.timeout_minutes > 1440)}
+              >
+                Einstellungen speichern
               </Button>
             </div>
           )}

@@ -1216,7 +1216,7 @@ const HauptantragContainer: React.FC = () => {
           firstname: mainApplicant.firstName,
           lastname: mainApplicant.lastName,
           nationality: mainApplicant.nationality,
-          birthDate: mainApplicant.birthDate,
+          birthDate: mainApplicant.birthDate || null,
           person_street: mainApplicant.street,
           person_housenumber: mainApplicant.houseNumber,
           person_postalcode: mainApplicant.postalCode,

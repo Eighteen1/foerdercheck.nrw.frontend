@@ -3,7 +3,86 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY || '';
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true
+  },
+  global: {
+    headers: {
+      'X-Client-Info': 'foerdercheck-frontend'
+    }
+  }
+});
+
+// Global error handler for JWT token errors
+supabase.auth.onAuthStateChange((event, session) => {
+  if (event === 'TOKEN_REFRESHED') {
+    console.debug('[Supabase] Token refreshed successfully');
+  }
+});
+
+// Add global error interceptor to handle JWT errors gracefully
+const originalFetch = window.fetch;
+window.fetch = async (...args) => {
+  try {
+    const response = await originalFetch(...args);
+    
+    // Check if the response contains JWT-related errors
+    if (!response.ok) {
+      const responseText = await response.text();
+      
+      // Check for JWT token errors
+      if (responseText.includes('InvalidJWTToken') || 
+          responseText.includes('JWT expired') ||
+          responseText.includes('invalid_token')) {
+        
+        console.debug('[Supabase] JWT token error detected, attempting to refresh session');
+        
+        try {
+          // Try to refresh the session
+          const { data, error } = await supabase.auth.refreshSession();
+          
+          if (error || !data.session) {
+            console.debug('[Supabase] Session refresh failed, redirecting to login');
+            // Redirect to login if refresh fails
+            window.location.href = '/government/login';
+            return response;
+          }
+          
+          // If refresh successful, retry the original request
+          console.debug('[Supabase] Session refreshed, retrying request');
+          return await originalFetch(...args);
+        } catch (refreshError) {
+          console.debug('[Supabase] Session refresh error:', refreshError);
+          // Redirect to login on refresh error
+          window.location.href = '/government/login';
+          return response;
+        }
+      }
+    }
+    
+    return response;
+  } catch (error) {
+    // Handle network errors
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      console.debug('[Supabase] Network error, checking session status');
+      
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          window.location.href = '/government/login';
+        }
+      } catch (sessionError) {
+        console.debug('[Supabase] Session check failed:', sessionError);
+        window.location.href = '/government/login';
+      }
+    }
+    
+    throw error;
+  }
+};
 
 export const getCurrentUser = async () => {
   const { data: { user }, error } = await supabase.auth.getUser();
