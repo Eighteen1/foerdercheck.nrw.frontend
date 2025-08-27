@@ -24,7 +24,14 @@ const RoutingProtection: React.FC<RoutingProtectionProps> = ({
 
   // Block government users (with city metadata) from resident pages
   if (user && user.user_metadata?.city && !isDevelopment) {
-    return <Navigate to="/government/login" replace />;
+    // If government user is trying to access the government landing page, redirect to dashboard
+    if (currentPath === '/government') {
+      return <Navigate to="/government/dashboard" replace />;
+    }
+    // For other resident pages, redirect to government login
+    if (!currentPath.startsWith('/government')) {
+      return <Navigate to="/government/login" replace />;
+    }
   }
 
   console.log('RoutingProtection Debug:', {
@@ -60,6 +67,21 @@ const RoutingProtection: React.FC<RoutingProtectionProps> = ({
       currentPath
     });
     return <Navigate to="/" replace state={{ from: currentPath }} />;
+  }
+
+  // Special handling for government dashboard
+  if (currentPath === '/government/dashboard') {
+    console.log('Government dashboard access check:', {
+      isAuthenticated,
+      userMetadata: user?.user_metadata,
+      hasCity: !!user?.user_metadata?.city
+    });
+    
+    // Only allow access if user has city metadata (government user) or in development
+    if (!user?.user_metadata?.city && !isDevelopment) {
+      console.log('Redirecting from dashboard - not a government user');
+      return <Navigate to="/government/login" replace state={{ from: currentPath }} />;
+    }
   }
 
   // Handle specific routes based on authentication and navigation source

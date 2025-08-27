@@ -59,6 +59,60 @@ const GovernmentDashboard: React.FC = () => {
     console.log('🚨 Modal state after setting:', true);
   }, [showSignOutModal]);
 
+  // Custom navigation blocking using beforeunload and location tracking
+  const [isNavigationBlocked, setIsNavigationBlocked] = useState(false);
+
+  // Track current location to detect navigation attempts
+  useEffect(() => {
+    const currentPath = location.pathname;
+    console.log('🔍 NAVIGATION: Current path changed to:', currentPath);
+    
+    // If we're no longer on the dashboard and we were previously blocking navigation
+    if (!currentPath.startsWith('/government/dashboard') && isNavigationBlocked) {
+      console.log('🚫 NAVIGATION: Detected navigation away from dashboard');
+      console.log('🚫 NAVIGATION: Navigation history length:', navigationHistory.length);
+      
+      // If no internal navigation history, this is external navigation - show modal
+      if (navigationHistory.length <= 1) {
+        console.log('🚫 NAVIGATION: No internal history - showing sign-out confirmation');
+        showSignOutConfirmation();
+        
+        // Try to navigate back to dashboard
+        navigate('/government/dashboard', { replace: true });
+        return;
+      }
+    }
+    
+    // Set blocking state when on dashboard
+    setIsNavigationBlocked(currentPath.startsWith('/government/dashboard'));
+  }, [location.pathname, navigationHistory, isNavigationBlocked, showSignOutConfirmation, navigate]);
+
+  // Add beforeunload event to catch browser navigation attempts
+  useEffect(() => {
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (isNavigationBlocked && navigationHistory.length <= 1) {
+        console.log('🚫 BEFOREUNLOAD: Blocking navigation attempt');
+        event.preventDefault();
+        event.returnValue = 'Möchten Sie sich wirklich abmelden?';
+        return event.returnValue;
+      }
+    };
+
+    const handleUnload = () => {
+      if (isNavigationBlocked && navigationHistory.length <= 1) {
+        console.log('🚫 UNLOAD: Navigation attempt detected');
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('unload', handleUnload);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('unload', handleUnload);
+    };
+  }, [isNavigationBlocked, navigationHistory]);
+
   // Function to update URL without changing the route - more reliable approach
   const updateURL = useCallback((menuKey: string, replace: boolean = false, applicationId?: string | null) => {
     try {
@@ -202,96 +256,15 @@ const GovernmentDashboard: React.FC = () => {
     return true;
   }, [selectedMenu, showSignOutConfirmation]);
 
-  // Add a more comprehensive navigation blocking strategy
-  const blockAllNavigation = useCallback(() => {
-    const currentPath = window.location.pathname;
-    console.log('🔍 Checking current path for navigation blocking:', currentPath);
-    
-    // Check for any government route that is NOT the dashboard
-    if (currentPath.startsWith('/government') && !currentPath.startsWith('/government/dashboard')) {
-      console.log('🚫 Blocking all navigation to:', currentPath);
-      showSignOutConfirmation();
-      // Force navigation back to dashboard
-      window.history.pushState({ page: selectedMenu }, '', `/government/dashboard?page=${selectedMenu}`);
-      return false;
-    }
-    return true;
-  }, [selectedMenu, showSignOutConfirmation]);
 
-  // Add a more direct approach to prevent navigation by using a different strategy
-  const preventNavigationDirectly = useCallback(() => {
-    // Check if we're on a non-dashboard route
-    const currentPath = window.location.pathname;
-    console.log('🔍 Direct check - current path:', currentPath);
-    
-    // Check for any government route that is NOT the dashboard
-    if (currentPath.startsWith('/government') && !currentPath.startsWith('/government/dashboard')) {
-      console.log('🚫 Directly preventing navigation to:', currentPath);
-      showSignOutConfirmation();
-      
-      // Use a more aggressive approach to prevent navigation
-      try {
-        // Force navigation back to dashboard
-        window.history.pushState({ page: selectedMenu }, '', `/government/dashboard?page=${selectedMenu}`);
-        
-        // Also try to replace the current history entry
-        window.history.replaceState({ page: selectedMenu }, '', `/government/dashboard?page=${selectedMenu}`);
-        
-        // Force a page reload to ensure we're on the dashboard
-        window.location.href = `/government/dashboard?page=${selectedMenu}`;
-      } catch (error) {
-        console.error('Error preventing navigation:', error);
-      }
-      
-      return false;
-    }
-    return true;
-  }, [selectedMenu, showSignOutConfirmation]);
-
-  // Add a more comprehensive solution that uses multiple strategies
-  const comprehensiveNavigationBlocking = useCallback(() => {
-    const currentPath = window.location.pathname;
-    console.log('🔍 Comprehensive check - current path:', currentPath);
-    
-    // Check for any government route that is NOT the dashboard
-    if (currentPath.startsWith('/government') && !currentPath.startsWith('/government/dashboard')) {
-      console.log('🚫 Comprehensive navigation blocking for:', currentPath);
-      
-      // Show the sign-out confirmation modal
-      showSignOutConfirmation();
-      
-      // Use multiple strategies to prevent navigation
-      try {
-        // Strategy 1: Push state back to dashboard
-        window.history.pushState({ page: selectedMenu }, '', `/government/dashboard?page=${selectedMenu}`);
-        
-        // Strategy 2: Replace current state
-        window.history.replaceState({ page: selectedMenu }, '', `/government/dashboard?page=${selectedMenu}`);
-        
-        // Strategy 3: Force navigation back to dashboard
-        if (!window.location.pathname.startsWith('/government/dashboard')) {
-          window.location.href = `/government/dashboard?page=${selectedMenu}`;
-        }
-        
-        // Strategy 4: Dispatch a custom event to notify other components
-        window.dispatchEvent(new CustomEvent('navigationBlocked', { 
-          detail: { targetPath: currentPath, dashboardPath: `/government/dashboard?page=${selectedMenu}` }
-        }));
-        
-      } catch (error) {
-        console.error('Error in comprehensive navigation blocking:', error);
-      }
-      
-      return false;
-    }
-    return true;
-  }, [selectedMenu, showSignOutConfirmation]);
 
   // Handle browser back/forward navigation - simplified
   useEffect(() => {
     const handlePopState = (event: PopStateEvent) => {
       console.log('🔍 PopState event triggered:', event.state);
       console.log('🔍 Current path:', window.location.pathname);
+      console.log('🔍 Navigation history length:', navigationHistory.length);
+      console.log('🔍 Navigation history:', navigationHistory);
       
       // Check if we're still on the dashboard route
       if (!window.location.pathname.startsWith('/government/dashboard')) {
@@ -306,13 +279,28 @@ const GovernmentDashboard: React.FC = () => {
 
       // Special handling: if ApplicationReviewContainer is open, treat back button as "close application"
       if (handleApplicationBack()) {
-        console.log('Application review closed via back button');
+        console.log('🔄 Application review closed via back button');
         return;
       }
 
+      // Smart navigation history logic: If there's no internal navigation history,
+      // this means the user is trying to navigate outside the dashboard
+      if (navigationHistory.length <= 1) {
+        console.log('🚫 SMART: No internal navigation history available - this is external navigation');
+        console.log('🚫 SMART: Navigation history:', navigationHistory);
+        console.log('🚫 SMART: Blocking external navigation and showing sign-out confirmation');
+        showSignOutConfirmation();
+        // Prevent the navigation by pushing the current state back
+        window.history.pushState({ page: selectedMenu }, '', `/government/dashboard?page=${selectedMenu}`);
+        return;
+      }
+
+      // If we have navigation history, handle internal navigation
+      console.log('✅ SMART: Internal navigation detected - handling within dashboard');
+
       if (event.state && event.state.page) {
         const targetPage = event.state.page;
-        console.log('Browser navigation to:', targetPage);
+        console.log('🔄 Browser navigation to:', targetPage);
         
         // Simple navigation - just set the menu without any history manipulation
         setSelectedMenu(targetPage);
@@ -325,7 +313,7 @@ const GovernmentDashboard: React.FC = () => {
         const urlParams = new URLSearchParams(window.location.search);
         const pageFromURL = urlParams.get('page');
         if (pageFromURL) {
-          console.log('URL parameter navigation to:', pageFromURL);
+          console.log('🔄 URL parameter navigation to:', pageFromURL);
           setSelectedMenu(pageFromURL);
           setSelectedApplicationId(null);
           if (pageFromURL !== "applications") {
@@ -333,7 +321,7 @@ const GovernmentDashboard: React.FC = () => {
           }
         } else {
           // No page parameter - show sign-out confirmation
-          console.log('No page specified, showing sign-out confirmation');
+          console.log('🚫 SMART: No page specified and no history - showing sign-out confirmation');
           showSignOutConfirmation();
           // Prevent navigation by pushing current state back
           window.history.pushState({ page: selectedMenu }, '', `/government/dashboard?page=${selectedMenu}`);
@@ -349,96 +337,15 @@ const GovernmentDashboard: React.FC = () => {
       return event.returnValue;
     };
 
-    // Block navigation to non-dashboard routes
-    const blockNavigation = (event: PopStateEvent) => {
-      const targetPath = window.location.pathname;
-      console.log('🔍 blockNavigation check - target path:', targetPath);
-      
-      // Check for any government route that is NOT the dashboard
-      if (targetPath.startsWith('/government') && !targetPath.startsWith('/government/dashboard')) {
-        console.log('🚫 Blocking navigation to:', targetPath);
-        showSignOutConfirmation();
-        // Prevent navigation by restoring the dashboard state
-        window.history.pushState({ page: selectedMenu }, '', `/government/dashboard?page=${selectedMenu}`);
-        event.preventDefault();
-        return false;
-      }
-    };
-
-    // Set up a periodic check to prevent navigation
-    const navigationCheckInterval = setInterval(blockAllNavigation, 100);
-    
-    // Also set up a more frequent check for the direct approach
-    const directNavigationCheckInterval = setInterval(preventNavigationDirectly, 50);
-    
-    // Set up the comprehensive navigation blocking
-    const comprehensiveCheckInterval = setInterval(comprehensiveNavigationBlocking, 25);
-    
-    // Add super-fast navigation check to catch rapid navigation
-    const superFastCheckInterval = setInterval(() => {
-      const currentPath = window.location.pathname;
-      if (currentPath.startsWith('/government') && !currentPath.startsWith('/government/dashboard')) {
-        console.log('🚨 SUPER-FAST: Caught navigation to:', currentPath);
-        showSignOutConfirmation();
-        // Immediately redirect back
-        window.location.href = `/government/dashboard?page=${selectedMenu}`;
-      }
-    }, 10);
-
-    // Add additional debugging for popstate events
-    const debugPopState = (event: PopStateEvent) => {
-      console.log('🔍 DEBUG PopState:', {
-        state: event.state,
-        pathname: window.location.pathname,
-        href: window.location.href,
-        timestamp: new Date().toISOString()
-      });
-    };
-
-    // Add more aggressive navigation blocking by overriding browser methods
-    const originalPushState = window.history.pushState;
-    const originalReplaceState = window.history.replaceState;
-    
-    window.history.pushState = function(state, title, url) {
-      console.log('🔍 history.pushState called with:', { state, title, url });
-    if (typeof url === 'string' && url.startsWith('/government') && !url.startsWith('/government/dashboard')) {
-        console.log('🚫 Blocking pushState navigation to:', url);
-        showSignOutConfirmation();
-        return originalPushState.call(this, { page: selectedMenu }, title, `/government/dashboard?page=${selectedMenu}`);
-      }
-      return originalPushState.call(this, state, title, url); 
-    };
-
-    window.history.replaceState = function(state, title, url) {
-      console.log('🔍 history.replaceState called with:', { state, title, url });
-      if (typeof url === 'string' && url.startsWith('/government') && !url.startsWith('/government/dashboard')) {
-        console.log('🚫 Blocking replaceState navigation to:', url);
-        showSignOutConfirmation();
-        return originalReplaceState.call(this, { page: selectedMenu }, title, `/government/dashboard?page=${selectedMenu}`);
-      }
-      return originalReplaceState.call(this, state, title, url);
-    };
-
-    window.addEventListener('popstate', debugPopState);
+    // Simple and clean event listeners - no more interval spam!
     window.addEventListener('popstate', handlePopState);
     window.addEventListener('beforeunload', handleBeforeUnload);
-    window.addEventListener('popstate', blockNavigation);
     
     return () => {
-      window.removeEventListener('popstate', debugPopState);
       window.removeEventListener('popstate', handlePopState);
       window.removeEventListener('beforeunload', handleBeforeUnload);
-      window.removeEventListener('popstate', blockNavigation);
-      clearInterval(navigationCheckInterval);
-      clearInterval(directNavigationCheckInterval);
-      clearInterval(comprehensiveCheckInterval);
-      clearInterval(superFastCheckInterval);
-      
-      // Restore original history methods
-      window.history.pushState = originalPushState;
-      window.history.replaceState = originalReplaceState;
     };
-  }, [selectedApplicationId, selectedMenu, updateURL, handleApplicationBack, showSignOutConfirmation, blockAllNavigation, preventNavigationDirectly, comprehensiveNavigationBlocking]);
+  }, [selectedApplicationId, selectedMenu, navigationHistory, updateURL, handleApplicationBack, showSignOutConfirmation]);
 
   // Initialize URL on component mount only
   useEffect(() => {
@@ -468,12 +375,21 @@ const GovernmentDashboard: React.FC = () => {
   // Handle sign-out confirmation
   const handleSignOut = () => {
     setShowSignOutModal(false);
+    console.log('🔄 NAVIGATION: User confirmed sign-out');
+    
+    // Clear navigation blocking
+    setIsNavigationBlocked(false);
+    
     supabase.auth.signOut();
     navigate("/government/login");
   };
 
   const handleCancelSignOut = () => {
     setShowSignOutModal(false);
+    console.log('🔄 NAVIGATION: User cancelled sign-out');
+    
+    // Keep navigation blocking active
+    setIsNavigationBlocked(true);
   };
 
   useEffect(() => {

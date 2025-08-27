@@ -46,7 +46,11 @@ function App() {
               <Routes>
                 <Route path="/government" element={<GovernmentLanding />} />
                 <Route path="/government/login" element={<GovernmentLogin />} />
-                <Route path="/government/dashboard" element={<GovernmentDashboard />} />
+                <Route path="/government/dashboard" element={
+                  <RoutingProtection>
+                    <GovernmentDashboard />
+                  </RoutingProtection>
+                } />
                 <Route path="/password-protection" element={<PasswordProtection />} />
                 <Route path="/" element={<LandingPage />} />
                 <Route path="/application-types" element={<ApplicationTypesPage />} />
