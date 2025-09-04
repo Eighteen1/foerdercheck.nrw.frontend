@@ -12,6 +12,7 @@ import { ensureUserFinancialsExists } from "../lib/supabase";
 import { sendMessage, sendNewApplicationNotification } from "../utils/messages";
 import "./PersonalSpace/ApplicationTimeline.css";
 import { User } from '@supabase/supabase-js';
+import PopupInfoDialog from "./common/PopupInfoDialog";
 
 // Extend the Supabase User type with our custom properties
 interface ExtendedUser extends User {
@@ -70,6 +71,7 @@ const PersonalSpace: React.FC = () => {
   const [allSignatureDocumentsUploaded, setAllSignatureDocumentsUploaded] = useState(false);
   const [showUploadWarningDialog, setShowUploadWarningDialog] = useState(false);
   const [isSubmittingApplication, setIsSubmittingApplication] = useState(false);
+  const [showPopupInfoDialog, setShowPopupInfoDialog] = useState(false);
 
 
 
@@ -279,7 +281,27 @@ const PersonalSpace: React.FC = () => {
     }
   }, [user?.id, location.state, navigate]);
 
-
+  // Auto-hide popup info dialog when user navigates away and back
+  useEffect(() => {
+    if (showPopupInfoDialog) {
+      const handleVisibilityChange = () => {
+        if (document.hidden) {
+          // User navigated away, hide the dialog when they come back
+          const handleFocus = () => {
+            setShowPopupInfoDialog(false);
+            window.removeEventListener('focus', handleFocus);
+          };
+          window.addEventListener('focus', handleFocus);
+        }
+      };
+      
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+      
+      return () => {
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      };
+    }
+  }, [showPopupInfoDialog]);
 
   // Listen for messages from ValidationPage when signature PDFs are sent
   useEffect(() => {
@@ -686,6 +708,10 @@ const PersonalSpace: React.FC = () => {
       document.body.appendChild(tempLink);
       tempLink.click();
       document.body.removeChild(tempLink);
+      
+      // Show info dialog about potential popup blocking
+      setShowPopupInfoDialog(true);
+      
     } catch (error) {
       console.error('Error getting validation access:', error);
       alert('Fehler beim Öffnen der Validierungsseite. Bitte versuchen Sie es erneut.');
@@ -2185,6 +2211,12 @@ const PersonalSpace: React.FC = () => {
               </div>
             </div>
           )}
+
+      {/* Popup Info Dialog */}
+      <PopupInfoDialog
+        show={showPopupInfoDialog}
+        onHide={() => setShowPopupInfoDialog(false)}
+      />
 
     </div>
   );

@@ -4,6 +4,10 @@ import { BrowserRouter } from 'react-router-dom';
 import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
+import { setupConsoleOverride } from './utils/consoleOverride';
+
+// Setup console override to disable logs in production
+setupConsoleOverride();
 
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement

@@ -46,7 +46,7 @@ const MobileWarningPage: React.FC = () => {
 
           {/* Warning Message */}
           <h2 className="text-2xl font-bold text-[#064497] mb-4">
-            Mobile Gerät erkannt
+            Mobiles Gerät erkannt
           </h2>
           
           <div className="text-gray-700 mb-6 space-y-3">
@@ -57,7 +57,7 @@ const MobileWarningPage: React.FC = () => {
               <strong>Wir empfehlen dringend die Verwendung eines Computers oder Tablets</strong> für die optimale Nutzung der Anwendung.
             </p>
             <p className="text-sm text-gray-600">
-              Die Anwendung ist für größere Bildschirme optimiert und bietet auf mobilen Geräten möglicherweise nicht die beste Benutzererfahrung.
+              Die Anwendung ist für größere Bildschirme optimiert und bietet auf mobilen Geräten eine verschlechterte Benutzererfahrung.
             </p>
           </div>
 
