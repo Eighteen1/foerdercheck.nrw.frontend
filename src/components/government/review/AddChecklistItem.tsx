@@ -112,9 +112,21 @@ const AddChecklistItem: React.FC<AddChecklistItemProps> = ({ onAdd, onCancel, us
   const [comment, setComment] = useState('');
   const [selectedForms, setSelectedForms] = useState<string[]>([]);
   const [selectedDocs, setSelectedDocs] = useState<string[]>([]);
+  const [selectedSignedDocs, setSelectedSignedDocs] = useState<string[]>([]);
 
   // Get available uploaded documents
   const availableUploadedDocs = getUploadedDocuments(userData?.document_status, userData);
+  
+  // Get available signed documents
+  const availableSignedDocs = userData?.signature_documents 
+    ? Object.entries(userData.signature_documents)
+        .filter(([_, doc]: [string, any]) => doc.uploaded)
+        .map(([docId, doc]: [string, any]) => ({
+          id: docId,
+          label: doc.title
+        }))
+        .sort((a, b) => a.label.localeCompare(b.label))
+    : [];
 
   const handleSubmit = () => {
     if (!title.trim()) return;
@@ -128,6 +140,7 @@ const AddChecklistItem: React.FC<AddChecklistItemProps> = ({ onAdd, onCancel, us
       systemErrors: [],
       linkedForms: selectedForms,
       linkedDocs: selectedDocs, // Now contains full document IDs
+      linkedSignedDocs: selectedSignedDocs,
       agentNotes: null
     };
 
@@ -147,6 +160,14 @@ const AddChecklistItem: React.FC<AddChecklistItemProps> = ({ onAdd, onCancel, us
       prev.includes(docId) 
         ? prev.filter(id => id !== docId)
         : [...prev, docId]
+    );
+  };
+
+  const toggleSignedDoc = (signedDocId: string) => {
+    setSelectedSignedDocs(prev => 
+      prev.includes(signedDocId) 
+        ? prev.filter(id => id !== signedDocId)
+        : [...prev, signedDocId]
     );
   };
 
@@ -277,6 +298,58 @@ const AddChecklistItem: React.FC<AddChecklistItemProps> = ({ onAdd, onCancel, us
             fontSize: 15
           }}>
             Keine Dokumente verfügbar. Bitte laden Sie zuerst Dokumente hoch, um sie mit diesem To-Do verknüpfen zu können.
+          </div>
+        )}
+      </div>
+
+      {/* Signed Documents Selection */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ color: '#666', fontWeight: 500, marginBottom: 6 }}>
+          Verknüpfte Unterschriebene Formulare: 
+          {availableSignedDocs.length === 0 && (
+            <span style={{ fontSize: 14, color: '#999', fontWeight: 400, marginLeft: 8 }}>
+              (Keine unterschriebenen Formulare hochgeladen)
+            </span>
+          )}
+        </div>
+        {availableSignedDocs.length > 0 ? (
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            {availableSignedDocs.map((doc) => (
+              <button
+                key={doc.id}
+                onClick={() => toggleSignedDoc(doc.id)}
+                style={{
+                  padding: '7px 16px',
+                  background: selectedSignedDocs.includes(doc.id) ? '#064497' : '#f2f2f2',
+                  color: selectedSignedDocs.includes(doc.id) ? '#fff' : '#064497',
+                  border: '1px solid #bdbdbd',
+                  borderRadius: 5,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 7,
+                  fontSize: 15,
+                  fontWeight: 500,
+                }}
+              >
+                <span className="material-icons" style={{ fontSize: 18 }}>
+                  {selectedSignedDocs.includes(doc.id) ? 'check' : 'add'}
+                </span>
+                {doc.label}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div style={{ 
+            padding: '20px', 
+            background: '#f8f9fa', 
+            borderRadius: 6, 
+            border: '1px dashed #dee2e6',
+            textAlign: 'center',
+            color: '#6c757d',
+            fontSize: 15
+          }}>
+            Keine unterschriebenen Formulare verfügbar. Bitte laden Sie zuerst unterschriebene Formulare hoch, um sie mit diesem To-Do verknüpfen zu können.
           </div>
         )}
       </div>

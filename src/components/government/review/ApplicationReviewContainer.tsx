@@ -32,6 +32,7 @@ const ApplicationReviewContainer: React.FC<ApplicationReviewContainerProps> = ({
     type: string;
     review_progress: number;
     resident_id: string;
+    status: string;
   } | null>(null);
 
   // Handler for progress updates
@@ -46,12 +47,28 @@ const ApplicationReviewContainer: React.FC<ApplicationReviewContainerProps> = ({
     });
   };
 
+  // Handler for refreshing application data (e.g., after status change)
+  const handleRefreshApplication = async () => {
+    const { data, error } = await supabase
+      .from('applications')
+      .select('type, review_progress, resident_id, status')
+      .eq('id', applicationId)
+      .single();
+
+    if (error) {
+      console.error('Error refreshing application data:', error);
+      return;
+    }
+
+    setApplicationData(data);
+  };
+
   // Fetch application data
   useEffect(() => {
     const fetchApplicationData = async () => {
       const { data, error } = await supabase
         .from('applications')
-        .select('type, review_progress, resident_id')
+        .select('type, review_progress, resident_id, status')
         .eq('id', applicationId)
         .single();
 
@@ -82,7 +99,8 @@ const ApplicationReviewContainer: React.FC<ApplicationReviewContainerProps> = ({
               if (!prev) return null;
               return {
                 ...prev,
-                review_progress: payload.new.review_progress
+                review_progress: payload.new.review_progress,
+                status: payload.new.status
               };
             });
           }
@@ -227,6 +245,8 @@ const ApplicationReviewContainer: React.FC<ApplicationReviewContainerProps> = ({
               onRequestDocs={() => {}} 
               onFinishReview={() => {}} 
               onClose={onClose}
+              applicationStatus={applicationData.status}
+              onRefreshApplication={handleRefreshApplication}
             />
           </div>
         )}
@@ -309,6 +329,8 @@ const ApplicationReviewContainer: React.FC<ApplicationReviewContainerProps> = ({
                   onProgressUpdate={handleProgressUpdate}
                   openChecklistItemId={openChecklistItemId}
                   onClearDeepLink={onClearDeepLink}
+                  applicationStatus={applicationData?.status}
+                  onRefreshApplication={handleRefreshApplication}
                 />
               </div>
             ) : (splitViewFormId && splitViewFormId !== '') ? (
@@ -324,6 +346,8 @@ const ApplicationReviewContainer: React.FC<ApplicationReviewContainerProps> = ({
                     onProgressUpdate={handleProgressUpdate}
                     openChecklistItemId={openChecklistItemId}
                     onClearDeepLink={onClearDeepLink}
+                    applicationStatus={applicationData?.status}
+                    onRefreshApplication={handleRefreshApplication}
                   />
                 </div>
                 <div style={{ flex: 3, minWidth: 0, borderLeft: '1px solid #eee', background: '#F7F8FA' }}>
@@ -351,6 +375,8 @@ const ApplicationReviewContainer: React.FC<ApplicationReviewContainerProps> = ({
                     onProgressUpdate={handleProgressUpdate}
                     openChecklistItemId={openChecklistItemId}
                     onClearDeepLink={onClearDeepLink}
+                    applicationStatus={applicationData?.status}
+                    onRefreshApplication={handleRefreshApplication}
                   />
                 </div>
                 <div style={{ flex: 3, minWidth: 0, borderLeft: '1px solid #eee', background: '#F7F8FA' }}>

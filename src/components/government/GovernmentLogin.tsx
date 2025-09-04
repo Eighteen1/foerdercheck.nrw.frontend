@@ -1,8 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Form, Button, Alert, Container, Spinner } from "react-bootstrap";
 import { NRW_CITIES } from "../../utils/cityList";
 import { supabase } from "../../lib/supabase";
+import { checkUserType, UserTypeInfo } from "../../utils/userTypeChecker";
+import WrongPortalModal from "../common/WrongPortalModal";
 
 const GovernmentLogin: React.FC = () => {
   const [city, setCity] = useState("");
@@ -13,7 +15,34 @@ const GovernmentLogin: React.FC = () => {
   const [showMfaInput, setShowMfaInput] = useState(false);
   const [mfaCode, setMfaCode] = useState("");
   const [session, setSession] = useState<any>(null);
+  const [userTypeInfo, setUserTypeInfo] = useState<UserTypeInfo | null>(null);
+  const [showWrongPortalModal, setShowWrongPortalModal] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const checkUserTypeOnMount = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          const userType = await checkUserType();
+          setUserTypeInfo(userType);
+          
+          // If user is a resident, show the wrong portal modal
+          if (userType.isResident) {
+            setShowWrongPortalModal(true);
+          }
+        }
+      } catch (error) {
+        console.error('Error checking user type:', error);
+      }
+    };
+
+    checkUserTypeOnMount();
+  }, []);
+
+  const handleRedirectToResident = () => {
+    navigate('/');
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -319,6 +348,14 @@ const GovernmentLogin: React.FC = () => {
           )}
         </div>
       </Container>
+
+      {/* Wrong Portal Modal */}
+      <WrongPortalModal
+        show={showWrongPortalModal}
+        onHide={() => setShowWrongPortalModal(false)}
+        userType="resident"
+        onRedirect={handleRedirectToResident}
+      />
     </div>
   );
 };

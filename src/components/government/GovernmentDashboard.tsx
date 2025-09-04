@@ -8,6 +8,7 @@ import ApplicationReviewContainer from "./review/ApplicationReviewContainer";
 import GovernmentProfilePage from "./GovernmentProfilePage";
 import GovernmentDashboardPage from "./GovernmentDashboardPage";
 import GovernmentSettingsPage from "./GovernmentSettingsPage";
+import GovernmentHelpPage from "./GovernmentHelpPage";
 import MessagesPage from './MessagesPage';
 import { useAutoLogoutContext } from "../../contexts/AutoLogoutContext";
 import { useAutoLogout } from "../../hooks/useAutoLogout";
@@ -47,6 +48,18 @@ const GovernmentDashboard: React.FC = () => {
   
   // Flag to prevent initialization effect from running multiple times
   const [isInitialized, setIsInitialized] = useState(false);
+
+  // Handle navigation from help page
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'navigate' && event.data?.page) {
+        setSelectedMenu(event.data.page);
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
 
   // Apply auto-logout for government users
   useAutoLogout(isAgent ? autoLogoutSettings : undefined);
@@ -381,7 +394,7 @@ const GovernmentDashboard: React.FC = () => {
     setIsNavigationBlocked(false);
     
     supabase.auth.signOut();
-    navigate("/government/login");
+    navigate("/government");
   };
 
   const handleCancelSignOut = () => {
@@ -678,44 +691,6 @@ const GovernmentDashboard: React.FC = () => {
           </div>
         )}
         
-        {/* Debug Navigation Info - Remove in production */}
-        {process.env.NODE_ENV === 'development' && (
-          <div className="px-4 py-2" style={{ background: "#f8f9fa", borderBottom: "1px solid #dee2e6" }}>
-            <div className="d-flex justify-content-between align-items-center">
-              <small className="text-muted">
-                <strong>Debug:</strong> Current: {selectedMenu} | 
-                History: [{navigationHistory.join(' → ')}] | 
-                Can go back: {navigationHistory.length > 1 ? 'Yes' : 'No'}
-              </small>
-              <div>
-                <Button
-                  variant="outline-secondary"
-                  size="sm"
-                  onClick={resetNavigationHistory}
-                  className="me-2"
-                >
-                  Reset History
-                </Button>
-                <Button
-                  variant="outline-info"
-                  size="sm"
-                  onClick={() => console.log('Navigation State:', { navigationHistory, selectedMenu })}
-                  className="me-2"
-                >
-                  Log State
-                </Button>
-                <Button
-                  variant="outline-warning"
-                  size="sm"
-                  onClick={showSignOutConfirmation}
-                >
-                  Test Sign-Out Modal
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-        
         {/* Content */}
         <Container className="py-4">
           {selectedMenu === "dashboard" && (
@@ -751,10 +726,7 @@ const GovernmentDashboard: React.FC = () => {
             <MessagesPage />
           )}
           {selectedMenu === "help" && (
-            <div className="text-center py-5">
-              <h3>Hilfe & Support</h3>
-              <p>Hier finden Sie Hilfe und Support-Informationen.</p>
-            </div>
+            <GovernmentHelpPage onNavigate={setSelectedMenu} />
           )}
         </Container>
       </div>
@@ -765,7 +737,7 @@ const GovernmentDashboard: React.FC = () => {
           <Modal.Title>Abmelden</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <p>Möchten Sie sich wirklich abmelden und zur Anmeldeseite zurückkehren?</p>
+          <p>Möchten Sie sich wirklich abmelden und zur Startseite zurückkehren?</p>
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={handleCancelSignOut}>

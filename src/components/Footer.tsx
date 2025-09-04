@@ -58,6 +58,13 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
             >
               Persönliche Daten
             </a>
+            <a 
+              onClick={() => handleNavigation('/government')}
+              className="text-white text-decoration-none"
+              style={{ cursor: 'pointer' }}
+            >
+              Zum Verwaltungsportal
+            </a>
           </div>
         </div>
       </Container>

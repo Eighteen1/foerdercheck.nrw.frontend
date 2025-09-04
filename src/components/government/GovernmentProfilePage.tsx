@@ -265,10 +265,10 @@ const GovernmentProfilePage: React.FC = () => {
     try {
       await updateSettings(autoLogoutData);
       setIsEditingAutoLogout(false);
-      setSuccess('Auto-Logout-Einstellungen erfolgreich aktualisiert');
+      setSuccess('Automatische Abmeldung-Einstellungen erfolgreich aktualisiert');
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
-      setError('Fehler beim Aktualisieren der Auto-Logout-Einstellungen');
+      setError('Fehler beim Aktualisieren der automatischen Abmeldung-Einstellungen');
       console.error('Error updating auto-logout settings:', err);
     }
   };
@@ -550,7 +550,7 @@ const GovernmentProfilePage: React.FC = () => {
         <div style={{ marginTop: 24 }}>
           <div className="d-flex justify-content-between align-items-center">
             <div>
-              <h5 style={{ marginBottom: 4, fontWeight: 500 }}>Auto-Logout</h5>
+              <h5 style={{ marginBottom: 4, fontWeight: 500 }}>Automatische Abmeldung</h5>
               <p style={{ color: '#666', margin: 0 }}>
                 {autoLogoutSettings?.enabled
                   ? `Automatische Abmeldung nach ${autoLogoutSettings.timeout_minutes} Minuten Inaktivität`
@@ -573,10 +573,10 @@ const GovernmentProfilePage: React.FC = () => {
                 <Form.Check
                   type="checkbox"
                   id="autoLogoutEnabled"
-                  label="Auto-Logout aktivieren"
+                  label="Automatische Abmeldung aktivieren"
                   checked={autoLogoutData.enabled}
                   onChange={(e) => setAutoLogoutData(prev => ({ ...prev, enabled: e.target.checked }))}
-                />
+                />    
               </Form.Group>
               
               {autoLogoutData.enabled && (

@@ -16,6 +16,8 @@ type ChecklistPanelProps = {
   onProgressUpdate: (progress: number) => void;
   openChecklistItemId?: string | null;
   onClearDeepLink?: () => void;
+  applicationStatus?: string;
+  onRefreshApplication?: () => Promise<void>;
 };
 
 // Helper function to extract document ID from checklist item ID
@@ -61,7 +63,9 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
   onExpand,
   onProgressUpdate,
   openChecklistItemId,
-  onClearDeepLink
+  onClearDeepLink,
+  applicationStatus,
+  onRefreshApplication
 }) => {
   const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -73,6 +77,9 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
   const [userData, setUserData] = useState<any>(null);
   const [residentId, setResidentId] = useState<string | null>(null);
   const [expandedSection, setExpandedSection] = useState<string | null>('formular-vollstaendigkeit');
+
+  // Check if application is completed (approved or rejected)
+  const isApplicationCompleted = applicationStatus === 'approved' || applicationStatus === 'rejected';
 
   // Function to show toast
   const showToast = (message: string) => {
@@ -327,7 +334,7 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
     }
   };
 
-  const handleEditCustomItem = async (itemId: string, updates: Partial<{ title: string; systemComment: string; systemErrors: string[] }>) => {
+  const handleEditCustomItem = async (itemId: string, updates: Partial<{ title: string; systemComment: string; systemErrors: string[]; linkedForms: string[]; linkedDocs: string[]; linkedSignedDocs: string[] }>) => {
     try {
       const updatedItems = checklistItems.map(item => 
         item.id === itemId ? { ...item, ...updates } : item
@@ -661,25 +668,27 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
               {completedItems}/{totalItems} bearbeitet
             </span>
           </div>
-          <button
-            onClick={() => setShowAddItem(true)}
-            style={{
-              padding: '8px 16px',
-              background: '#064497',
-              color: '#fff',
-              border: 'none',
-              borderRadius: 5,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              fontSize: 15,
-              fontWeight: 500,
-            }}
-          >
-            <span className="material-icons" style={{ fontSize: 20 }}>add</span>
-            Neues To-Do hinzufügen
-          </button>
+          {!isApplicationCompleted && (
+            <button
+              onClick={() => setShowAddItem(true)}
+              style={{
+                padding: '8px 16px',
+                background: '#064497',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 5,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                fontSize: 15,
+                fontWeight: 500,
+              }}
+            >
+              <span className="material-icons" style={{ fontSize: 20 }}>add</span>
+              Neues To-Do hinzufügen
+            </button>
+          )}
         </div>
 
         {showAddItem && (
@@ -869,6 +878,7 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
             onDelete={handleDeleteItem}
               onEdit={handleEditCustomItem}
               userData={userData}
+              isReadOnly={isApplicationCompleted}
           />
         ) : (
           <ChecklistItemComponent
@@ -889,6 +899,7 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
               allChecklistItems={checklistItems}
               applicationId={applicationId}
               onRefreshData={refreshChecklistData}
+              isReadOnly={isApplicationCompleted}
           />
         )}
       </div>

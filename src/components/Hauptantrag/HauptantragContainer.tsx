@@ -299,6 +299,97 @@ const HauptantragContainer: React.FC = () => {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [selbsthilfeData, setSelbsthilfeData] = useState<{willProvideSelfHelp: boolean | null, totals: {totalSelbsthilfe: number}} | null>(null);
+  
+  // Sync hasUnsavedChanges with sessionStorage for routing protection
+  useEffect(() => {
+    if (hasUnsavedChanges) {
+      sessionStorage.setItem('hauptantrag_has_unsaved_changes', 'true');
+      console.log('*** SETTING UNSAVED CHANGES FLAG IN SESSIONSTORAGE ***');
+    } else {
+      sessionStorage.removeItem('hauptantrag_has_unsaved_changes');
+      console.log('*** REMOVING UNSAVED CHANGES FLAG FROM SESSIONSTORAGE ***');
+    }
+    
+    // Cleanup function to remove flag when component unmounts
+    return () => {
+      sessionStorage.removeItem('hauptantrag_has_unsaved_changes');
+      sessionStorage.removeItem('hauptantrag_valid_navigation');
+      console.log('*** CLEANING UP UNSAVED CHANGES FLAG ON COMPONENT UNMOUNT ***');
+    };
+  }, [hasUnsavedChanges]);
+  
+  // Handle browser back/forward navigation directly in the component
+  useEffect(() => {
+    const handlePopState = (e: PopStateEvent) => {
+      console.log('*** HAUPTANTRAG COMPONENT: POPSTATE EVENT FIRED ***');
+      
+      if (hasUnsavedChanges) {
+        console.log('*** HAUPTANTRAG COMPONENT: UNSAVED CHANGES DETECTED - SHOWING CONFIRMATION ***');
+        
+        // Show confirmation dialog first
+        const confirmed = window.confirm(
+          'Sie haben ungespeicherte Änderungen. Wenn Sie fortfahren, gehen diese verloren. Möchten Sie trotzdem fortfahren?'
+        );
+        
+        if (!confirmed) {
+          console.log('*** HAUPTANTRAG COMPONENT: USER CANCELLED - PREVENTING NAVIGATION ***');
+          // Prevent the default navigation and push current state back
+          e.preventDefault();
+          window.history.pushState(null, '', window.location.href);
+          
+          // Set navigation flag to prevent routing protection from redirecting
+          const navigationKey = `hauptantrag_navigation_${Date.now()}`;
+          sessionStorage.setItem('hauptantrag_valid_navigation', navigationKey);
+          console.log('*** HAUPTANTRAG COMPONENT: SETTING NAVIGATION FLAG AFTER CANCELLING POPSTATE ***');
+        } else {
+          console.log('*** HAUPTANTRAG COMPONENT: USER CONFIRMED - ALLOWING NAVIGATION ***');
+          
+          // Clean up navigation flag since user is leaving
+          sessionStorage.removeItem('hauptantrag_valid_navigation');
+          
+          // Clear unsaved changes immediately
+          localStorage.removeItem('hauptantragFormData');
+          setHasUnsavedChanges(false);
+          
+          // Don't prevent the default - let the navigation proceed naturally
+          console.log('*** HAUPTANTRAG COMPONENT: ALLOWING NATURAL NAVIGATION ***');
+          navigate('/personal-space', { state: { from: 'hauptantrag' } });
+        }
+      } else {
+        console.log('*** HAUPTANTRAG COMPONENT: NO UNSAVED CHANGES - ALLOWING NAVIGATION ***');
+        // Don't interfere with navigation when there are no unsaved changes
+        // The user should be able to navigate normally
+      }
+    };
+    
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = 'Sie haben ungespeicherte Änderungen. Sind Sie sicher, dass Sie die Seite verlassen möchten?';
+        return 'Sie haben ungespeicherte Änderungen. Sind Sie sicher, dass Sie die Seite verlassen möchten?';
+      }
+    };
+    
+    // Only add popstate listener and push history state when there are unsaved changes
+    if (hasUnsavedChanges) {
+      console.log('*** HAUPTANTRAG COMPONENT: ADDING POPSTATE LISTENER FOR UNSAVED CHANGES ***');
+      // Push initial state to enable popstate detection
+      window.history.pushState(null, '', window.location.href);
+      
+      // Add popstate listener
+      window.addEventListener('popstate', handlePopState);
+    }
+    
+    // Always add beforeunload listener
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    // Cleanup
+    return () => {
+      // Always remove popstate listener to prevent memory leaks
+      window.removeEventListener('popstate', handlePopState);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [hasUnsavedChanges]);
 
   // Generate UUID helper function
   const generateUUID = (): string => {
@@ -654,6 +745,31 @@ const HauptantragContainer: React.FC = () => {
       }
     }
   }, [searchParams]);
+
+  // Handle beforeunload event (page refresh/close) and navigation
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = 'Sie haben ungespeicherte Änderungen. Sind Sie sicher, dass Sie die Seite verlassen möchten?';
+        return 'Sie haben ungespeicherte Änderungen. Sind Sie sicher, dass Sie die Seite verlassen möchten?';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
+  // Clear localStorage when there are no unsaved changes
+  useEffect(() => {
+    if (!hasUnsavedChanges) {
+      console.log('*** CLEARING LOCALSTORAGE - NO UNSAVED CHANGES ***');
+      localStorage.removeItem('hauptantragFormData');
+      // Clean up navigation flag when no unsaved changes
+      sessionStorage.removeItem('hauptantrag_valid_navigation');
+      console.log('*** CLEANING UP NAVIGATION FLAG - NO UNSAVED CHANGES ***');
+    }
+  }, [hasUnsavedChanges]);
 
   // Load saved data from Supabase
   useEffect(() => {
@@ -1098,6 +1214,8 @@ const HauptantragContainer: React.FC = () => {
     }
   };
 
+
+
   const handlePrevious = () => {
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1);
@@ -1503,6 +1621,12 @@ const HauptantragContainer: React.FC = () => {
       console.log('All saves completed successfully');
       setHasUnsavedChanges(false);
       
+      // Clear localStorage since data is now saved
+      localStorage.removeItem('hauptantragFormData');
+      // Clean up navigation flag when data is saved
+      sessionStorage.removeItem('hauptantrag_valid_navigation');
+      console.log('*** CLEANING UP NAVIGATION FLAG - DATA SAVED ***');
+      
       // Navigate to personal space only if navigateAfterSave is true
       if (navigateAfterSave) {
         navigate('/personal-space');
@@ -1520,10 +1644,18 @@ const HauptantragContainer: React.FC = () => {
   };
 
   const updateFormData = (stepKey: keyof FormData, data: any) => {
-    setFormData(prev => ({
-      ...prev,
-      [stepKey]: data
-    }));
+    setFormData(prev => {
+      const newFormData = {
+        ...prev,
+        [stepKey]: data
+      };
+      
+      // Save to localStorage immediately when there are changes
+      console.log('*** SAVING TO LOCALSTORAGE ***', { stepKey, hasData: true });
+      localStorage.setItem('hauptantragFormData', JSON.stringify(newFormData));
+      
+      return newFormData;
+    });
     setHasUnsavedChanges(true);
   };
 
@@ -3166,6 +3298,7 @@ const HauptantragContainer: React.FC = () => {
             font-size: 30px;
             display: block;
           }
+
           @media (max-width: 750px) {
             .blue-corner {
               width: 35%;
@@ -3282,6 +3415,8 @@ const HauptantragContainer: React.FC = () => {
       </div>
 
       <Container className="pt-32">
+
+
         {/* Step title */}
         <div className="text-center mb-8">
           <h3 className="text-1xl font-regular text-gray-800">

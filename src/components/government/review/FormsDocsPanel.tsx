@@ -18,6 +18,19 @@ type DocumentStatus = {
   applicantNumber?: number;
 };
 
+type SignedDocument = {
+  title: string;
+  filename?: string;
+  required: boolean;
+  uploaded: boolean;
+  file_path?: string;
+  file_size?: number;
+  description: string;
+  uploaded_at?: string;
+  is_selbsthilfe: boolean;
+  signature_count: number;
+};
+
 type DocumentStatusMap = {
   [key: string]: DocumentStatus[];
 };
@@ -136,6 +149,10 @@ const FormsDocsPanel: React.FC<FormsDocsPanelProps> = ({
   const [sidebarVisible, setSidebarVisible] = useState(sidebarInitiallyVisible);
   const [applicantNames, setApplicantNames] = useState<Record<string, string>>({});
   const [isDownloadingForm, setIsDownloadingForm] = useState<string | null>(null);
+  const [signedDocuments, setSignedDocuments] = useState<Record<string, SignedDocument>>({});
+  const [signedDocumentUrls, setSignedDocumentUrls] = useState<{[key: string]: string}>({});
+  const [signedMenuOpenFor, setSignedMenuOpenFor] = useState<string | null>(null);
+  const signedMenuRef = useRef<HTMLDivElement | null>(null);
 
   // Function to get person name abbreviation
   const getPersonNameAbbreviation = (firstName: string, lastName: string): string => {
@@ -225,6 +242,29 @@ const FormsDocsPanel: React.FC<FormsDocsPanelProps> = ({
         
         setDocumentUrls(urls);
       }
+
+      // Process signed documents
+      if (data?.signature_documents) {
+        setSignedDocuments(data.signature_documents);
+        
+        // Generate signed URLs for uploaded signed documents
+        const signedUrls: {[key: string]: string} = {};
+        
+        await Promise.all(
+          Object.entries(data.signature_documents as Record<string, SignedDocument>).map(async ([docId, doc]) => {
+            if (doc.uploaded && doc.file_path) {
+              const { data: signedData } = await supabase.storage
+                .from('documents')
+                .createSignedUrl(doc.file_path, 3600); // 1 hour expiry
+              if (signedData?.signedUrl) {
+                signedUrls[docId] = signedData.signedUrl;
+              }
+            }
+          })
+        );
+        
+        setSignedDocumentUrls(signedUrls);
+      }
     };
 
     fetchUserData();
@@ -239,8 +279,11 @@ const FormsDocsPanel: React.FC<FormsDocsPanelProps> = ({
       if (formMenuRef.current && !formMenuRef.current.contains(event.target as Node)) {
         setFormMenuOpenFor(null);
       }
+      if (signedMenuRef.current && !signedMenuRef.current.contains(event.target as Node)) {
+        setSignedMenuOpenFor(null);
+      }
     }
-    if (menuOpenFor || formMenuOpenFor) {
+    if (menuOpenFor || formMenuOpenFor || signedMenuOpenFor) {
       document.addEventListener('mousedown', handleClickOutside);
     } else {
       document.removeEventListener('mousedown', handleClickOutside);
@@ -248,7 +291,7 @@ const FormsDocsPanel: React.FC<FormsDocsPanelProps> = ({
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [menuOpenFor, formMenuOpenFor]);
+  }, [menuOpenFor, formMenuOpenFor, signedMenuOpenFor]);
 
   const handleOpenInsideApp = (uniqueId: string) => {
     setMenuOpenFor(null);
@@ -343,6 +386,38 @@ const FormsDocsPanel: React.FC<FormsDocsPanelProps> = ({
     }
   };
 
+  // Signed document handlers
+  const handleSignedOpenInsideApp = (docId: string) => {
+    setSignedMenuOpenFor(null);
+    if (!openDocuments.includes(docId)) {
+      onPopOut(docId, 'doc');
+    }
+  };
+
+  const handleSignedOpenExternalTab = (docId: string) => {
+    setSignedMenuOpenFor(null);
+    if (signedDocumentUrls[docId]) {
+      window.open(signedDocumentUrls[docId], '_blank');
+    }
+  };
+
+  const handleSignedDownload = async (docId: string, doc: SignedDocument) => {
+    setSignedMenuOpenFor(null);
+    if (doc?.file_path) {
+      const { data, error } = await supabase.storage
+        .from('documents')
+        .createSignedUrl(doc.file_path, 60, { download: true });
+      if (data?.signedUrl) {
+        const link = document.createElement('a');
+        link.href = data.signedUrl;
+        link.download = doc.filename || docId;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+    }
+  };
+
   const renderDocumentButton = (docTypeId: string, file: DocumentStatus, index: number, categoryKey: string, totalFiles: number) => {
     const uniqueId = `${categoryKey}_${docTypeId}_${index}`;
     const isSelected = openDocuments.includes(uniqueId);
@@ -424,6 +499,82 @@ const FormsDocsPanel: React.FC<FormsDocsPanelProps> = ({
     );
   };
 
+  const renderSignedDocumentButton = (docId: string, doc: SignedDocument) => {
+    const isSelected = openDocuments.includes(docId);
+    
+    return (
+      <div key={docId} style={{ marginBottom: 6, position: 'relative' }}>
+        <button
+          onClick={() => setSignedMenuOpenFor(docId)}
+          style={{
+            width: '100%',
+            height: 64,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'flex-start',
+            borderRadius: 7,
+            background: isSelected ? '#064497' : '#fff',
+            color: isSelected ? '#fff' : '#111',
+            fontFamily: 'Roboto, Arial, sans-serif',
+            fontWeight: 400,
+            fontSize: 15,
+            boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
+            border: 'none',
+            padding: '0 14px',
+            cursor: 'pointer',
+            transition: 'background 0.2s, color 0.2s',
+            outline: 'none',
+            textAlign: 'left',
+            minHeight: 64,
+            maxHeight: 64,
+            overflow: 'hidden',
+            whiteSpace: 'normal',
+          }}
+        >
+          {doc.title}
+        </button>
+        {signedMenuOpenFor === docId && (
+          <div
+            ref={signedMenuRef}
+            style={{
+              position: 'absolute',
+              top: 70,
+              left: 0,
+              background: '#fff',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+              borderRadius: 6,
+              zIndex: 10,
+              minWidth: 180,
+              padding: 8,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 4,
+            }}
+          >
+            <button
+              style={{ width: '100%', padding: '8px 0', border: 'none', background: '#f7f8fa', borderRadius: 4, cursor: 'pointer' }}
+              onClick={() => handleSignedOpenInsideApp(docId)}
+            >
+              Öffnen
+            </button>
+            <button
+              style={{ width: '100%', padding: '8px 0', border: 'none', background: '#f7f8fa', borderRadius: 4, cursor: 'pointer' }}
+              onClick={() => handleSignedOpenExternalTab(docId)}
+            >
+              In neuem Tab öffnen
+            </button>
+            <button
+              style={{ width: '100%', padding: '8px 0', border: 'none', background: '#f7f8fa', borderRadius: 4, cursor: 'pointer' }}
+              onClick={async () => await handleSignedDownload(docId, doc)}
+            >
+              Herunterladen
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div style={{ display: 'flex', height: '100vh', margin: 0, padding: 0, position: 'relative', overflow: 'hidden' }}>
       {/* Main area for open forms/docs */}
@@ -468,6 +619,10 @@ const FormsDocsPanel: React.FC<FormsDocsPanelProps> = ({
                   const form = availableForms.find(f => f.id === id);
                   if (form) return form.label;
                   
+                  // Check if it's a signed document
+                  const signedDoc = signedDocuments[id];
+                  if (signedDoc) return signedDoc.title;
+                  
                   // If it's a document with new unique ID format (category_docType_index)
                   if (id.includes('_')) {
                     const parts = id.split('_');
@@ -511,9 +666,9 @@ const FormsDocsPanel: React.FC<FormsDocsPanelProps> = ({
                 flexShrink: 0 // Don't allow buttons to shrink
               }}>
                 {/* Open in new tab button */}
-                {documentUrls[id] && (
+                {(documentUrls[id] || signedDocumentUrls[id]) && (
                   <button
-                    onClick={() => window.open(documentUrls[id], '_blank')}
+                    onClick={() => window.open(documentUrls[id] || signedDocumentUrls[id], '_blank')}
                     style={{
                       width: 140, // Fixed width
                       height: 36, // Fixed height
@@ -571,9 +726,9 @@ const FormsDocsPanel: React.FC<FormsDocsPanelProps> = ({
               </div>
             </div>
             <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-              {openDocuments.includes(id) && documentUrls[id] && (
+              {openDocuments.includes(id) && (documentUrls[id] || signedDocumentUrls[id]) && (
                 <iframe 
-                  src={documentUrls[id]} 
+                  src={documentUrls[id] || signedDocumentUrls[id]} 
                   style={{ width: '100%', height: '100%', border: 'none' }}
                   title={id}
                 />
@@ -833,6 +988,30 @@ const FormsDocsPanel: React.FC<FormsDocsPanelProps> = ({
                 </div>
               ));
             })()}
+
+            {/* Signed Documents Section */}
+            {Object.keys(signedDocuments).length > 0 && (
+              <>
+                <h4
+                  style={{
+                    fontFamily: 'Roboto',
+                    fontWeight: 300,
+                    fontSize: 22,
+                    margin: '22px 0 22px 0',
+                    padding: 0,
+                    color: '#000',
+                    letterSpacing: 0.1,
+                    marginTop: 22,
+                  }}
+                >
+                  Unterschriebene Formulare
+                </h4>
+                {Object.entries(signedDocuments)
+                  .filter(([_, doc]) => doc.uploaded) // Only show uploaded documents
+                  .sort(([_, docA], [__, docB]) => docA.title.localeCompare(docB.title, 'de', { sensitivity: 'base' }))
+                  .map(([docId, doc]) => renderSignedDocumentButton(docId, doc))}
+              </>
+            )}
           </div>
         </div>
       )}

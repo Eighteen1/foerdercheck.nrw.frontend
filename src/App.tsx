@@ -13,6 +13,7 @@ import VerifyEmail from './components/VerifyEmail';
 //import DocumentCheck from './components/DocumentCheck';
 import DocumentUpload from './components/DocumentUpload';
 import UploadDocumentPage from './pages/UploadDocumentPage';
+import SignatureUploadPage from './pages/SignatureUploadPage';
 import Layout from './components/Layout';
 import AuthCallback from './components/AuthCallback';
 import PasswordProtection from './components/PasswordProtection';
@@ -119,6 +120,7 @@ function App() {
                   </RoutingProtection>
                 } />
                 <Route path="/upload-document/:token" element={<UploadDocumentPage />} />
+                <Route path="/signature-upload/:token" element={<SignatureUploadPage />} />
                 <Route path="/validation" element={
                   <RoutingProtection requireAuth>
                     <ValidationPage />

@@ -24,6 +24,7 @@ interface DynamicChecklistItemProps extends ChecklistItemProps {
   allChecklistItems?: any[]; // Array of all checklist items for finding related items
   applicationId?: string; // Application ID for navigation
   onRefreshData?: () => Promise<void>; // Function to refresh data from database
+  isReadOnly?: boolean; // Whether the component should be read-only for completed applications
 }
 
 const ChecklistItem: React.FC<DynamicChecklistItemProps> = ({
@@ -38,6 +39,7 @@ const ChecklistItem: React.FC<DynamicChecklistItemProps> = ({
   allChecklistItems,
   applicationId,
   onRefreshData,
+  isReadOnly = false,
 }) => {
   const [tempNotes, setTempNotes] = useState(item.agentNotes || '');
   const [notesChanged, setNotesChanged] = useState(false);
@@ -769,46 +771,65 @@ const ChecklistItem: React.FC<DynamicChecklistItemProps> = ({
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: isSmall ? '100%' : 'auto', marginTop: isSmall ? 8 : 0 }}>
           <span style={{ color: '#666', fontWeight: 500 }}>Prüfung:</span>
           <div style={{ position: 'relative', display: 'inline-block' }}>
-            <select
-              value={item.agentStatus}
-              onChange={(e) => onStatusChange(item.id, e.target.value as ChecklistStatus)}
-              style={{
-                ...getStatusStyle(item.agentStatus),
-                borderRadius: 16,
-                padding: '4px 16px 4px 16px',
-                paddingRight: 40,
-                fontWeight: 600,
-                fontSize: 15,
-                outline: 'none',
-                minWidth: 90,
-                cursor: 'pointer',
-                width: isSmall ? 'auto' : undefined,
-                maxWidth: isSmall ? 220 : undefined,
-                boxSizing: 'border-box',
-                appearance: 'none',
-                WebkitAppearance: 'none',
-                MozAppearance: 'none',
-                background: 'none',
-              }}
-            >
-              <option value="undefined">Ungeprüft</option>
-              <option value="correct">Gültig</option>
-              <option value="wrong">Ungültig</option>
-            </select>
-            <span
-              className="material-icons"
-              style={{
-                position: 'absolute',
-                right: 14,
-                top: '50%',
-                transform: 'translateY(-50%)',
-                pointerEvents: 'none',
-                color: '#757575',
-                fontSize: 22,
-              }}
-            >
-              expand_more
-            </span>
+            {isReadOnly ? (
+              <span
+                style={{
+                  ...getStatusStyle(item.agentStatus),
+                  borderRadius: 16,
+                  padding: '4px 16px',
+                  fontWeight: 600,
+                  fontSize: 15,
+                  minWidth: 90,
+                  display: 'inline-block',
+                  textAlign: 'center',
+                }}
+              >
+                {STATUS_LABELS[item.agentStatus] || 'Ungeprüft'}
+              </span>
+            ) : (
+              <>
+                <select
+                  value={item.agentStatus}
+                  onChange={(e) => onStatusChange(item.id, e.target.value as ChecklistStatus)}
+                  style={{
+                    ...getStatusStyle(item.agentStatus),
+                    borderRadius: 16,
+                    padding: '4px 16px 4px 16px',
+                    paddingRight: 40,
+                    fontWeight: 600,
+                    fontSize: 15,
+                    outline: 'none',
+                    minWidth: 90,
+                    cursor: 'pointer',
+                    width: isSmall ? 'auto' : undefined,
+                    maxWidth: isSmall ? 220 : undefined,
+                    boxSizing: 'border-box',
+                    appearance: 'none',
+                    WebkitAppearance: 'none',
+                    MozAppearance: 'none',
+                    background: 'none',
+                  }}
+                >
+                  <option value="undefined">Ungeprüft</option>
+                  <option value="correct">Gültig</option>
+                  <option value="wrong">Ungültig</option>
+                </select>
+                <span
+                  className="material-icons"
+                  style={{
+                    position: 'absolute',
+                    right: 14,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    pointerEvents: 'none',
+                    color: '#757575',
+                    fontSize: 22,
+                  }}
+                >
+                  expand_more
+                </span>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -964,6 +985,35 @@ const ChecklistItem: React.FC<DynamicChecklistItemProps> = ({
             >
               <span className="material-icons" style={{ fontSize: 18 }}>picture_as_pdf</span>
               {doc.label}
+            </button>
+          );
+        })}
+        
+        {/* Render signed document buttons */}
+        {item.linkedSignedDocs && item.linkedSignedDocs.map((signedDocId) => {
+          const signedDoc = userData?.signature_documents?.[signedDocId];
+          if (!signedDoc || !signedDoc.uploaded) return null;
+          
+          return (
+            <button
+              key={signedDocId}
+              onClick={() => handleDocumentClick(signedDocId)}
+              style={{
+                padding: '7px 16px',
+                background: '#064497',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 5,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 7,
+                fontSize: 15,
+                fontWeight: 500,
+              }}
+            >
+              <span className="material-icons" style={{ fontSize: 18 }}>edit</span>
+              {signedDoc.title}
             </button>
           );
         })}
@@ -1175,7 +1225,7 @@ const ChecklistItem: React.FC<DynamicChecklistItemProps> = ({
       {/* Agenten-Notiz */}
       <div style={{ marginTop: 10 }}>
         {/* Only show either the button or the headline at the same time */}
-        {!showNoteInput && (
+        {!showNoteInput && !isReadOnly && (
           <button
             onClick={() => setShowNoteInput(true)}
             style={{
@@ -1209,6 +1259,7 @@ const ChecklistItem: React.FC<DynamicChecklistItemProps> = ({
                 value={tempNotes}
                 onChange={(e) => { setTempNotes(e.target.value); setNotesChanged(true); }}
                 rows={2}
+                disabled={isReadOnly}
                 style={{
                   width: '100%',
                   padding: '10px',
@@ -1222,50 +1273,52 @@ const ChecklistItem: React.FC<DynamicChecklistItemProps> = ({
                 placeholder="Kommentar hinzufügen..."
               />
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 30 }}>
-              <button
-                onClick={() => setShowNoteInput(false)}
-                style={{
-                  width: 40,
-                  height: 40,
-                  background: '#e0e0e0',
-                  color: '#757575',
-                  border: 'none',
-                  borderRadius: 5,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 22,
-                  marginBottom: 0,
-                }}
-                title="Abbrechen"
-              >
-                <span className="material-icons">close</span>
-              </button>
-              <button
-                onClick={handleSaveNotes}
-                disabled={!notesChanged}
-                style={{
-                  width: 40,
-                  height: 40,
-                  background: notesChanged ? '#064497' : '#bdbdbd',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: 5,
-                  cursor: notesChanged ? 'pointer' : 'not-allowed',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontWeight: 600,
-                  fontSize: 22,
-                  transition: 'background 0.2s',
+            {!isReadOnly && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 30 }}>
+                <button
+                  onClick={() => setShowNoteInput(false)}
+                  style={{
+                    width: 40,
+                    height: 40,
+                    background: '#e0e0e0',
+                    color: '#757575',
+                    border: 'none',
+                    borderRadius: 5,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 22,
+                    marginBottom: 0,
+                  }}
+                  title="Abbrechen"
+                >
+                  <span className="material-icons">close</span>
+                </button>
+                <button
+                  onClick={handleSaveNotes}
+                  disabled={!notesChanged}
+                  style={{
+                    width: 40,
+                    height: 40,
+                    background: notesChanged ? '#064497' : '#bdbdbd',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: 5,
+                    cursor: notesChanged ? 'pointer' : 'not-allowed',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 600,
+                    fontSize: 22,
+                    transition: 'background 0.2s',
                 }}
                 title="Speichern"
               >
                 <span className="material-icons">save</span>
               </button>
-            </div>
+              </div>
+            )}
           </div>
         )}
         {/* Show last note if exists and not editing */}

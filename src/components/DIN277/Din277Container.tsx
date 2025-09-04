@@ -45,9 +45,101 @@ const Din277Container: React.FC = () => {
   const [showValidationModal, setShowValidationModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [isInitializing, setIsInitializing] = useState(true); // Flag to prevent setting hasUnsavedChanges during initial form setup
 
   const { user } = useAuth();
   const navigate = useNavigate();
+
+  // Sync hasUnsavedChanges with sessionStorage for routing protection
+  useEffect(() => {
+    if (hasUnsavedChanges) {
+      sessionStorage.setItem('din277_has_unsaved_changes', 'true');
+      console.log('*** SETTING DIN277 UNSAVED CHANGES FLAG IN SESSIONSTORAGE ***');
+    } else {
+      sessionStorage.removeItem('din277_has_unsaved_changes');
+      console.log('*** REMOVING DIN277 UNSAVED CHANGES FLAG FROM SESSIONSTORAGE ***');
+    }
+    
+    // Cleanup function to remove flag when component unmounts
+    return () => {
+      sessionStorage.removeItem('din277_has_unsaved_changes');
+      sessionStorage.removeItem('din277_valid_navigation');
+      console.log('*** CLEANING UP DIN277 UNSAVED CHANGES FLAG ON COMPONENT UNMOUNT ***');
+    };
+  }, [hasUnsavedChanges]);
+
+  // Handle browser back/forward navigation directly in the component
+  useEffect(() => {
+    const handlePopState = (e: PopStateEvent) => {
+      console.log('*** DIN277 COMPONENT: POPSTATE EVENT FIRED ***');
+      console.log('*** DIN277 COMPONENT: hasUnsavedChanges =', hasUnsavedChanges, '***');
+      
+      if (hasUnsavedChanges) {
+        console.log('*** DIN277 COMPONENT: UNSAVED CHANGES DETECTED - SHOWING CONFIRMATION ***');
+        
+        // Show confirmation dialog first
+        const confirmed = window.confirm(
+          'Sie haben ungespeicherte Änderungen. Wenn Sie fortfahren, gehen diese verloren. Möchten Sie trotzdem fortfahren?'
+        );
+        
+        if (!confirmed) {
+          console.log('*** DIN277 COMPONENT: USER CANCELLED - PREVENTING NAVIGATION ***');
+          // Prevent the default navigation and push current state back
+          e.preventDefault();
+          window.history.pushState(null, '', window.location.href);
+          
+          // Set navigation flag to prevent routing protection from redirecting
+          const navigationKey = `din277_navigation_${Date.now()}`;
+          sessionStorage.setItem('din277_valid_navigation', navigationKey);
+          console.log('*** DIN277 COMPONENT: SETTING NAVIGATION FLAG AFTER CANCELLING POPSTATE ***');
+        } else {
+          console.log('*** DIN277 COMPONENT: USER CONFIRMED - ALLOWING NAVIGATION ***');
+          
+          // Clean up navigation flag since user is leaving
+          sessionStorage.removeItem('din277_valid_navigation');
+          
+          // Clear unsaved changes immediately
+          setHasUnsavedChanges(false);
+          
+          // Don't prevent the default - let the navigation proceed naturally
+          console.log('*** DIN277 COMPONENT: ALLOWING NATURAL NAVIGATION ***');
+          navigate('/document-upload', { state: { from: 'din277' } });
+        }
+      } else {
+        console.log('*** DIN277 COMPONENT: NO UNSAVED CHANGES - ALLOWING NAVIGATION ***');
+        // Don't interfere with navigation when there are no unsaved changes
+        // The user should be able to navigate normally
+      }
+    };
+    
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = 'Sie haben ungespeicherte Änderungen. Sind Sie sicher, dass Sie die Seite verlassen möchten?';
+        return 'Sie haben ungespeicherte Änderungen. Sind Sie sicher, dass Sie die Seite verlassen möchten?';
+      }
+    };
+    
+    // Only add popstate listener and push history state when there are unsaved changes
+    if (hasUnsavedChanges) {
+      console.log('*** DIN277 COMPONENT: ADDING POPSTATE LISTENER FOR UNSAVED CHANGES ***');
+      // Push initial state to enable popstate detection
+      window.history.pushState(null, '', window.location.href);
+      
+      // Add popstate listener
+      window.addEventListener('popstate', handlePopState);
+    }
+    
+    // Always add beforeunload listener
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    // Cleanup
+    return () => {
+      // Always remove popstate listener to prevent memory leaks
+      window.removeEventListener('popstate', handlePopState);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [hasUnsavedChanges]);
 
   // Load data from Supabase
   useEffect(() => {
@@ -55,6 +147,7 @@ const Din277Container: React.FC = () => {
       if (!user?.id) return;
 
       setIsLoading(true);
+      setIsInitializing(true);
       try {
         // Load user data for validation toggle
         const { data: userData, error: userError } = await supabase
@@ -86,9 +179,12 @@ const Din277Container: React.FC = () => {
         }
 
         setIsLoading(false);
+        // Set initializing to false after a short delay to allow form effects to complete
+        setTimeout(() => setIsInitializing(false), 100);
       } catch (error) {
         console.error('Error loading saved data:', error);
         setIsLoading(false);
+        setIsInitializing(false);
       }
     };
 
@@ -98,7 +194,26 @@ const Din277Container: React.FC = () => {
   // Handle form data changes
   const handleFormChange = (data: Partial<Din277Data>) => {
     setFormData(prevData => ({ ...prevData, ...data }));
-    setHasUnsavedChanges(true);
+    
+    // Only set unsaved changes if we're not in the initializing phase
+    if (!isInitializing) {
+      // Check if the data actually changed by comparing with previous state
+      const hasActualChanges = Object.keys(data).some(key => {
+        const newValue = data[key as keyof typeof data];
+        const oldValue = formData[key as keyof typeof formData];
+        
+        if (typeof newValue === 'object' && newValue !== null) {
+          // For nested objects like buildingLevels, do deep comparison
+          return JSON.stringify(newValue) !== JSON.stringify(oldValue);
+        }
+        
+        return newValue !== oldValue;
+      });
+      
+      if (hasActualChanges) {
+        setHasUnsavedChanges(true);
+      }
+    }
   };
 
   // Save data to database

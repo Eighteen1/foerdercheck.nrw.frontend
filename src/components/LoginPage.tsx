@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Container, Form, Button, Alert, Spinner } from 'react-bootstrap';
 import { useAuth } from '../contexts/AuthContext';
+import { checkUserType, UserTypeInfo } from '../utils/userTypeChecker';
+import WrongPortalModal from './common/WrongPortalModal';
 
 const LoginPage: React.FC = () => {
   const [isLoginView, setIsLoginView] = useState(true);
@@ -10,8 +12,34 @@ const LoginPage: React.FC = () => {
   const [lastName, setLastName] = useState('');
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [userTypeInfo, setUserTypeInfo] = useState<UserTypeInfo | null>(null);
+  const [showWrongPortalModal, setShowWrongPortalModal] = useState(false);
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, isAuthenticated } = useAuth();
+
+  useEffect(() => {
+    const checkUserTypeOnMount = async () => {
+      if (isAuthenticated) {
+        try {
+          const userType = await checkUserType();
+          setUserTypeInfo(userType);
+          
+          // If user is an agent, show the wrong portal modal
+          if (userType.isAgent) {
+            setShowWrongPortalModal(true);
+          }
+        } catch (error) {
+          console.error('Error checking user type:', error);
+        }
+      }
+    };
+
+    checkUserTypeOnMount();
+  }, [isAuthenticated]);
+
+  const handleRedirectToGovernment = () => {
+    navigate('/government');
+  };
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -399,6 +427,15 @@ const LoginPage: React.FC = () => {
           )}
         </div>
       </Container>
+
+      {/* Wrong Portal Modal */}
+      <WrongPortalModal
+        show={showWrongPortalModal}
+        onHide={() => setShowWrongPortalModal(false)}
+        userType="agent"
+        agentData={userTypeInfo?.agentData}
+        onRedirect={handleRedirectToGovernment}
+      />
     </div>
   );
 };

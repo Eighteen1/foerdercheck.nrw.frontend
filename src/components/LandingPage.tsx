@@ -1,11 +1,43 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Container, Row, Col, Button } from "react-bootstrap";
 import { useAuth } from '../contexts/AuthContext';
+import { checkUserType, UserTypeInfo } from '../utils/userTypeChecker';
+import WrongPortalModal from './common/WrongPortalModal';
 
 const LandingPage: React.FC = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
+  const [userTypeInfo, setUserTypeInfo] = useState<UserTypeInfo | null>(null);
+  const [showWrongPortalModal, setShowWrongPortalModal] = useState(false);
+  const [isCheckingUserType, setIsCheckingUserType] = useState(false);
+
+  useEffect(() => {
+    const checkUserTypeOnMount = async () => {
+      if (isAuthenticated) {
+        setIsCheckingUserType(true);
+        try {
+          const userType = await checkUserType();
+          setUserTypeInfo(userType);
+          
+          // If user is an agent, show the wrong portal modal
+          if (userType.isAgent) {
+            setShowWrongPortalModal(true);
+          }
+        } catch (error) {
+          console.error('Error checking user type:', error);
+        } finally {
+          setIsCheckingUserType(false);
+        }
+      }
+    };
+
+    checkUserTypeOnMount();
+  }, [isAuthenticated]);
+
+  const handleRedirectToGovernment = () => {
+    navigate('/government');
+  };
 
   return (
     <div className="relative min-h-screen bg-white">
@@ -202,6 +234,15 @@ const LandingPage: React.FC = () => {
           </Col>
         </Row>
       </Container>
+
+      {/* Wrong Portal Modal */}
+      <WrongPortalModal
+        show={showWrongPortalModal}
+        onHide={() => setShowWrongPortalModal(false)}
+        userType="agent"
+        agentData={userTypeInfo?.agentData}
+        onRedirect={handleRedirectToGovernment}
+      />
     </div>
   );
 };

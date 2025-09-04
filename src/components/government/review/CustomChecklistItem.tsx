@@ -6,8 +6,9 @@ import { DOCUMENT_LABELS } from './FormsDocsPanel';
 // Extend props to include onDelete and onEdit (for title/comment/errors) and userData
 type CustomChecklistItemProps = ChecklistItemProps & {
   onDelete: (id: string) => void;
-  onEdit?: (id: string, updates: Partial<{ title: string; systemComment: string; systemErrors: string[]; linkedForms: string[]; linkedDocs: string[] }>) => void;
+  onEdit?: (id: string, updates: Partial<{ title: string; systemComment: string; systemErrors: string[]; linkedForms: string[]; linkedDocs: string[]; linkedSignedDocs: string[] }>) => void;
   userData?: any; // Add userData prop to access document_status
+  isReadOnly?: boolean; // Whether the component should be read-only for completed applications
 };
 
 // Helper function to get applicant label with UID-based naming
@@ -172,6 +173,7 @@ const CustomChecklistItem: React.FC<CustomChecklistItemProps> = ({
   onDelete,
   onEdit,
   userData,
+  isReadOnly = false,
 }) => {
   const [tempNotes, setTempNotes] = useState(item.agentNotes || '');
   const [notesChanged, setNotesChanged] = useState(false);
@@ -182,14 +184,27 @@ const CustomChecklistItem: React.FC<CustomChecklistItemProps> = ({
   const [editedErrors, setEditedErrors] = useState<string[]>(item.systemErrors || []);
   const [editedForms, setEditedForms] = useState<string[]>(item.linkedForms || []);
   const [editedDocs, setEditedDocs] = useState<string[]>(item.linkedDocs || []);
+  const [editedSignedDocs, setEditedSignedDocs] = useState<string[]>(item.linkedSignedDocs || []);
   const [formToAdd, setFormToAdd] = useState('');
   const [docToAdd, setDocToAdd] = useState('');
+  const [signedDocToAdd, setSignedDocToAdd] = useState('');
   const [isSmall, setIsSmall] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Get available uploaded documents for editing
   const availableUploadedDocs = getUploadedDocuments(userData?.document_status, userData);
+  
+  // Get available signed documents for editing
+  const availableSignedDocs = userData?.signature_documents 
+    ? Object.entries(userData.signature_documents)
+        .filter(([_, doc]: [string, any]) => doc.uploaded)
+        .map(([docId, doc]: [string, any]) => ({
+          id: docId,
+          label: doc.title
+        }))
+        .sort((a, b) => a.label.localeCompare(b.label))
+    : [];
 
   // Reset states when item changes
   useEffect(() => {
@@ -201,8 +216,10 @@ const CustomChecklistItem: React.FC<CustomChecklistItemProps> = ({
     setEditedErrors(item.systemErrors || []);
     setEditedForms(item.linkedForms || []);
     setEditedDocs(item.linkedDocs || []);
+    setEditedSignedDocs(item.linkedSignedDocs || []);
     setFormToAdd('');
     setDocToAdd('');
+    setSignedDocToAdd('');
     setIsEditing(false);
     setShowDeleteDialog(false);
   }, [item.id]);
@@ -245,6 +262,7 @@ const CustomChecklistItem: React.FC<CustomChecklistItemProps> = ({
         systemErrors: editedErrors,
         linkedForms: editedForms,
         linkedDocs: editedDocs,
+        linkedSignedDocs: editedSignedDocs,
       });
     }
     setIsEditing(false);
@@ -279,6 +297,15 @@ const CustomChecklistItem: React.FC<CustomChecklistItemProps> = ({
   };
   const handleRemoveDoc = (docId: string) => {
     setEditedDocs(prev => prev.filter(d => d !== docId));
+  };
+  const handleAddSignedDoc = () => {
+    if (signedDocToAdd && !editedSignedDocs.includes(signedDocToAdd)) {
+      setEditedSignedDocs(prev => [...prev, signedDocToAdd]);
+      setSignedDocToAdd('');
+    }
+  };
+  const handleRemoveSignedDoc = (signedDocId: string) => {
+    setEditedSignedDocs(prev => prev.filter(d => d !== signedDocId));
   };
 
   return (
@@ -318,45 +345,47 @@ const CustomChecklistItem: React.FC<CustomChecklistItemProps> = ({
             <h3 style={{ margin: 0, color: '#064497', fontWeight: 400, fontSize: 22 }}>{item.title}</h3>
           )}
         </div>
-        <div style={{ display: 'flex', gap: 4 }}>
-          <button
-            onClick={() => {
-              if (isEditing) handleSaveEdits();
-              else setIsEditing(true);
-            }}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: '#064497',
-              cursor: 'pointer',
-              padding: 8,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 4
-            }}
-          >
-            <span className="material-icons" style={{ fontSize: 20 }}>
-              {isEditing ? 'save' : 'edit'}
-            </span>
-            {isEditing ? 'Speichern' : 'Bearbeiten'}
-          </button>
-          <button
-            onClick={() => setShowDeleteDialog(true)}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: '#d32f2f',
-              cursor: 'pointer',
-              padding: 8,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 4
-            }}
-            title="Löschen"
-          >
-            <span className="material-icons" style={{ fontSize: 20 }}>delete</span>
-          </button>
-        </div>
+        {!isReadOnly && (
+          <div style={{ display: 'flex', gap: 4 }}>
+            <button
+              onClick={() => {
+                if (isEditing) handleSaveEdits();
+                else setIsEditing(true);
+              }}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#064497',
+                cursor: 'pointer',
+                padding: 8,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4
+              }}
+            >
+              <span className="material-icons" style={{ fontSize: 20 }}>
+                {isEditing ? 'save' : 'edit'}
+              </span>
+              {isEditing ? 'Speichern' : 'Bearbeiten'}
+            </button>
+            <button
+              onClick={() => setShowDeleteDialog(true)}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#d32f2f',
+                cursor: 'pointer',
+                padding: 8,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4
+              }}
+              title="Löschen"
+            >
+              <span className="material-icons" style={{ fontSize: 20 }}>delete</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Delete Confirmation Dialog */}
@@ -424,46 +453,65 @@ const CustomChecklistItem: React.FC<CustomChecklistItemProps> = ({
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: isSmall ? '100%' : 'auto', marginTop: isSmall ? 8 : 0 }}>
           <span style={{ color: '#666', fontWeight: 500 }}>Prüfung:</span>
           <div style={{ position: 'relative', display: 'inline-block' }}>
-            <select
-              value={item.agentStatus}
-              onChange={(e) => onStatusChange(item.id, e.target.value as ChecklistStatus)}
-              style={{
-                ...getStatusStyle(item.agentStatus),
-                borderRadius: 16,
-                padding: '4px 16px 4px 16px',
-                paddingRight: 40,
-                fontWeight: 600,
-                fontSize: 15,
-                outline: 'none',
-                minWidth: 90,
-                cursor: 'pointer',
-                width: isSmall ? 'auto' : undefined,
-                maxWidth: isSmall ? 220 : undefined,
-                boxSizing: 'border-box',
-                appearance: 'none',
-                WebkitAppearance: 'none',
-                MozAppearance: 'none',
-                background: 'none',
-              }}
-            >
-              <option value="undefined">Ungeprüft</option>
-              <option value="correct">Gültig</option>
-              <option value="wrong">Ungültig</option>
-            </select>
-            <span
-              className="material-icons"
-              style={{
-                position: 'absolute',
-                right: 14,
-                top: '50%',
-                transform: 'translateY(-50%)',
-                pointerEvents: 'none',
-                color: '#757575',
-                fontSize: 22,
-              }}
-            >
-              expand_more
-            </span>
+            {isReadOnly ? (
+              <span
+                style={{
+                  ...getStatusStyle(item.agentStatus),
+                  borderRadius: 16,
+                  padding: '4px 16px',
+                  fontWeight: 600,
+                  fontSize: 15,
+                  minWidth: 90,
+                  display: 'inline-block',
+                  textAlign: 'center',
+                }}
+              >
+                {item.agentStatus === 'correct' ? 'Gültig' : item.agentStatus === 'wrong' ? 'Ungültig' : 'Ungeprüft'}
+              </span>
+            ) : (
+              <>
+                <select
+                  value={item.agentStatus}
+                  onChange={(e) => onStatusChange(item.id, e.target.value as ChecklistStatus)}
+                  style={{
+                    ...getStatusStyle(item.agentStatus),
+                    borderRadius: 16,
+                    padding: '4px 16px 4px 16px',
+                    paddingRight: 40,
+                    fontWeight: 600,
+                    fontSize: 15,
+                    outline: 'none',
+                    minWidth: 90,
+                    cursor: 'pointer',
+                    width: isSmall ? 'auto' : undefined,
+                    maxWidth: isSmall ? 220 : undefined,
+                    boxSizing: 'border-box',
+                    appearance: 'none',
+                    WebkitAppearance: 'none',
+                    MozAppearance: 'none',
+                    background: 'none',
+                  }}
+                >
+                  <option value="undefined">Ungeprüft</option>
+                  <option value="correct">Gültig</option>
+                  <option value="wrong">Ungültig</option>
+                </select>
+                <span
+                  className="material-icons"
+                  style={{
+                    position: 'absolute',
+                    right: 14,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    pointerEvents: 'none',
+                    color: '#757575',
+                    fontSize: 22,
+                  }}
+                >
+                  expand_more
+                </span>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -694,6 +742,74 @@ const CustomChecklistItem: React.FC<CustomChecklistItemProps> = ({
               </div>
             )}
           </div>
+          {/* Linked Signed Documents */}
+          <div style={{ marginTop: 12 }}>
+            <div style={{ color: '#666', fontWeight: 500, marginBottom: 6 }}>
+              Verknüpfte Unterschriebene Formulare:
+              {availableSignedDocs.length === 0 && (
+                <span style={{ fontSize: 14, color: '#999', fontWeight: 400, marginLeft: 8 }}>
+                  (Keine unterschriebenen Formulare hochgeladen)
+                </span>
+              )}
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+              {editedSignedDocs.map(signedDocId => {
+                const signedDoc = userData?.signature_documents?.[signedDocId];
+                const docLabel = signedDoc?.title || signedDocId;
+                return (
+                  <span key={signedDocId} style={{ background: '#eaf2fb', color: '#064497', borderRadius: 5, padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 4, fontSize: 15, fontWeight: 500 }}>
+                    <span className="material-icons" style={{ fontSize: 18 }}>edit</span>
+                    {docLabel}
+                    <button onClick={() => handleRemoveSignedDoc(signedDocId)} style={{ background: 'none', border: 'none', color: '#d32f2f', marginLeft: 4, cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', height: 24, width: 24 }} title="Entfernen">
+                      <span className="material-icons" style={{ fontSize: 22, display: 'block' }}>close</span>
+                    </button>
+                  </span>
+                );
+              })}
+            </div>
+            {availableSignedDocs.length > 0 ? (
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <div style={{ position: 'relative', display: 'inline-block', width: 300 }}>
+                  <select value={signedDocToAdd} onChange={e => setSignedDocToAdd(e.target.value)} style={{ padding: '6px 12px', borderRadius: 5, border: '1px solid #bdbdbd', fontSize: 15, width: '100%', minWidth: 0, paddingRight: 40, appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none', background: 'none' }}>
+                    <option value="">Unterschriebenes Formular auswählen...</option>
+                    {availableSignedDocs.filter(doc => !editedSignedDocs.includes(doc.id)).map(doc => (
+                      <option key={doc.id} value={doc.id}>{doc.label}</option>
+                    ))}
+                  </select>
+                  <span
+                    className="material-icons"
+                    style={{
+                      position: 'absolute',
+                      right: 14,
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      pointerEvents: 'none',
+                      color: '#757575',
+                      fontSize: 22,
+                    }}
+                  >
+                    expand_more
+                  </span>
+                </div>
+                <button onClick={handleAddSignedDoc} disabled={!signedDocToAdd} style={{ background: '#064497', color: '#fff', border: 'none', borderRadius: 5, padding: '6px 14px', fontWeight: 500, fontSize: 15, cursor: signedDocToAdd ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span className="material-icons" style={{ fontSize: 18 }}>add</span>
+                  Hinzufügen
+                </button>
+              </div>
+            ) : (
+              <div style={{ 
+                padding: '20px', 
+                background: '#f8f9fa', 
+                borderRadius: 6, 
+                border: '1px dashed #dee2e6',
+                textAlign: 'center',
+                color: '#6c757d',
+                fontSize: 15
+              }}>
+                Keine unterschriebenen Formulare verfügbar. Bitte laden Sie zuerst unterschriebene Formulare hoch, um sie mit diesem To-Do verknüpfen zu können.
+              </div>
+            )}
+          </div>
         </div>
       ) : (
         <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
@@ -747,12 +863,39 @@ const CustomChecklistItem: React.FC<CustomChecklistItemProps> = ({
               </button>
             );
           })}
+          {item.linkedSignedDocs && item.linkedSignedDocs.map((signedDocId) => {
+            const signedDoc = userData?.signature_documents?.[signedDocId];
+            if (!signedDoc || !signedDoc.uploaded) return null;
+            
+            return (
+              <button
+                key={signedDocId}
+                onClick={() => onOpenDocument(signedDocId)}
+                style={{
+                  padding: '7px 16px',
+                  background: '#064497',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 5,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 7,
+                  fontSize: 15,
+                  fontWeight: 500,
+                }}
+              >
+                <span className="material-icons" style={{ fontSize: 18 }}>edit</span>
+                {signedDoc.title}
+              </button>
+            );
+          })}
         </div>
       )}
 
       {/* Agenten-Notiz */}
       <div style={{ marginTop: 10 }}>
-        {!showNoteInput && (
+        {!showNoteInput && !isReadOnly && (
           <button
             onClick={() => setShowNoteInput(true)}
             style={{
@@ -786,6 +929,7 @@ const CustomChecklistItem: React.FC<CustomChecklistItemProps> = ({
                 value={tempNotes}
                 onChange={(e) => { setTempNotes(e.target.value); setNotesChanged(true); }}
                 rows={2}
+                disabled={isReadOnly}
                 style={{
                   width: '100%',
                   padding: '10px',
@@ -799,30 +943,31 @@ const CustomChecklistItem: React.FC<CustomChecklistItemProps> = ({
                 placeholder="Kommentar hinzufügen..."
               />
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 30 }}>
-              <button
-                onClick={() => setShowNoteInput(false)}
-                style={{
-                  width: 40,
-                  height: 40,
-                  background: '#e0e0e0',
-                  color: '#757575',
-                  border: 'none',
-                  borderRadius: 5,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 22,
-                  marginBottom: 0,
-                }}
-                title="Abbrechen"
-              >
-                <span className="material-icons">close</span>
-              </button>
-              <button
-                onClick={handleSaveNotes}
-                disabled={!notesChanged}
+            {!isReadOnly && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 30 }}>
+                <button
+                  onClick={() => setShowNoteInput(false)}
+                  style={{
+                    width: 40,
+                    height: 40,
+                    background: '#e0e0e0',
+                    color: '#757575',
+                    border: 'none',
+                    borderRadius: 5,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 22,
+                    marginBottom: 0,
+                  }}
+                  title="Abbrechen"
+                >
+                  <span className="material-icons">close</span>
+                </button>
+                <button
+                  onClick={handleSaveNotes}
+                  disabled={!notesChanged}
                 style={{
                   width: 40,
                   height: 40,
@@ -842,7 +987,8 @@ const CustomChecklistItem: React.FC<CustomChecklistItemProps> = ({
               >
                 <span className="material-icons">save</span>
               </button>
-            </div>
+              </div>
+            )}
           </div>
         )}
         {!showNoteInput && item.agentNotes && (

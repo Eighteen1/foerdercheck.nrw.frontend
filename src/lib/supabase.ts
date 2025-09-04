@@ -45,9 +45,29 @@ window.fetch = async (...args) => {
           const { data, error } = await supabase.auth.refreshSession();
           
           if (error || !data.session) {
-            console.debug('[Supabase] Session refresh failed, redirecting to login');
-            // Redirect to login if refresh fails
-            window.location.href = '/government/login';
+            console.debug('[Supabase] Session refresh failed');
+            
+            // Only redirect to login if we're not already on a public page or login page
+            const currentPath = window.location.pathname;
+            const isPublicPage = currentPath === '/' || 
+                                currentPath === '/government' || 
+                                currentPath === '/government/login' ||
+                                currentPath === '/auth/callback' ||
+                                currentPath === '/login' ||
+                                currentPath === '/verify' ||
+                                currentPath === '/application-types' ||
+                                currentPath === '/password-protection' ||
+                                currentPath === '/initial-check' ||
+                                currentPath === '/ic-results' ||
+                                currentPath.startsWith('/verify/');
+            
+            if (!isPublicPage) {
+              console.debug('[Supabase] Redirecting to login from protected page');
+              window.location.href = '/government/login';
+            } else {
+              console.debug('[Supabase] On public page, not redirecting to login');
+            }
+            
             return response;
           }
           
@@ -56,8 +76,28 @@ window.fetch = async (...args) => {
           return await originalFetch(...args);
         } catch (refreshError) {
           console.debug('[Supabase] Session refresh error:', refreshError);
-          // Redirect to login on refresh error
-          window.location.href = '/government/login';
+          
+          // Only redirect to login if we're not already on a public page or login page
+          const currentPath = window.location.pathname;
+          const isPublicPage = currentPath === '/' || 
+                              currentPath === '/government' || 
+                              currentPath === '/government/login' ||
+                              currentPath === '/auth/callback' ||
+                              currentPath === '/login' ||
+                              currentPath === '/verify' ||
+                              currentPath === '/application-types' ||
+                              currentPath === '/password-protection' ||
+                              currentPath === '/initial-check' ||
+                              currentPath === '/ic-results' ||
+                              currentPath.startsWith('/verify/');
+          
+          if (!isPublicPage) {
+            console.debug('[Supabase] Redirecting to login from protected page after refresh error');
+            window.location.href = '/government/login';
+          } else {
+            console.debug('[Supabase] On public page, not redirecting to login after refresh error');
+          }
+          
           return response;
         }
       }
@@ -72,11 +112,50 @@ window.fetch = async (...args) => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) {
-          window.location.href = '/government/login';
+          // Only redirect to login if we're not already on a public page or login page
+          const currentPath = window.location.pathname;
+          const isPublicPage = currentPath === '/' || 
+                              currentPath === '/government' || 
+                              currentPath === '/government/login' ||
+                              currentPath === '/auth/callback' ||
+                              currentPath === '/login' ||
+                              currentPath === '/verify' ||
+                              currentPath === '/application-types' ||
+                              currentPath === '/password-protection' ||
+                              currentPath === '/initial-check' ||
+                              currentPath === '/ic-results' ||
+                              currentPath.startsWith('/verify/');
+          
+          if (!isPublicPage) {
+            console.debug('[Supabase] No session found, redirecting to login from protected page');
+            window.location.href = '/government/login';
+          } else {
+            console.debug('[Supabase] No session found, but on public page - not redirecting');
+          }
         }
       } catch (sessionError) {
         console.debug('[Supabase] Session check failed:', sessionError);
-        window.location.href = '/government/login';
+        
+        // Only redirect to login if we're not already on a public page or login page
+        const currentPath = window.location.pathname;
+        const isPublicPage = currentPath === '/' || 
+                            currentPath === '/government' || 
+                            currentPath === '/government/login' ||
+                            currentPath === '/auth/callback' ||
+                            currentPath === '/login' ||
+                            currentPath === '/verify' ||
+                            currentPath === '/application-types' ||
+                            currentPath === '/password-protection' ||
+                            currentPath === '/initial-check' ||
+                            currentPath === '/ic-results' ||
+                            currentPath.startsWith('/verify/');
+        
+        if (!isPublicPage) {
+          console.debug('[Supabase] Session check failed, redirecting to login from protected page');
+          window.location.href = '/government/login';
+        } else {
+          console.debug('[Supabase] Session check failed, but on public page - not redirecting');
+        }
       }
     }
     

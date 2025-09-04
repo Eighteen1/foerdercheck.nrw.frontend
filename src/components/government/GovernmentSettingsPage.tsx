@@ -59,7 +59,7 @@ interface AgentData {
   id: string;
   email: string;
   name: string | null;
-  role: 'admin' | 'agent' | 'readonly' | 'owner';
+  role: 'admin' | 'agent' | 'owner';
   mfa_enabled: boolean;
   city_id: string | null;
   settings: {
@@ -1780,12 +1780,11 @@ const GovernmentSettingsPage: React.FC = () => {
                   <Form.Label>Neue Rolle auswählen</Form.Label>
                   <Form.Select
                     value={selectedRole}
-                    onChange={e => setSelectedRole(e.target.value as 'admin' | 'agent' | 'readonly')}
+                    onChange={e => setSelectedRole(e.target.value as 'admin' | 'agent')}
                   >
                     <option value="">Bitte wählen...</option>
                     <option value="admin">Administrator</option>
                     <option value="agent">Benutzer</option>
-                    <option value="readonly">Lesender Benutzer</option>
                   </Form.Select>
                 </Form.Group>
                 <Button

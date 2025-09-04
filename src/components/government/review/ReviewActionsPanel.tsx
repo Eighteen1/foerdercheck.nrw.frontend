@@ -43,6 +43,8 @@ type ReviewActionsPanelProps = {
   onContactApplicant?: () => void;
   onShareApplication?: () => void;
   onClose: () => void;
+  applicationStatus?: string;
+  onRefreshApplication?: () => Promise<void>;
 };
 
 const circleSize = 44;
@@ -309,11 +311,16 @@ const ReviewActionsPanel: React.FC<ReviewActionsPanelProps> = ({
   onFinishReview,
   onContactApplicant,
   onShareApplication,
-  onClose
+  onClose,
+  applicationStatus,
+  onRefreshApplication
 }) => {
   const isComplete = progress >= 100;
   const progressValue = Math.max(0, Math.min(progress, 100));
   const offset = circumference - (progressValue / 100) * circumference;
+
+  // Check if application is completed (approved or rejected)
+  const isApplicationCompleted = applicationStatus === 'approved' || applicationStatus === 'rejected';
 
   // Responsive breakpoints
   const [showFullButton, setShowFullButton] = useState(true); // Button with text
@@ -383,6 +390,23 @@ const ReviewActionsPanel: React.FC<ReviewActionsPanelProps> = ({
   // Add loading state for document request process
   const [documentRequestProcessLoading, setDocumentRequestProcessLoading] = useState(false);
 
+  // Add state for "Erneut Prüfen" modal
+  const [showReopenModal, setShowReopenModal] = useState(false);
+  const [reopenLoading, setReopenLoading] = useState(false);
+  const [reopenError, setReopenError] = useState<string | null>(null);
+
+  // Add state for download modal
+  const [showDownloadModal, setShowDownloadModal] = useState(false);
+  const [downloadLoading, setDownloadLoading] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [selectedDownloadTypes, setSelectedDownloadTypes] = useState<{
+    documents: boolean;
+    signedForms: boolean;
+  }>({
+    documents: false,
+    signedForms: false
+  });
+
   // Copy to clipboard logic
   const [copied, setCopied] = useState(false);
   const handleCopyEmail = () => {
@@ -392,6 +416,7 @@ const ReviewActionsPanel: React.FC<ReviewActionsPanelProps> = ({
       setTimeout(() => setCopied(false), 1200);
     }
   };
+
 
   // Responsive logic using ResizeObserver
   useEffect(() => {
@@ -570,6 +595,11 @@ const ReviewActionsPanel: React.FC<ReviewActionsPanelProps> = ({
       // Only show dropdown icon (no text)
       return null;
     }
+    
+    if (isApplicationCompleted) {
+      return 'Erneut Prüfen';
+    }
+    
     return isComplete ? 'Prüfung Abschließen' : 'Dokumente Nachfordern';
   };
 
@@ -927,6 +957,105 @@ const ReviewActionsPanel: React.FC<ReviewActionsPanelProps> = ({
     handleOpenDocumentRequestModal();
   };
 
+  // Handler for reopening application (Erneut Prüfen)
+  const handleReopenApplication = async () => {
+    setReopenLoading(true);
+    setReopenError(null);
+    try {
+      const { error } = await supabase
+        .from('applications')
+        .update({ status: 'in_progress' })
+        .eq('id', applicationId);
+
+      if (error) throw error;
+
+      // Refresh application data
+      if (onRefreshApplication) {
+        await onRefreshApplication();
+      }
+
+      setShowReopenModal(false);
+    } catch (err: any) {
+      setReopenError('Fehler beim Wiederöffnen des Antrags. Bitte versuchen Sie es erneut.');
+      console.error('Error reopening application:', err);
+    } finally {
+      setReopenLoading(false);
+    }
+  };
+
+  // Handler for opening download modal
+  const handleOpenDownloadModal = () => {
+    setShowDownloadModal(true);
+    setDownloadError(null);
+    setSelectedDownloadTypes({
+      documents: false,
+      signedForms: false
+    });
+  };
+
+  // Handler for closing download modal
+  const handleCloseDownloadModal = () => {
+    setShowDownloadModal(false);
+    setDownloadError(null);
+    setSelectedDownloadTypes({
+      documents: false,
+      signedForms: false
+    });
+  };
+
+  // Handler for downloading documents
+  const handleDownloadDocuments = async () => {
+    if (!selectedDownloadTypes.documents && !selectedDownloadTypes.signedForms) {
+      setDownloadError('Bitte wählen Sie mindestens einen Dokumenttyp aus.');
+      return;
+    }
+
+    setDownloadLoading(true);
+    setDownloadError(null);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) throw new Error('Kein Agenten-Login gefunden.');
+
+      const response = await fetch(`${BACKEND_URL}/api/download-application-documents`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          application_id: applicationId,
+          include_documents: selectedDownloadTypes.documents,
+          include_signed_forms: selectedDownloadTypes.signedForms,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.detail || 'Fehler beim Herunterladen der Dokumente.');
+      }
+
+      // Get the zip file as blob
+      const blob = await response.blob();
+      
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `antrag_${applicationId}_dokumente.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      setShowDownloadModal(false);
+    } catch (err: any) {
+      setDownloadError(err.message || 'Fehler beim Herunterladen der Dokumente.');
+    } finally {
+      setDownloadLoading(false);
+    }
+  };
+
   return (
     <div
       ref={panelRef}
@@ -1022,7 +1151,7 @@ const ReviewActionsPanel: React.FC<ReviewActionsPanelProps> = ({
             gap: 8,
             boxShadow: `0 1px 3px rgba(${isComplete ? '56, 142, 60' : '6, 68, 151'}, 0.08)`
           }}
-          onClick={showFullButton ? (isComplete ? handleOpenFinishModal : handleRequestDocs) : undefined}
+          onClick={showFullButton ? (isApplicationCompleted ? () => setShowReopenModal(true) : (isComplete ? handleOpenFinishModal : handleRequestDocs)) : undefined}
         >
           {getButtonContent()}
           {/* Only show dropdown icon if not showing full button */}
@@ -1056,51 +1185,91 @@ const ReviewActionsPanel: React.FC<ReviewActionsPanelProps> = ({
               marginTop: '4px'
             }}
           >
-            {/* On narrow screens, show both actions. On wide screens, show only the alternative action. */}
-            {!showFullButton ? (
+            {/* For completed applications, show contact, share, and reopen options */}
+            {isApplicationCompleted ? (
               <>
+                {!showFullButton && (
+                  <button
+                    onClick={() => handleAction(() => setShowReopenModal(true))}
+                    className="menu-item"
+                  >
+                    Erneut Prüfen
+                  </button>
+                )}
                 <button
-                  onClick={() => handleAction(handleRequestDocs)}
+                  onClick={handleOpenContactModal}
                   className="menu-item"
                 >
-                  Dokumente Nachfordern
+                  Antragsteller Kontaktieren
                 </button>
                 <button
-                  onClick={() => handleAction(handleOpenFinishModal)}
+                  onClick={() => handleAction(handleOpenShareModal)}
                   className="menu-item"
                 >
-                  Prüfung Abschließen
+                  Antrag teilen
+                </button>
+                <button
+                  onClick={() => handleAction(handleOpenDownloadModal)}
+                  className="menu-item"
+                >
+                  Antrag herunterladen
                 </button>
               </>
             ) : (
-              isComplete ? (
+              <>
+                {/* On narrow screens, show both actions. On wide screens, show only the alternative action. */}
+                {!showFullButton ? (
+                  <>
+                    <button
+                      onClick={() => handleAction(handleRequestDocs)}
+                      className="menu-item"
+                    >
+                      Dokumente Nachfordern
+                    </button>
+                    <button
+                      onClick={() => handleAction(handleOpenFinishModal)}
+                      className="menu-item"
+                    >
+                      Prüfung Abschließen
+                    </button>
+                  </>
+                ) : (
+                  isComplete ? (
+                    <button
+                      onClick={() => handleAction(handleRequestDocs)}
+                      className="menu-item"
+                    >
+                      Dokumente Nachfordern
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleAction(handleOpenFinishModal)}
+                      className="menu-item"
+                    >
+                      Prüfung Abschließen
+                    </button>
+                  )
+                )}
                 <button
-                  onClick={() => handleAction(handleOpenFinishModal)}
+                  onClick={handleOpenContactModal}
                   className="menu-item"
                 >
-                  Prüfung Abschließen
+                  Antragsteller Kontaktieren
                 </button>
-              ) : (
                 <button
-                  onClick={() => handleAction(handleOpenFinishModal)}
+                  onClick={() => handleAction(handleOpenShareModal)}
                   className="menu-item"
                 >
-                  Prüfung Abschließen
+                  Antrag teilen
                 </button>
-              )
+                <button
+                  onClick={() => handleAction(handleOpenDownloadModal)}
+                  className="menu-item"
+                >
+                  Antrag herunterladen
+                </button>
+              </>
             )}
-            <button
-              onClick={handleOpenContactModal}
-              className="menu-item"
-            >
-              Antragsteller Kontaktieren
-            </button>
-            <button
-              onClick={() => handleAction(handleOpenShareModal)}
-              className="menu-item"
-            >
-              Antrag teilen
-            </button>
           </div>
         )}
       </div>
@@ -1770,6 +1939,164 @@ const ReviewActionsPanel: React.FC<ReviewActionsPanelProps> = ({
           </div>
         </div>
       )}
+
+      {/* Reopen Application Modal */}
+      <Modal show={showReopenModal} onHide={() => !reopenLoading && setShowReopenModal(false)} centered>
+        <Modal.Header closeButton={!reopenLoading}>
+          <Modal.Title>Antrag erneut prüfen</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <div style={{ padding: '16px 0' }}>
+            <div style={{ marginBottom: 20, fontSize: 16, color: '#333' }}>
+              Möchten Sie diesen Antrag wirklich zur erneuten Prüfung freigeben?
+            </div>
+            <div style={{ background: '#e7f3ff', padding: 16, borderRadius: 8, border: '1px solid #bfdbfe', marginBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                <span className="material-icons" style={{ color: '#1976d2', fontSize: 20, marginTop: 2 }}>info</span>
+                <div style={{ fontSize: 14, color: '#1976d2' }}>
+                  <strong>Hinweis:</strong> Der Antragsstatus wird auf "In Bearbeitung" zurückgesetzt. Der bisherige Bearbeitungsfortschritt bleibt erhalten und kann weiter bearbeitet werden. Der Antragsteller wird nicht automatisch über die erneute Prüfung informiert.
+                </div>
+              </div>
+            </div>
+            {reopenError && (
+              <div className="alert alert-danger mb-3">{reopenError}</div>
+            )}
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button 
+            variant="secondary" 
+            onClick={() => setShowReopenModal(false)}
+            disabled={reopenLoading}
+          >
+            Abbrechen
+          </Button>
+          <Button 
+            variant="primary" 
+            onClick={handleReopenApplication}
+            disabled={reopenLoading}
+            style={{ background: '#064497', border: 'none' }}
+          >
+            {reopenLoading ? (
+              <>
+                <Spinner animation="border" size="sm" style={{ marginRight: 8 }} />
+                Wird bearbeitet...
+              </>
+            ) : (
+              'Erneut prüfen'
+            )}
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Download Documents Modal */}
+      <Modal show={showDownloadModal} onHide={() => !downloadLoading && handleCloseDownloadModal()} centered>
+        <Modal.Header closeButton={!downloadLoading}>
+          <Modal.Title>Antrag herunterladen</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {downloadLoading ? (
+            <div style={{ 
+              position: 'absolute', 
+              top: 0, 
+              left: 0, 
+              right: 0, 
+              bottom: 0, 
+              background: 'rgba(255, 255, 255, 0.8)', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              zIndex: 1
+            }}>
+              <div style={{ textAlign: 'center' }}>
+                <Spinner animation="border" style={{ color: '#064497', marginBottom: 16 }} />
+                <div style={{ color: '#064497' }}>Dokumente werden vorbereitet...</div>
+              </div>
+            </div>
+          ) : null}
+          <div style={{ padding: '16px 0' }}>
+            <div style={{ marginBottom: 20, fontSize: 16, color: '#333' }}>
+              Wählen Sie aus, welche Dokumente Sie herunterladen möchten:
+            </div>
+            
+            <Form>
+              <Form.Group className="mb-3 ml-6">
+                <Form.Check
+                  type="checkbox"
+                  id="download-documents"
+                  label="Eingereichte Dokumente"
+                  checked={selectedDownloadTypes.documents}
+                  onChange={(e) => setSelectedDownloadTypes(prev => ({
+                    ...prev,
+                    documents: e.target.checked
+                  }))}
+                  disabled={downloadLoading}
+                  style={{ fontSize: 16, padding: '8px 0' }}
+                />
+                <div style={{ marginLeft: 12, fontSize: 14, color: '#666', marginTop: 4 }}>
+                  Alle hochgeladenen Dokumente (Bauzeichnungen, Nachweise, etc.)
+                </div>
+              </Form.Group>
+
+              <Form.Group className="mb-3 ml-6">
+                <Form.Check
+                  type="checkbox"
+                  id="download-signed-forms"
+                  label="Unterschriebene Formulare"
+                  checked={selectedDownloadTypes.signedForms}
+                  onChange={(e) => setSelectedDownloadTypes(prev => ({
+                    ...prev,
+                    signedForms: e.target.checked
+                  }))}
+                  disabled={downloadLoading}
+                  style={{ fontSize: 16, padding: '8px 0' }}
+                />
+                <div style={{ marginLeft: 12, fontSize: 14, color: '#666', marginTop: 4 }}>
+                  Alle unterschriebenen Antragsformulare
+                </div>
+              </Form.Group>
+            </Form>
+
+            <div style={{ background: '#e7f3ff', padding: 16, borderRadius: 8, border: '1px solid #bfdbfe', marginTop: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                <span className="material-icons" style={{ color: '#1976d2', fontSize: 20, marginTop: 2 }}>info</span>
+                <div style={{ fontSize: 14, color: '#1976d2' }}>
+                  <strong>Hinweis:</strong> Die Dokumente werden in einer ZIP-Datei mit strukturierten Ordnern heruntergeladen. 
+                  Die Ordnerstruktur entspricht der Kategorisierung der Dokumente.
+                </div>
+              </div>
+            </div>
+
+            {downloadError && (
+              <div className="alert alert-danger mt-3">{downloadError}</div>
+            )}
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button 
+            variant="secondary" 
+            onClick={handleCloseDownloadModal}
+            disabled={downloadLoading}
+          >
+            Abbrechen
+          </Button>
+          <Button 
+            variant="primary" 
+            onClick={handleDownloadDocuments}
+            disabled={downloadLoading || (!selectedDownloadTypes.documents && !selectedDownloadTypes.signedForms)}
+            style={{ background: '#064497', border: 'none' }}
+          >
+            {downloadLoading ? (
+              <>
+                <Spinner animation="border" size="sm" style={{ marginRight: 8 }} />
+                Wird heruntergeladen...
+              </>
+            ) : (
+              'Herunterladen'
+            )}
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 };

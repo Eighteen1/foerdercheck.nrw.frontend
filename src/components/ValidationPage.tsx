@@ -33,17 +33,35 @@ const TYPE_LABELS: Record<string, string> = {
   "nutzungsaenderung": "Nutzungsänderung"
 };
 
+// Add custom styles for the wide modal
+const modalStyles = `
+  .hand-in-modal-wide {
+    max-width: 800px;
+    width: 90%;
+  }
+  
+  @media (max-width: 576px) {
+    .hand-in-modal-wide {
+      max-width: 95%;
+      margin: 10px;
+    }
+  }
+`;
+
 const ValidationPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const residentId = searchParams.get('residentId') || user?.id;
+  const { user, isAuthenticated } = useAuth();
+  const accessToken = searchParams.get('token');
+  const [residentId, setResidentId] = useState<string | null>(null);
+  const [tokenValidated, setTokenValidated] = useState(false);
   
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedForm, setExpandedForm] = useState<string | null>(null);
   const [expandedPerson, setExpandedPerson] = useState<string | null>(null);
+  const [isApplicationSubmitted, setIsApplicationSubmitted] = useState(false);
 
   // Hand-in related state
   const [showHandInModal, setShowHandInModal] = useState(false);
@@ -54,21 +72,185 @@ const ValidationPage: React.FC = () => {
   const [foerderVariante, setFoerderVariante] = useState('');
   const [handInError, setHandInError] = useState<string | null>(null);
   const [handInLoading, setHandInLoading] = useState(false);
+  const [emailValidationError, setEmailValidationError] = useState<string | null>(null);
+  const [userDataEmail, setUserDataEmail] = useState<string | null>(null);
+
+  const validateEmail = (email: string | undefined | null): boolean => {
+    if (!email) return false;
+    const emailRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    return emailRegex.test(email);
+  };
+
+  // Validate access token and get user ID
+  useEffect(() => {
+    const validateToken = async () => {
+      // Check if user came from a proper source (PersonalSpace)
+      const referrer = document.referrer;
+      const isFromPersonalSpace = referrer.includes('/personal-space') || referrer.includes('/personal-space/');
+      
+      if (!isFromPersonalSpace && !accessToken) {
+        console.log('ValidationPage: Direct access without token, redirecting to login');
+        navigate('/login');
+        return;
+      }
+      
+      if (!accessToken) {
+        console.log('ValidationPage: No access token provided, redirecting to login');
+        navigate('/login');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000'}/api/validation/check-token/${accessToken}`);
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error('ValidationPage: Invalid or expired access token:', errorData);
+          navigate('/login');
+          return;
+        }
+        
+        const tokenData = await response.json();
+        setResidentId(tokenData.user_id);
+        setTokenValidated(true);
+        
+        // Verify that the token user ID matches the authenticated user's ID
+        if (tokenData.user_id !== user?.id) {
+          console.error('ValidationPage: Token user ID mismatch with authenticated user');
+          navigate('/login');
+          return;
+        }
+        
+      } catch (error) {
+        console.error('ValidationPage: Error validating token:', error);
+        navigate('/login');
+      }
+    };
+
+    if (accessToken && isAuthenticated) {
+      validateToken();
+    }
+  }, [accessToken, isAuthenticated, user?.id, navigate]);
+
+
+
+  // Security check: redirect unauthenticated users
+  useEffect(() => {
+    if (!isAuthenticated) {
+      console.log('ValidationPage: User not authenticated, redirecting to login');
+      navigate('/login');
+      return;
+    }
+    
+    if (!tokenValidated || !residentId) {
+      return; // Wait for token validation
+    }
+    
+    // Additional security: if user navigates away and comes back without token, redirect
+    if (!accessToken) {
+      console.log('ValidationPage: No access token on navigation, redirecting to login');
+      navigate('/login');
+      return;
+    }
+  }, [isAuthenticated, tokenValidated, residentId, navigate, accessToken]);
 
   useEffect(() => {
-    if (residentId) {
+    if (residentId && !isApplicationSubmitted && isAuthenticated && tokenValidated) {
       performValidation();
     }
-  }, [residentId]);
+  }, [residentId, isApplicationSubmitted, isAuthenticated, tokenValidated]);
+
+  // Check application status and close window if not pending
+  useEffect(() => {
+    const checkApplicationStatus = async () => {
+      // Security check: ensure user is authenticated and accessing their own data
+      if (!isAuthenticated || !residentId || !user || !tokenValidated) {
+        console.log('ValidationPage: User not authenticated, no residentId, or token not validated, skipping status check');
+        return;
+      }
+
+      // Double-check that the residentId matches the authenticated user's ID
+      if (residentId !== user.id) {
+        console.error('ValidationPage: Security violation - user ID mismatch in status check');
+        return;
+      }
+
+      console.log('ValidationPage: Checking application status for residentId:', residentId);
+
+      try {
+        const { data: userData, error: userError } = await supabase
+          .from('user_data')
+          .select('application_status, email')
+          .eq('id', residentId)
+          .single();
+
+        if (userError) {
+          console.error('ValidationPage: Error fetching user application status:', userError);
+          return;
+        }
+
+        // Store the email from user_data
+        setUserDataEmail(userData?.email || null);
+
+        console.log('ValidationPage: Current application status:', userData?.application_status);
+        console.log('ValidationPage: User data email:', userData?.email);
+
+        // If application status is not pending, set submitted state and show error
+        if (userData?.application_status && userData.application_status !== 'pending') {
+          console.log('ValidationPage: Application already submitted, blocking access');
+          setIsApplicationSubmitted(true);
+          setIsLoading(false);
+          setError('Ihr Antrag wurde bereits eingereicht. Die Validierungsseite ist nicht mehr verfügbar.');
+        } else {
+          console.log('ValidationPage: Application status is pending, allowing access');
+        }
+      } catch (error) {
+        console.error('ValidationPage: Error checking application status:', error);
+      }
+    };
+
+    checkApplicationStatus();
+  }, [residentId, isAuthenticated, user, tokenValidated]);
+
+  // Show loading while checking authentication and token
+  if (!isAuthenticated || !tokenValidated || !residentId) {
+    return (
+      <Container className="mt-5">
+        <Row className="justify-content-center">
+          <Col md={8}>
+            <div className="text-center">
+              <Spinner animation="border" role="status">
+                <span className="visually-hidden">Loading...</span>
+              </Spinner>
+              <p className="mt-3">Überprüfe Berechtigung...</p>
+            </div>
+          </Col>
+        </Row>
+      </Container>
+    );
+  }
 
   const performValidation = async () => {
     try {
       setIsLoading(true);
       setError(null);
 
-      if (!residentId) {
-        throw new Error('Resident ID is required');
+      // Security check: ensure user is authenticated and accessing their own data
+      if (!isAuthenticated || !residentId || !user) {
+        throw new Error('Authentication required');
       }
+
+      // Double-check that the residentId matches the authenticated user's ID
+      if (residentId !== user.id) {
+        console.error('ValidationPage: Security violation - user ID mismatch');
+        throw new Error('Unauthorized access');
+      }
+
+      // Additional check for token validation
+      if (!tokenValidated) {
+        throw new Error('Token validation required');
+      }
+
       const validationService = new ValidationService(residentId);
       const sections = await validationService.performComprehensiveValidation();
 
@@ -93,7 +275,7 @@ const ValidationPage: React.FC = () => {
   const handleHandIn = async () => {
     setHandInStep('city');
     setHandInError(null);
-    setHandInLoading(true);
+    //setHandInLoading(true);
     try {
       // Fetch latest object_data if not already loaded
       let obj = objectData;
@@ -245,14 +427,14 @@ const ValidationPage: React.FC = () => {
         assigned_agent: assignedAgent
       });
   
-      // Insert into applications
+      // Insert into applications with 'signing' status
       const { data, error: appError } = await supabase
         .from('applications')
         .insert({
           resident_id: user?.id,
           city_id: cityId,
           type: foerderVariante,
-          status: 'new',
+          status: 'signing',
           assigned_agent: assignedAgent
         })
         .select();
@@ -339,11 +521,32 @@ const ValidationPage: React.FC = () => {
       setHandInStep(null);
       
       // Navigate back to PersonalSpace with success message
-      window.opener?.postMessage({ 
-        type: 'HAND_IN_SUCCESS', 
-        applicationId: data[0].id 
-      }, window.location.origin);
-      window.close();
+      try {
+        // Try postMessage first (works if window.opener exists)
+        if (window.opener) {
+          window.opener.postMessage({ 
+            type: 'HAND_IN_SUCCESS', 
+            applicationId: data[0].id 
+          }, window.location.origin);
+        } else {
+          // Fallback: use localStorage to communicate between tabs
+          localStorage.setItem('handInSuccess', JSON.stringify({
+            type: 'HAND_IN_SUCCESS',
+            applicationId: data[0].id,
+            timestamp: Date.now()
+          }));
+        }
+        window.close();
+      } catch (error) {
+        console.error('Error sending hand-in success message:', error);
+        // Fallback: use localStorage
+        localStorage.setItem('handInSuccess', JSON.stringify({
+          type: 'HAND_IN_SUCCESS',
+          applicationId: data[0].id,
+          timestamp: Date.now()
+        }));
+        window.close();
+      }
     } catch (e) {
       console.error('Full error object:', e);
       setHandInError('Fehler beim Einreichen des Antrags.');
@@ -380,24 +583,28 @@ const ValidationPage: React.FC = () => {
   const handleNavigateToForm = (sectionId: string) => {
     // Handle step-based sections for Hauptantrag
     if (sectionId.startsWith('hauptantrag-step')) {
-      const stepNumber = sectionId.split('-')[2];
-      navigate(`/hauptantrag?step=${stepNumber}`);
+      // Extract step number from sectionId like 'hauptantrag-step1' -> '1'
+      const stepPart = sectionId.split('-')[1]; // Gets 'step1'
+      const stepNumber = stepPart.replace('step', ''); // Gets '1'
+      navigate(`/hauptantrag?step=${stepNumber}`, { state: { from: 'validation' } });
       return;
     }
 
     // Handle other form types
     const formRoutes: Record<string, string> = {
+      hauptantrag: '/hauptantrag',
       einkommenserklarung: '/einkommenserklaerung',
       selbstauskunft: '/selbstauskunft',
       selbsthilfe: '/selbsthilfe',
       din277: '/din277',
       wofiv: '/wofiv',
-      documents: '/documents'
+      haushaltsauskunft: '/haushaltsauskunft',
+      documents: '/document-upload'
     };
 
     const route = formRoutes[sectionId];
     if (route) {
-      navigate(route);
+      navigate(route, { state: { from: 'validation' } });
     }
   };
 
@@ -410,6 +617,141 @@ const ValidationPage: React.FC = () => {
     setShowHandInModal(true);
     setHandInStep('city');
     handleHandIn();
+  };
+
+  const handleGenerateAndSendSignatureDocs = async () => {
+    setHandInLoading(true);
+    setHandInError(null);
+    try {
+      // Get city information for the signature request
+      let cityId = cityInfo?.id || cityDropdown;
+      let cityName = cityInfo?.name || (cityDropdown ? 'Rhein-Kreis Neuss' : '');
+      if (!cityId) {
+        setHandInError('Bitte wählen Sie einen Kreis/Stadt aus.');
+        setHandInLoading(false);
+        return;
+      }
+
+      // Store city and type information in user_data for later application creation
+      if (user?.id) {
+        const { error: updateError } = await supabase
+          .from('user_data')
+          .update({
+            signature_city_id: cityId,
+            signature_type: foerderVariante,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', user.id);
+
+        if (updateError) {
+          console.warn('Failed to store signature city info:', updateError);
+          // Continue anyway - this is not critical
+        }
+      }
+
+      // Check if user has selbsthilfe for logging purposes (backend handles the logic)
+      let hasSelbsthilfe = false;
+      
+      try {
+        // Get object data to check selbsthilfe status
+        const { data: objectData, error: objectError } = await supabase
+          .from('object_data')
+          .select('selbsthilfe_angaben')
+          .eq('user_id', user?.id)
+          .single();
+
+        if (!objectError && objectData?.selbsthilfe_angaben) {
+          hasSelbsthilfe = objectData.selbsthilfe_angaben.willProvideSelfHelp === true;
+          console.log('Selbsthilfe status:', hasSelbsthilfe);
+        }
+      } catch (error) {
+        console.warn('Failed to check selbsthilfe status:', error);
+      }
+
+      // Get the current session token from Supabase
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('Keine gültige Sitzung gefunden. Bitte melden Sie sich erneut an.');
+      }
+
+      // Now call the backend endpoint with the correct token
+      const response = await fetch(`${BACKEND_URL}/pdf/send-signature-pdfs`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Fehler beim Generieren und Senden der Unterschriften.');
+      }
+
+      const result = await response.json();
+      console.log('Signature PDFs sent successfully:', result);
+      
+      // Log helper email information if applicable
+      if (result.has_selbsthilfe && result.helper_emails_sent > 0) {
+        console.log(`Successfully sent ${result.helper_emails_sent} helper notification emails`);
+      }
+      
+      // Show success message and close modal
+      setHandInError(null);
+      setShowHandInModal(false);
+      setHandInStep(null);
+      
+      // Update application status to "signing" in the database
+      if (user?.id) {
+        const { error: statusError } = await supabase
+          .from('user_data')
+          .update({ application_status: 'signing' })
+          .eq('id', user.id);
+
+        if (statusError) {
+          console.warn('Failed to update application status to signing:', statusError);
+        } else {
+          console.log('Successfully updated application status to signing');
+        }
+      }
+
+      // Send callback to PersonalSpace to close ValidationPage
+      try {
+        if (window.opener) {
+          window.opener.postMessage({ 
+            type: 'SIGNATURE_PDFS_SENT', 
+            message: 'Unterschriften-PDFs wurden erfolgreich per E-Mail gesendet!',
+            status: 'signing'
+          }, window.location.origin);
+        } else {
+          // Fallback: use localStorage to communicate between tabs
+          localStorage.setItem('signaturePdfsSent', JSON.stringify({
+            type: 'SIGNATURE_PDFS_SENT',
+            message: 'Unterschriften-PDFs wurden erfolgreich per E-Mail gesendet!',
+            status: 'signing',
+            timestamp: Date.now()
+          }));
+        }
+        
+        // Close the window
+        window.close();
+      } catch (error) {
+        console.error('Error sending signature success message:', error);
+        // Fallback: use localStorage
+        localStorage.setItem('signaturePdfsSent', JSON.stringify({
+          type: 'SIGNATURE_PDFS_SENT',
+          message: 'Unterschriften-PDFs wurden erfolgreich per E-Mail gesendet!',
+          status: 'signing',
+          timestamp: Date.now()
+        }));
+        window.close();
+      }
+      
+    } catch (e: any) {
+      setHandInError(e.message || 'Fehler beim Generieren und Senden der Unterschriften.');
+    } finally {
+      setHandInLoading(false);
+    }
   };
 
   const getFormTitle = (formType: string): string => {
@@ -589,7 +931,7 @@ const ValidationPage: React.FC = () => {
               {section.navigationButtons.map((button, index) => (
                 <button
                   key={index}
-                  onClick={() => navigate(button.action)}
+                  onClick={() => navigate(button.action, { state: { from: 'validation' } })}
                   className="btn btn-primary btn-sm"
                   style={{ backgroundColor: '#064497', border: 'none' }}
                     >
@@ -607,7 +949,9 @@ const ValidationPage: React.FC = () => {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+            <Spinner animation="border" role="status" style={{ width: '3rem', height: '3rem', color: '#064497' }}>
+            <span className="visually-hidden">Loading...</span>
+          </Spinner>
           <p className="mt-4 text-gray-600">Validierung läuft...</p>
         </div>
       </div>
@@ -636,7 +980,26 @@ const ValidationPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <>
+      {/* Loading Overlay - Placed outside main container with higher z-index */}
+      {handInLoading && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center"
+          style={{ 
+            backdropFilter: 'blur(4px)',
+            zIndex: 1060 // Higher than Bootstrap modal's default z-index of 1055
+          }}
+        >
+          <div className="bg-white p-6 rounded-lg shadow-xl text-center">
+          <Spinner animation="border" role="status" style={{ width: '3rem', height: '3rem', color: '#064497' }}>
+              <span className="visually-hidden">Loading...</span>
+            </Spinner>
+            <p className="mt-4 text-gray-600">Dokumente werden generiert und versendet...</p>
+          </div>
+        </div>
+      )}
+      <div className="min-h-screen bg-gray-50">
+        <style>{modalStyles}</style>
       <div className="max-w-6xl mx-auto p-6">
         {/* Header */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
@@ -931,7 +1294,9 @@ const ValidationPage: React.FC = () => {
                                               {section.errors.length > 0 && !section.id.startsWith('documents') && (
                                                 <div className="mt-4">
                                                   <button
-                                                    onClick={() => handleNavigateToForm(formType)}
+                                                    onClick={() => handleNavigateToForm(
+                                                      section.id.startsWith('hauptantrag-step') ? section.id : formType
+                                                    )}
                                                     className="btn btn-primary btn-sm"
                                                     style={{ backgroundColor: '#064497', border: 'none' }}
                                                   >
@@ -1112,7 +1477,9 @@ const ValidationPage: React.FC = () => {
                                         {section.errors.length > 0 && !section.id.startsWith('documents') && (
                                           <div className="mt-4">
                                             <button
-                                              onClick={() => handleNavigateToForm(formType)}
+                                              onClick={() => handleNavigateToForm(
+                                                section.id.startsWith('hauptantrag-step') ? section.id : formType
+                                              )}
                                               className="btn btn-primary btn-sm"
                                               style={{ backgroundColor: '#064497', border: 'none' }}
                                             >
@@ -1149,7 +1516,12 @@ const ValidationPage: React.FC = () => {
       </div>
 
       {/* Hand-in Modal */}
-      <Modal show={showHandInModal} onHide={() => setShowHandInModal(false)} centered>
+      <Modal 
+        show={showHandInModal && !handInLoading} 
+        onHide={() => setShowHandInModal(false)} 
+        centered
+        dialogClassName="hand-in-modal-wide"
+      >
         <Modal.Header closeButton>
           <Modal.Title>Antrag einreichen</Modal.Title>
         </Modal.Header>
@@ -1195,23 +1567,51 @@ const ValidationPage: React.FC = () => {
           )}
           {handInStep === 'sign' && (
             <>
-              <div className="alert alert-info mb-3">Bitte bestätigen Sie die Einreichung Ihres Antrags. (Die digitale Signatur wird in Kürze verfügbar sein.)</div>
+              <div className="mb-4">
+                <h5 className="text-[#064497] mb-3"><strong>Fast geschafft!</strong></h5>
+                <div className="bg-gray-50 p-4 rounded-lg mb-4">
+                  <h6 className="mb-3"><strong>Unterschriftsprozess</strong></h6>
+                  <p className="mb-3">Für die Einreichung Ihres Antrags müssen alle erforderlichen Dokumente unterschrieben werden. Die benötigten PDFs werden an folgende E-Mail-Adresse gesendet:</p>
+                  <div className={`bg-white p-3 rounded border mb-3 ${!validateEmail(userDataEmail) ? 'border-red-500' : ''}`}>
+                    <p className="mb-0 font-mono">{userDataEmail || 'Keine E-Mail-Adresse gefunden'}</p>
+                  </div>
+                  {!validateEmail(userDataEmail) && (
+                    <div className="bg-red-50 border border-red-200 text-red-800 p-3 rounded mb-3">
+                      <p className="mb-0">
+                        <strong>Fehler:</strong> Bitte geben Sie im Hauptantrag eine gültige E-Mail-Adresse ein, um fortfahren zu können.
+                      </p>
+                    </div>
+                  )}
+                  <ul className="list-disc pl-5 mb-3 mt-2">
+                    <li>In der E-Mail finden Sie einen Link, über den Sie die unterschriebenen Dokumente hochladen können. Diesen Link finden Sie auch im persönlichen Bereich.</li>
+                  </ul>
+                </div>
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <p className="mb-0"><strong>Wichtiger Hinweis bei Selbsthilfeleistungen:</strong></p>
+                  <ul className="list-disc pl-5 mb-0 mt-2">
+                    <li>Alle Helfer müssen die entsprechenden Dokumente unterschreiben</li>
+                    <li>Die Helfer werden automatisch per E-Mail informiert, jedoch liegt die Einholung der Unterschriften in Ihrer Verantwortung</li>
+                  </ul>
+                </div>
+              </div>
               {handInError && <div className="alert alert-danger mb-2">{handInError}</div>}
               <div className="d-flex justify-content-end gap-2">
                 <Button variant="secondary" onClick={() => setShowHandInModal(false)}>Abbrechen</Button>
                 <Button
                   style={{ background: '#064497', color: '#fff', border: 'none' }}
-                  onClick={handleSignAndSubmit}
-                  disabled={handInLoading}
+                  onClick={handleGenerateAndSendSignatureDocs}
+                  disabled={handInLoading || !validateEmail(userDataEmail)}
                 >
-                  Antrag jetzt einreichen
+                  PDFs generieren und per E-Mail senden
                 </Button>
               </div>
             </>
           )}
         </Modal.Body>
       </Modal>
-    </div>
+
+             </div>
+    </>
   );
 };
 

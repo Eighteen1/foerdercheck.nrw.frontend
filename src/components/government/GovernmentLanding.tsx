@@ -2,23 +2,52 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Container, Row, Col, Button } from "react-bootstrap";
 import { supabase } from "../../lib/supabase";
+import { checkUserType, UserTypeInfo } from "../../utils/userTypeChecker";
+import WrongPortalModal from "../common/WrongPortalModal";
 
 const GovernmentLanding: React.FC = () => {
   const navigate = useNavigate();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [userTypeInfo, setUserTypeInfo] = useState<UserTypeInfo | null>(null);
+  const [showWrongPortalModal, setShowWrongPortalModal] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then((res: any) => {
-      const userObj = res?.data?.session?.user;
-      setIsAuthenticated(!!userObj?.user_metadata?.city);
-      setLoading(false);
-    });
+    const checkAuthAndUserType = async () => {
+      try {
+        const res = await supabase.auth.getSession();
+        const userObj = res?.data?.session?.user;
+        const hasCityMetadata = !!userObj?.user_metadata?.city;
+        
+        setIsAuthenticated(hasCityMetadata);
+        
+        if (userObj) {
+          // Check user type
+          const userType = await checkUserType();
+          setUserTypeInfo(userType);
+          
+          // If user is a resident, show the wrong portal modal
+          if (userType.isResident) {
+            setShowWrongPortalModal(true);
+          }
+        }
+      } catch (error) {
+        console.error('Error checking auth and user type:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkAuthAndUserType();
   }, []);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     navigate("/government/login");
+  };
+
+  const handleRedirectToResident = () => {
+    navigate('/');
   };
 
   return (
@@ -199,6 +228,7 @@ const GovernmentLanding: React.FC = () => {
                   </Button>
                 </>
               ) : (
+                <>
                 <Button
                   onClick={() => navigate("/government/login")}
                   className="py-3 fw-regular font-['Roboto'] text-white landing-button"
@@ -206,11 +236,27 @@ const GovernmentLanding: React.FC = () => {
                 >
                   ANMELDEN
                 </Button>
+                <Button 
+                  variant="link" 
+                  className="p-0 text-decoration-none"
+                  onClick={() => navigate("/")}
+                  style={{ color: '#064497' }}
+                >
+                  Zum Antragsteller-Portal →
+                </Button>
+                </>
               )}
             </div>
           </Col>
         </Row>
       </Container>
+      {/* Wrong Portal Modal */}
+      <WrongPortalModal
+        show={showWrongPortalModal}
+        onHide={() => setShowWrongPortalModal(false)}
+        userType="resident"
+        onRedirect={handleRedirectToResident}
+      />
     </div>
   );
 };

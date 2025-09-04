@@ -1506,6 +1506,57 @@ async function generateGeneralChecklistItems(userData: any, applicationType?: st
     });
   }
 
+  // Signature Documents Completeness Check
+  const signatureDocuments = userData?.signature_documents;
+  if (signatureDocuments && typeof signatureDocuments === 'object') {
+    const requiredSignatures = Object.entries(signatureDocuments)
+      .filter(([_, doc]: [string, any]) => doc.required);
+    
+    const uploadedSignatures = requiredSignatures
+      .filter(([_, doc]: [string, any]) => doc.uploaded);
+    
+    const missingSignatures = requiredSignatures
+      .filter(([_, doc]: [string, any]) => !doc.uploaded);
+    
+    // Build system comment with bullet points
+    let systemComment = 'Erforderliche Unterschriften:\n\n';
+    requiredSignatures.forEach(([docId, doc]: [string, any]) => {
+      const status = doc.uploaded ? '✓' : '✗';
+      let signatureInfo = '';
+      
+      // Only show signature count for selbsthilfe and hauptantrag
+      if (doc.title.includes('Selbsthilfe') || doc.title.includes('Hauptantrag')) {
+        signatureInfo = ` (${doc.signature_count} Unterschrift${doc.signature_count > 1 ? 'en' : ''})`;
+      }
+      
+      systemComment += `• ${doc.title}${signatureInfo}\n`;
+    });
+    
+    // Add uploaded signatures to linkedSignedDocs
+    const linkedSignedDocs = uploadedSignatures.map(([docId, _]) => docId);
+    
+    // Build system errors for missing signatures
+    const systemErrors = missingSignatures.map(([docId, doc]: [string, any]) => 
+      `Fehlende Unterschrift: ${doc.title}`
+    );
+    
+    // Determine system status
+    const systemStatus = systemErrors.length === 0 ? 'undefined' : 'wrong';
+    
+    items.push({
+      id: 'signature-completeness_general',
+      title: 'Unterschriftenprüfung - Vollständigkeit',
+      systemStatus: systemStatus,
+      agentStatus: 'undefined',
+      systemComment: systemComment,
+      systemErrors: systemErrors,
+      linkedForms: [],
+      linkedDocs: [],
+      linkedSignedDocs: linkedSignedDocs,
+      agentNotes: null
+    });
+  }
+
   // Additional checklist item for non-required uploaded documents
   try {
     // Get actual required documents based on applicant data

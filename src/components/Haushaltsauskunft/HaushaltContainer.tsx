@@ -75,6 +75,96 @@ const HaushaltContainer: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
+  // Sync hasUnsavedChanges with sessionStorage for routing protection
+  useEffect(() => {
+    if (hasUnsavedChanges) {
+      sessionStorage.setItem('haushaltsauskunft_has_unsaved_changes', 'true');
+      console.log('*** SETTING HAUSHALTSAUSKUNFT UNSAVED CHANGES FLAG IN SESSIONSTORAGE ***');
+    } else {
+      sessionStorage.removeItem('haushaltsauskunft_has_unsaved_changes');
+      console.log('*** REMOVING HAUSHALTSAUSKUNFT UNSAVED CHANGES FLAG FROM SESSIONSTORAGE ***');
+    }
+    
+    // Cleanup function to remove flag when component unmounts
+    return () => {
+      sessionStorage.removeItem('haushaltsauskunft_has_unsaved_changes');
+      sessionStorage.removeItem('haushaltsauskunft_valid_navigation');
+      console.log('*** CLEANING UP HAUSHALTSAUSKUNFT UNSAVED CHANGES FLAG ON COMPONENT UNMOUNT ***');
+    };
+  }, [hasUnsavedChanges]);
+
+  // Handle browser back/forward navigation directly in the component
+  useEffect(() => {
+    const handlePopState = (e: PopStateEvent) => {
+      console.log('*** HAUSHALTSAUSKUNFT COMPONENT: POPSTATE EVENT FIRED ***');
+      
+      if (hasUnsavedChanges) {
+        console.log('*** HAUSHALTSAUSKUNFT COMPONENT: UNSAVED CHANGES DETECTED - SHOWING CONFIRMATION ***');
+        
+        // Show confirmation dialog first
+        const confirmed = window.confirm(
+          'Sie haben ungespeicherte Änderungen. Wenn Sie fortfahren, gehen diese verloren. Möchten Sie trotzdem fortfahren?'
+        );
+        
+        if (!confirmed) {
+          console.log('*** HAUSHALTSAUSKUNFT COMPONENT: USER CANCELLED - PREVENTING NAVIGATION ***');
+          // Prevent the default navigation and push current state back
+          e.preventDefault();
+          window.history.pushState(null, '', window.location.href);
+          
+          // Set navigation flag to prevent routing protection from redirecting
+          const navigationKey = `haushaltsauskunft_navigation_${Date.now()}`;
+          sessionStorage.setItem('haushaltsauskunft_valid_navigation', navigationKey);
+          console.log('*** HAUSHALTSAUSKUNFT COMPONENT: SETTING NAVIGATION FLAG AFTER CANCELLING POPSTATE ***');
+        } else {
+          console.log('*** HAUSHALTSAUSKUNFT COMPONENT: USER CONFIRMED - ALLOWING NAVIGATION ***');
+          
+          // Clean up navigation flag since user is leaving
+          sessionStorage.removeItem('haushaltsauskunft_valid_navigation');
+          
+          // Clear unsaved changes immediately
+          setHasUnsavedChanges(false);
+          
+          // Don't prevent the default - let the navigation proceed naturally
+          console.log('*** HAUSHALTSAUSKUNFT COMPONENT: ALLOWING NATURAL NAVIGATION ***');
+          navigate('/personal-space', { state: { from: 'haushaltsauskunft' } });
+        }
+      } else {
+        console.log('*** HAUSHALTSAUSKUNFT COMPONENT: NO UNSAVED CHANGES - ALLOWING NAVIGATION ***');
+        // Don't interfere with navigation when there are no unsaved changes
+        // The user should be able to navigate normally
+      }
+    };
+    
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = 'Sie haben ungespeicherte Änderungen. Sind Sie sicher, dass Sie die Seite verlassen möchten?';
+        return 'Sie haben ungespeicherte Änderungen. Sind Sie sicher, dass Sie die Seite verlassen möchten?';
+      }
+    };
+    
+    // Only add popstate listener and push history state when there are unsaved changes
+    if (hasUnsavedChanges) {
+      console.log('*** HAUSHALTSAUSKUNFT COMPONENT: ADDING POPSTATE LISTENER FOR UNSAVED CHANGES ***');
+      // Push initial state to enable popstate detection
+      window.history.pushState(null, '', window.location.href);
+      
+      // Add popstate listener
+      window.addEventListener('popstate', handlePopState);
+    }
+    
+    // Always add beforeunload listener
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    // Cleanup
+    return () => {
+      // Always remove popstate listener to prevent memory leaks
+      window.removeEventListener('popstate', handlePopState);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [hasUnsavedChanges]);
+
   // Generate UUID helper function
   const generateUUID = (): string => {
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {

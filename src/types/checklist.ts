@@ -10,6 +10,7 @@ export interface ChecklistItem {
   systemWarnings?: string[]; // Optional field for warnings
   linkedForms: string[];
   linkedDocs: string[];
+  linkedSignedDocs?: string[]; // Optional field for linked signed documents
   agentNotes: string | null;
 }
 

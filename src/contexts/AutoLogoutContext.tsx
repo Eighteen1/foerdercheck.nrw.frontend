@@ -83,7 +83,16 @@ export const AutoLogoutProvider: React.FC<AutoLogoutProviderProps> = ({ children
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.user) {
+          setIsAgent(false);
+          setSettings(undefined);
           setLoading(false);
+          return;
+        }
+
+        // Wait a bit for user metadata to be fully loaded
+        if (!session.user.user_metadata?.city) {
+          // Wait 500ms and try again
+          setTimeout(() => fetchSettings(), 500);
           return;
         }
 
@@ -99,6 +108,7 @@ export const AutoLogoutProvider: React.FC<AutoLogoutProviderProps> = ({ children
         if (!data) {
           setIsAgent(false);
           setSettings(undefined);
+          setLoading(false);
           return;
         }
 
@@ -110,12 +120,13 @@ export const AutoLogoutProvider: React.FC<AutoLogoutProviderProps> = ({ children
         if (changed) {
           await supabase.from('agents').update({ settings: full }).eq('id', session.user.id);
         }
+        
+        setLoading(false);
       } catch (error) {
-        console.error('Error fetching auto-logout settings:', error);
+        console.error('[AutoLogoutContext] Error fetching auto-logout settings:', error);
         // On error, disable auto-logout rather than forcing defaults
         setIsAgent(false);
         setSettings(undefined);
-      } finally {
         setLoading(false);
       }
     };
@@ -128,6 +139,7 @@ export const AutoLogoutProvider: React.FC<AutoLogoutProviderProps> = ({ children
         fetchSettings();
       } else if (event === 'SIGNED_OUT') {
         setSettings(undefined);
+        setIsAgent(false);
         setLoading(false);
       }
     });
