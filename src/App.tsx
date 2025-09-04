@@ -18,6 +18,8 @@ import Layout from './components/Layout';
 import AuthCallback from './components/AuthCallback';
 import PasswordProtection from './components/PasswordProtection';
 import PasswordProtectionMiddleware from './components/PasswordProtectionMiddleware';
+import MobileWarningPage from './components/MobileWarningPage';
+import MobileDetectionMiddleware from './components/MobileDetectionMiddleware';
 import RoutingProtection from './components/RoutingProtection';
 import HauptantragContainer from './components/Hauptantrag/HauptantragContainer';
 import EinkommenserklaerungContainer from './components/Einkommenserklaerung/EinkommenserklaerungContainer';
@@ -40,10 +42,11 @@ function App() {
     <AuthProvider>
       <FormProvider>
         <PasswordProtectionMiddleware>
-          <AutoLogoutProvider>
-            {/* Globally activate auto-logout wherever provider is mounted */}
-            <AutoLogoutActivator />
-            <Layout>
+          <MobileDetectionMiddleware>
+            <AutoLogoutProvider>
+              {/* Globally activate auto-logout wherever provider is mounted */}
+              <AutoLogoutActivator />
+              <Layout>
               <Routes>
                 <Route path="/government" element={<GovernmentLanding />} />
                 <Route path="/government/login" element={<GovernmentLogin />} />
@@ -53,6 +56,7 @@ function App() {
                   </RoutingProtection>
                 } />
                 <Route path="/password-protection" element={<PasswordProtection />} />
+                <Route path="/mobile-warning" element={<MobileWarningPage />} />
                 <Route path="/" element={<LandingPage />} />
                 <Route path="/application-types" element={<ApplicationTypesPage />} />
                 <Route path="/initial-check" element={<InitialCheckPage />} />
@@ -133,7 +137,8 @@ function App() {
                 } />
               </Routes>
             </Layout>
-          </AutoLogoutProvider>
+            </AutoLogoutProvider>
+          </MobileDetectionMiddleware>
         </PasswordProtectionMiddleware>
       </FormProvider>
     </AuthProvider>
