@@ -1092,7 +1092,7 @@ const SelbsthilfeContainer: React.FC = () => {
             Speichern
           </Button>
 
-          <PDFDownloadButton formType="selbsthilfe" />
+          {/*<PDFDownloadButton formType="selbsthilfe" />*/}
 
           <div className="border-start border-white/20" style={{ margin: '0.5rem 0' }}></div>
           <div className="d-flex align-items-center gap-2 px-3">

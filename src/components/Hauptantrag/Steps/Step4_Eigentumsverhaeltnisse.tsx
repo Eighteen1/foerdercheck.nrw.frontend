@@ -182,7 +182,7 @@ const Step4_Eigentumsverhaeltnisse: React.FC<Step4Props> = ({ formData, updateFo
           <h4 className="mb-0 text-[#000000] font-semibold italic">{sectionTitle}</h4>
           <OverlayTrigger
             placement="right"
-            overlay={renderTooltip("Geben Sie die Grundbuchdaten des Objekts an")}
+            overlay={renderTooltip("Geben Sie die Grundbuchdaten des Objekts an. Die Grundbuchangaben sind in der Regel nur notwendig, wenn das Objekt im Eigentum der antragstellenden Person(en) ist.") }
           >
             <Button
               variant="outline-secondary"
@@ -429,7 +429,7 @@ const Step4_Eigentumsverhaeltnisse: React.FC<Step4Props> = ({ formData, updateFo
           <h4 className="mb-0 text-[#000000] font-semibold italic">Eigentumsverhältnisse</h4>
           <OverlayTrigger
             placement="right"
-            overlay={renderTooltip("Geben Sie die Eigentumsverhältnisse des Objekts an")}
+            overlay={renderTooltip("Geben Sie die Eigentumsverhältnisse des Objekts an. Wenn Sie ein Objekt erst erwerben möchten, wählen Sie \"noch nicht im Eigentum der antragstellenden Person(en)\".") }
           >
             <Button
               variant="outline-secondary"

@@ -142,7 +142,7 @@ const InitialCheckPage: React.FC = () => {
               placement="right"
               overlay={
                 <Tooltip id="household-tooltip">
-                  Hier geben Sie die Anzahl der Personen in Ihrem Haushalt an. Erwachsene sind Personen ab 18 Jahren. Kinder sind Personen unter 18 Jahren.
+                  Hier geben Sie die Anzahl der Personen in Ihrem Haushalt an (Erwachsene ab 18 Jahren, Kinder unter 18 Jahren) und ob Sie in einer eingetragenen Lebenspartnerschaft leben, Rentner sind oder eine Behinderung bzw. Pflegebedürftigkeit im Haushalt vorliegt, da dies die Einkommensgrenzen beeinflusst.
                 </Tooltip>
               }
             >
@@ -193,7 +193,7 @@ const InitialCheckPage: React.FC = () => {
             <Col>
               <Form.Check 
                 type="checkbox"
-                label="Sind einige der Personen schwerbehindert?"
+                label="Haben einige der Personen in Ihrem Haushalt eine Behinderung oder Pflegebedürftigkeit?"
                 checked={isDisabled}
                 onChange={(e) => setIsDisabled(e.target.checked)}
                 className="custom-checkbox"
@@ -230,7 +230,7 @@ const InitialCheckPage: React.FC = () => {
               placement="right"
               overlay={
                 <Tooltip id="household-tooltip">
-                  Hier geben Sie die Anzahl der Personen in Ihrem Haushalt an. Erwachsene sind Personen ab 18 Jahren. Kinder sind Personen unter 18 Jahren.
+                  Bitte geben Sie Ihr ungefähres Brutto-Jahreseinkommen Ihres Haushalts (z. B. Lohn, Gehalt, Rente, Unterhalt, selbstständige Einkünfte, Vermietungseinkommen) sowie Ihr ungefähres Netto-Jahreseinkommen Ihres Haushalts (nach Abzug von Steuern, Versicherungen, Werbungskosten, Kinderbetreuungskosten, Unterhaltszahlungen etc.) in € an.
                 </Tooltip>
               }
             >
@@ -255,25 +255,62 @@ const InitialCheckPage: React.FC = () => {
               <CurrencyInput
                 value={grossIncome}
                 onChange={setGrossIncome}
-                placeholder="Brutto-Jahreseinkommen in €"
-                label="Brutto-Jahreseinkommen in €"
+                placeholder="Ungefähres Brutto-Jahreseinkommen in €"
+                label="Ungefähres Brutto-Jahreseinkommen in €"
               />
             </Col>
             <Col>
               <CurrencyInput
                 value={netIncome}
                 onChange={setNetIncome}
-                placeholder="Netto-Jahreseinkommen in €"
-                label="Netto-Jahreseinkommen in €"
+                placeholder="Ungefähres Netto-Jahreseinkommen in €"
+                label="Ungefähres Netto-Jahreseinkommen in €"
               />
             </Col>
           </Row>
 
+          {/* Hint box explaining net income calculation */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+            <div className="flex items-start">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-blue-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-blue-800 mb-2">
+                  Hinweis zum Netto-Jahreseinkommen
+                </h3>
+                <div className="text-sm text-blue-700">
+                  <p className="mb-2">
+                    Wenn Sie den vollständigen Antrag stellen, wird Ihr Netto-Jahreseinkommen für diesen Antrag automatisch berechnet und kann von Ihrem tatsächlichen Nettoeinkommen abweichen. Für diesen Förderfähigkeitsprüfer genügt daher eine Schätzung des Netto-Haushaltseinkommens.
+                  </p>
+                  <p className="mb-2 font-medium">Berechnung erfolgt durch:</p>
+                  <ul className="list-disc list-inside space-y-1 text-s">
+                    <li><strong>Abzüge (je 12%):</strong> Einkommensteuer, Krankenversicherung, Rentenversicherung</li>
+                    <li><strong>Freibeträge:</strong> 102€ pro Einkommensart (Rente, Arbeitslosengeld, Unterhalt)</li>
+                    <li><strong>Freibeträge:</strong> 1.230€ für Auslandseinkommen oder Pauschalversteuerung</li>
+                    <li><strong>Abzugsfähige Ausgaben:</strong> Werbungskosten, Kinderbetreuungskosten, Unterhaltszahlungen</li>
+                    <li><strong>Haushaltsfreibeträge:</strong> Pflegegrad, Behinderungsgrad, Ehepaar-Freibetrag</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <Button 
             type="submit" 
-            className="w-full bg-[#064497] hover:bg-[#0B66E6] text-white py-2 rounded mt-4 mb-12"
+            className="w-full bg-[#064497] hover:bg-[#0B66E6] text-white py-2 rounded mt-4 mb-3"
           >
             PRÜFEN
+          </Button>
+          
+          <Button 
+            onClick={() => navigate('/application-types', { replace: true })}
+            className="w-full bg-[#D7DAEA] hover:bg-[#D7DAEA] text-black py-2 rounded focus:outline-none focus:ring-0 focus:ring-offset-0 shadow-md mb-12"
+            style={{ outline: 'none' }}
+          >
+            ZURÜCK
           </Button>
         </Form>
       </Container>

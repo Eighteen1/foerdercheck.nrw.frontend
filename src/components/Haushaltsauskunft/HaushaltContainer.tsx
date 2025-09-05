@@ -818,7 +818,7 @@ const HaushaltContainer: React.FC = () => {
         </div>
       )}
         
-    <PDFDownloadButton formType="haushalt" /> 
+    {/*<PDFDownloadButton formType="haushalt" /> */}
 
       {/* Header ellipse */}
       <div className="blue-corner">

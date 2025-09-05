@@ -278,6 +278,41 @@ const ResultPage: React.FC = () => {
           </div>
         </div>
 
+        {/* Disability allowances hint box */}
+        {location.state.isDisabled && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4 text-start">
+            <div className="flex items-start">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-black-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-black-800 mb-2">
+                  Zusätzliche Freibeträge für Behinderung/Pflegegrad
+                </h3>
+                <div className="text-sm text-black-700">
+                  <p className="mb-2">
+                    Da Sie angegeben haben, dass eine Person in Ihrem Haushalt behindert ist, werden im vollständigen Antrag zusätzliche Freibeträge vom Haushaltseinkommen abgezogen. Diese können Ihre Förderchancen erheblich verbessern.
+                  </p>
+                  <p className="mb-2 font-medium">Freibeträge pro Person (jährlich):</p>
+                  <ul className="list-disc list-inside space-y-1 text-s">
+                    <li><strong>5.830€:</strong> Pflegegrad 5 oder Pflegegrad 4 + GdB ≥80</li>
+                    <li><strong>4.500€:</strong> Pflegegrad 4, GdB 100, oder Pflegegrad 2-3 + GdB ≥80</li>
+                    <li><strong>2.100€:</strong> Pflegegrad 2-3 + GdB &lt;80 oder Pflegegrad 1 + GdB ≥80</li>
+                    <li><strong>1.330€:</strong> Pflegegrad 3, GdB 80-99, oder Pflegegrad 1 + GdB &lt;80</li>
+                    <li><strong>665€:</strong> Pflegegrad 2 oder GdB 50-79</li>
+                    <li><strong>330€:</strong> Pflegegrad 1</li>
+                  </ul>
+                  <p className="mt-2 text-xs">
+                    <strong>Wichtig:</strong> Diese Freibeträge werden für jede berechtigte Person im Haushalt abgezogen und können das bereinigte Haushaltseinkommen erheblich reduzieren.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <p className="text-gray-700 mb-4">
           Per Gesetz sind wir verpflichtet, jedem die Chance zu geben, einen vollständigen Antrag stellen zu lassen. 
           {!eligibilityResult.eligible && ` Basierend auf Ihrer Haushaltsgröße und dem angegebenen Einkommen besteht eine erhöhte Wahrscheinlichkeit, dass Ihr Antrag abgelehnt wird.`}

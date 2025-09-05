@@ -199,7 +199,7 @@ const Step2_HouseholdInfo: React.FC<Step2Props> = ({ formData, updateFormData, s
           <h4 className="mb-0 text-[#000000] font-semibold italic">Haushalt</h4>
           <OverlayTrigger
             placement="right"
-            overlay={renderTooltip("Geben Sie die Anzahl der Personen in Ihrem Haushalt an")}
+            overlay={renderTooltip("Geben Sie die Anzahl der Personen in Ihrem Haushalt an. Erwachsene sind Personen ab 18 Jahren. Kinder sind Personen unter 18 Jahren.")}
           >
             <Button
               variant="outline-secondary"
@@ -287,7 +287,7 @@ const Step2_HouseholdInfo: React.FC<Step2Props> = ({ formData, updateFormData, s
               Sind einige der Personen schwerbehindert?
               <OverlayTrigger
                 placement="right"
-                overlay={renderTooltip("Geben Sie an, ob Personen in Ihrem Haushalt schwerbehindert sind")}
+                overlay={renderTooltip("Geben Sie an, ob Personen in Ihrem Haushalt schwerbehindert sind. Als schwerbehindert gelten Personen mit einem Behindertengrad von 50 oder mehr.")}
               >
                 <Button
                   variant="outline-secondary"
@@ -500,7 +500,7 @@ const Step2_HouseholdInfo: React.FC<Step2Props> = ({ formData, updateFormData, s
           <h4 className="mb-0 text-[#000000] font-semibold italic">Doppelförderung</h4>
           <OverlayTrigger
             placement="right"
-            overlay={renderTooltip("Angaben zu möglicher Doppelförderung")}
+            overlay={renderTooltip("Falls die antragstellende Person bzw. die antragstellenden Personen und alle Haushaltsangehörigen bereits Eigentümerinnen/Eigentümer oder Miteigentümerinnen/Miteigentümer eines geförderten Eigenheims oder einer geförderten Eigentumswohnung sind oder waren, geben Sie bitte an, ob bereits ein weiteres gefördertes Eigenheim oder eine weitere geförderte Eigentumswohnung im Eigentum bzw. Miteigentum stand oder steht.")}
           >
             <Button
               variant="outline-secondary"
@@ -650,7 +650,7 @@ const Step2_HouseholdInfo: React.FC<Step2Props> = ({ formData, updateFormData, s
           <h4 className="mb-0 text-[#000000] font-semibold italic">Ergänzungsdarlehen</h4>
           <OverlayTrigger
             placement="right"
-            overlay={renderTooltip("Angaben zum Ergänzungsdarlehen der NRW.BANK")}
+            overlay={renderTooltip("Falls Sie bereits eine Förderung bzw. Förderzusage der NRW.BANK für dasselbe Vorhaben erhalten haben und ein Ergänzungsdarlehen beantragen, wählen Sie „Ja“. Bitte beachten Sie: Mit einem Ergänzungsdarlehen können Sie kein weiteres Grunddarlehen oder Zusatzdarlehen (z. B. für standortbedingte Mehrkosten) beantragen. Das Ergänzungsdarlehen ist auf maximal 50.000 € begrenzt.") }
           >
             <Button
               variant="outline-secondary"

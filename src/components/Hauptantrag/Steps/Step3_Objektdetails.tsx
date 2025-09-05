@@ -335,7 +335,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
           <h4 className="mb-0 text-[#000000] font-semibold italic">Adresse des Objekts</h4>
           <OverlayTrigger
             placement="right"
-            overlay={renderTooltip("Geben Sie die Adresse des Objekts ein")}
+            overlay={renderTooltip("Geben Sie bitte die vollständige Adresse ihres Förderobjekts ein. Ihr Antrag wird automatisch an die zuständige Bewilligungsbehörde gesendet.")}
           >
             <Button
               variant="outline-secondary"
@@ -389,7 +389,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
           <h4 className="mb-0 text-[#000000] font-semibold italic">Informationen zur Förderart</h4>
           <OverlayTrigger
             placement="right"
-            overlay={renderTooltip("Wählen Sie die zutreffende Förderart aus")}
+            overlay={renderTooltip("Bitte wählen Sie die zutreffende Art Ihres Vorhabens aus: Ersterwerb bedeutet, dass das Objekt erstmals zum Verkauf angeboten wird. Bestandserwerb liegt vor, wenn das Objekt bereits im Eigentum war. Neubau bedeutet, dass das Objekt von Ihnen neu errichtet wird. Eine Nutzungsänderung liegt vor, wenn ein bestehendes Gebäude künftig zu Wohnzwecken genutzt wird.")}
           >
             <Button
               variant="outline-secondary"
@@ -536,7 +536,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
           <h4 className="mb-0 text-[#000000] font-semibold italic">Objektdetails allgemein</h4>
           <OverlayTrigger
             placement="right"
-            overlay={renderTooltip("Allgemeine Informationen zum Objekt")}
+            overlay={renderTooltip("Allgemeine Informationen zum Objekt. Der Wohnfläche der selbstgenutzten Wohneinheit ist die Wohnfläche, die Sie selbst nutzen. Die Wohnfläche der zweiten Wohneinheit ist die Wohnfläche, die Sie vermieten (Geben Sie 0 ein, wenn keine zweite Wohneinheit vorhanden ist).")}
           >
             <Button
               variant="outline-secondary"
@@ -621,7 +621,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
               <Form.Label className="mb-0">Enthält das Objekt eine Gewerbefläche?</Form.Label>
               <OverlayTrigger
                 placement="right"
-                overlay={renderTooltip("Geben Sie an, ob das Objekt eine Gewerbefläche enthält")}
+                overlay={renderTooltip("Geben Sie an, ob das Objekt eine Gewerbefläche, wie z.B. ein Geschäft, enthält")}
               >
                 <Button
                   variant="outline-secondary"
@@ -691,7 +691,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
               <Form.Label className="mb-0">Werden durch das Förderobjekt Erträge erwirtschaftet?</Form.Label>
               <OverlayTrigger
                 placement="right"
-                overlay={renderTooltip("Geben Sie an, ob durch das Förderobjekt Erträge erwirtschaftet werden")}
+                overlay={renderTooltip("Geben Sie an, ob durch das Förderobjekt Erträge erwirtschaftet werden (z.B. Vermietung von Wohnungen oder Garagen).")}
               >
                 <Button
                   variant="outline-secondary"
@@ -772,7 +772,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
               <Form.Label className="mb-0">Wird ein Zusatzdarlehen für Bauen mit Holz beantragt?</Form.Label>
               <OverlayTrigger
                 placement="right"
-                overlay={renderTooltip("Geben Sie an, ob ein Zusatzdarlehen für Bauen mit Holz beantragt wird")}
+                overlay={renderTooltip("Geben Sie an, ob ein Zusatzdarlehen für Bauen mit Holz beantragt wird. Bitte informieren Sie sich über die Voraussetzungen für ein Zusatzdarlehen für Bauen mit Holz (Mehr Infos im Schritt 6 des Hauptantrags).") }
               >
                 <Button
                   variant="outline-secondary"
@@ -892,7 +892,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
               <Form.Label className="mb-0">Das Objekt ist barrierefrei</Form.Label>
               <OverlayTrigger
                 placement="right"
-                overlay={renderTooltip("Geben Sie an, ob das Objekt barrierefrei ist")}
+                overlay={renderTooltip("Geben Sie an, ob das Objekt barrierefrei ist. Bei der Neuschaffung oder beim Ersterwerb barrierefreier Objekte (bis einschließlich Gebäudeklasse 2) kann ein Zusatzdarlehen in Höhe von 11 500 Euro gewährt werden. Bitte informieren Sie sich über die Voraussetzungen die ein Objekt erfüllen muss um als barrierefrei zu gelten.")}
               >
                 <Button
                   variant="outline-secondary"
@@ -943,7 +943,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
               <Form.Label className="mb-0">Das Objekt entspricht dem BEG Effizienzhaus 40 Standard</Form.Label>
               <OverlayTrigger
                 placement="right"
-                overlay={renderTooltip("Geben Sie an, ob das Objekt dem BEG Effizienzhaus 40 Standard entspricht")}
+                overlay={renderTooltip("Geben Sie an, ob das Objekt dem BEG Effizienzhaus 40 Standard entspricht. Der \"BEG Effizienzhaus 40 Standard\" beschreibt die Anforderungen für den staatlich geförderten Neubau oder Ersterwerb eines Gebäudes, das einen Primärenergiebedarf von maximal 40 % eines Referenzgebäudes hat. Bitte informieren Sie sich über die Voraussetzungen die ein Objekt erfüllen muss um als BEG Effizienzhaus 40 Standard zu gelten.")}
               >
                 <Button
                   variant="outline-secondary"
@@ -994,7 +994,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
               <Form.Label className="mb-0">Wird ein Zusatzdarlehen für standortbedingte Mehrkosten beantragt?</Form.Label>
               <OverlayTrigger
                 placement="right"
-                overlay={renderTooltip("Geben Sie an, ob ein Zusatzdarlehen für standortbedingte Mehrkosten beantragt wird")}
+                overlay={renderTooltip("Ja, wenn ein Zusatzdarlehen für standortbedingte Mehrkosten beantragt wird (z. B. Untersuchungen, Sicherungsmaßnahmen, Beseitigung umweltgefährdender Stoffe, Sanierung kontaminierter Böden/Bausubstanz, Abbrucharbeiten). Nein, wenn keine solchen Maßnahmen finanziert werden sollen.")}
               >
                 <Button
                   variant="outline-secondary"
@@ -1180,7 +1180,7 @@ const Step3_Objektdetails: React.FC<Step3Props> = ({ formData, updateFormData, s
               <Form.Label className="mb-0">Wurde eine Bauanzeige eingereicht?</Form.Label>
               <OverlayTrigger
                 placement="right"
-                overlay={renderTooltip("Geben Sie an, ob eine Bauanzeige eingereicht wurde")}
+                overlay={renderTooltip("Geben Sie an, ob eine Bauanzeige eingereicht wurde. Eine Bauanzeige ist ein formelles Dokument, das bei der zuständigen Baubehörde eingereicht wird, um den Bau einer Struktur anzukündigen. Im Gegensatz dazu ist eine Baugenehmigung eine formelle Zustimmung der Baubehörde, die besagt, dass ein geplanter Bau den geltenden Gesetzen und Vorschriften entspricht.")}
               >
                 <Button
                   variant="outline-secondary"

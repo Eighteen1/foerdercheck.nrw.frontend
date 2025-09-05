@@ -290,7 +290,7 @@ const Step5_Kostenaufstellung: React.FC<Step5Props> = ({
             <h4 className="mb-0 text-[#000000] font-semibold italic">Baugrundstück</h4>
             <OverlayTrigger
               placement="right"
-              overlay={renderTooltip("Kosten für das Baugrundstück")}
+              overlay={renderTooltip("Kosten für das Baugrundstück (bei Neubau)")}
             >
               <Button
                 variant="outline-secondary"
@@ -357,7 +357,7 @@ const Step5_Kostenaufstellung: React.FC<Step5Props> = ({
             <h4 className="mb-0 text-[#000000] font-semibold italic">Kaufpreis</h4>
             <OverlayTrigger
               placement="right"
-              overlay={renderTooltip("Kaufpreis bei Bestandserwerb und Ersterwerb")}
+              overlay={renderTooltip("Kaufpreis der Immobilie bei Bestandserwerb und Ersterwerb")}
             >
               <Button
                 variant="outline-secondary"
@@ -404,7 +404,7 @@ const Step5_Kostenaufstellung: React.FC<Step5Props> = ({
             <h4 className="mb-0 text-[#000000] font-semibold italic">Standortbedingte Mehrkosten</h4>
             <OverlayTrigger
               placement="right"
-              overlay={renderTooltip("Förderfähige standortbedingte Mehrkosten")}
+              overlay={renderTooltip("Förderfähige standortbedingte Mehrkosten (bei Neubau oder Ersterwerb)")}
             >
               <Button
                 variant="outline-secondary"
@@ -451,7 +451,7 @@ const Step5_Kostenaufstellung: React.FC<Step5Props> = ({
             <h4 className="mb-0 text-[#000000] font-semibold italic">Baukosten</h4>
             <OverlayTrigger
               placement="right"
-              overlay={renderTooltip("Baukosten des Objekts")}
+              overlay={renderTooltip("Baukosten des Objekts (bei Neubau)")}
             >
               <Button
                 variant="outline-secondary"
@@ -537,7 +537,7 @@ const Step5_Kostenaufstellung: React.FC<Step5Props> = ({
           <h4 className="mb-0 text-[#000000] font-semibold italic">Nebenkosten</h4>
           <OverlayTrigger
             placement="right"
-            overlay={renderTooltip("Nebenkosten des Objekts")}
+            overlay={renderTooltip("Alle Nebenkosten des Objekts die nicht in den vorangegangenen Feldern erfasst sind.")}
           >
             <Button
               variant="outline-secondary"

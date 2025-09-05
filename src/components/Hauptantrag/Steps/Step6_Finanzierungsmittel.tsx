@@ -701,7 +701,7 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
           <h4 className="mb-0 text-[#000000] font-semibold italic">Fremddarlehen</h4>
           <OverlayTrigger
             placement="right"
-            overlay={renderTooltip("Geben Sie die Details zu Ihren Fremddarlehen an")}
+            overlay={renderTooltip("Geben Sie die Details zu Ihren Fremddarlehen an. Fremddarlehen sind Darlehen, die nicht durch die NRW.BANK gewährt werden, jedoch zur Finanzierung Ihres Vorhabens verwendet werden.") }
           >
             <Button
               variant="outline-secondary"
@@ -834,7 +834,7 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
             <h4 className="mb-0 text-[#000000] font-semibold italic">Darlehen der NRW.BANK</h4>
             <OverlayTrigger
               placement="right"
-              overlay={renderTooltip("Zinsen 0,5%, Verwaltungskostenbeitrag 0,5%, Auszahlung 100%, Tilgung 1%, bei Bestandserwerb 2%")}
+              overlay={renderTooltip("Zinsen 0,5%, Verwaltungskostenbeitrag 0,5%, Auszahlung 100%, Tilgung 1%, bei Bestandserwerb 2%. Als befristete Maßnahme erhebt die NRW.BANK den Verwaltungskostenbeitrag nicht in den ersten zwei Jahren ab Leistungsbeginn. Hinweis: Der Tilgungsnachlass (Teilschulderlass) reduziert die Restschuld des Darlehens zum Tilgungsbeginn. Die Annuität wird somit vom reduzierten Darlehen berechnet.")}
             >
               <Button
                 variant="outline-secondary"
@@ -1066,7 +1066,7 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
             <h4 className="mb-0 text-[#000000] font-semibold italic">Ergänzungsdarlehen der NRW.BANK</h4>
             <OverlayTrigger
               placement="right"
-              overlay={renderTooltip("Zinsen 3,62%, Verwaltungskostenbeitrag 0,5%, Auszahlung 100%, Tilgung 2%")}
+              overlay={renderTooltip("Zinsen 3,32%, Verwaltungskostenbeitrag 0,5%, Auszahlung 100%, Tilgung 2%")}
             >
               <Button
                 variant="outline-secondary"
@@ -1117,7 +1117,7 @@ const Step6_Finanzierungsmittel: React.FC<Step6Props> = ({
           <h4 className="mb-0 text-[#000000] font-semibold italic">Eigenleistung (mind. 7,5% der Gesamtkosten)</h4>
           <OverlayTrigger
             placement="right"
-            overlay={renderTooltip("Geben Sie Ihre Eigenleistung an")}
+            overlay={renderTooltip("Geben Sie Ihre Eigenleistung an. Die Eigenleistung muss mindestens 7,5% der Gesamtkosten betragen. Sie können auch Selbsthilfeleistungen erbringen welche den Betrag ihrer Eigenleistung erhöhen. Füllen Sie dazu bitte das Formular zur Selbsthilfe aus welches Sie unter \"Dokumente Hochladen\" (Schritt 4 im Persönlichen Bereich) finden.") }
           >
             <Button
               variant="outline-secondary"

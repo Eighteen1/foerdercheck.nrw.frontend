@@ -731,7 +731,7 @@ const SelbsthilfeForm: React.FC<Props> = ({ data, helpers, onChange, onHelpersCh
               <h4 className="mb-0 text-[#000000] font-semibold italic">Adresse des Förderobjekts</h4>
               <OverlayTrigger
                 placement="right"
-                overlay={renderTooltip("Geben Sie die Adresse des Förderobjekts ein")}
+                overlay={renderTooltip("Geben Sie die vollständige Adresse des Förderobjekts ein")}
               >
                 <Button
                   variant="outline-secondary"
@@ -788,7 +788,7 @@ const SelbsthilfeForm: React.FC<Props> = ({ data, helpers, onChange, onHelpersCh
                 <h4 className="mb-0 text-[#000000] font-semibold italic">1. Kosten des Gebäudes</h4>
                 <OverlayTrigger
                   placement="right"
-                  overlay={renderTooltip("Kosten für alle Arbeiten am Gebäude selbst")}
+                  overlay={renderTooltip("Bitte geben Sie die voraussichtlichen Kosten der Arbeiten am Gebäude nach Kostengruppen an. Tragen Sie nur die Kosten für Arbeiten ein, die Sie selbst ausführen werden; dabei darf Ihre Selbsthilfe nicht höher sein als die Summe der Material- und Lohnkosten.")}
                 >
                   <Button
                     variant="outline-secondary"
@@ -869,7 +869,7 @@ const SelbsthilfeForm: React.FC<Props> = ({ data, helpers, onChange, onHelpersCh
                   <h4 className="mb-0 text-[#000000] font-semibold italic">2. Außenanlagen</h4>
                   <OverlayTrigger
                     placement="right"
-                    overlay={renderTooltip("Kosten für Gartenanlagen und Außenbereiche")}
+                    overlay={renderTooltip("Bitte geben Sie die voraussichtlichen Kosten für die Außenanlagen nach Kostengruppe an. Tragen Sie nur die Kosten für Arbeiten ein, die Sie selbst ausführen werden; dabei darf Ihre Selbsthilfe nicht höher sein als die Summe der Material- und Lohnkosten.")}
                   >
                     <Button
                       variant="outline-secondary"
@@ -951,7 +951,7 @@ const SelbsthilfeForm: React.FC<Props> = ({ data, helpers, onChange, onHelpersCh
                   <h4 className="mb-0 text-[#000000] font-semibold italic">3. Baunebenkosten</h4>
                   <OverlayTrigger
                     placement="right"
-                    overlay={renderTooltip("Kosten für Planung, Verwaltung und sonstige Baunebenkosten")}
+                    overlay={renderTooltip("Bitte geben Sie die voraussichtlichen Kosten für die Planung, Verwaltung und sonstigen Baunebenkosten nach Kostengruppe an. Tragen Sie nur die Kosten für Arbeiten ein, die Sie selbst ausführen werden; dabei darf Ihre Selbsthilfe nicht höher sein als die Summe der Material- und Lohnkosten.")}
                   >
                     <Button
                       variant="outline-secondary"
@@ -1161,13 +1161,13 @@ const SelbsthilfeForm: React.FC<Props> = ({ data, helpers, onChange, onHelpersCh
                         <Form.Floating>
                           <Form.Control
                             type="email"
-                            placeholder="E-Mail-Adresse"
+                            placeholder="E-Mail-Adresse (falls vorhanden)"
                             value={helper.email}
                             onChange={(e) => updateHelper(helper.id, { email: e.target.value })}
                             disabled={isReadOnly}
                             isInvalid={validateHelperField(helper, 'email')}
                           />
-                          <label>E-Mail-Adresse</label>
+                          <label>E-Mail-Adresse (falls vorhanden)</label>
                           {validateHelperField(helper, 'email') && (
                             <Form.Control.Feedback type="invalid">
                               {getHelperEmailErrorMessage(helper, index === 0 ? 'Hauptantragsteller' : `Helfer ${index}`)}

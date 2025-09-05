@@ -133,9 +133,9 @@ interface MainFinancials {
   _tempRentenversicherung?: { institut: string; praemie: string }; // Temporary storage for Rentenversicherung data when hasRentenversicherung is false
 }
 
-const renderTooltip = (text: string) => (
-  <Tooltip id="button-tooltip">
-    {text}
+const renderTooltip = (content: React.ReactNode) => (
+  <Tooltip id="button-tooltip" className="text-start" style={{ maxWidth: '420px', whiteSpace: 'normal' }}>
+    {content}
   </Tooltip>
 );
 
@@ -244,7 +244,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
               <h3 className="mb-0 text-[#000000] font-semibold italic" style={{ fontSize: '1rem' }}>Angaben zur Person</h3>
               <OverlayTrigger
                 placement="right"
-                overlay={renderTooltip("Bitte geben Sie Ihre persönlichen Daten ein")}
+                overlay={renderTooltip("Bitte geben Sie Ihre persönlichen Daten ein. Ihre Angaben aus dem Hauptantrag bzw. der Haushaltsauskunft werden hier übernommen.") }
               >
                 <Button
                   variant="outline-secondary"
@@ -534,7 +534,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                     <span className="fw-medium">Sonstige Beträge z.B. Zuschläge, Prämien etc.</span>
                     <OverlayTrigger
                       placement="right"
-                      overlay={<Tooltip>Fügen Sie weitere Einkommensarten hinzu, z.B. Zuschläge, Prämien etc.</Tooltip>}
+                      overlay={<Tooltip>Fügen Sie weitere Einkommensarten hinzu, z. B. Zuschläge oder Prämien, die Sie zusätzlich zu Ihrem Lohn bzw. Gehalt, Weihnachtsgeld oder Urlaubsgeld von derselben Beschäftigung bzw. demselben Arbeitgeber erhalten.</Tooltip>}
                     >
                       <Button
                         variant="outline-secondary"
@@ -1675,7 +1675,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                   Haben Sie laufende Kredite, wie Kleinkredite, Anschaffungsdarlehen, Ratenkäufe etc.?
                 <OverlayTrigger
                   placement="right"
-                  overlay={renderTooltip("Bitte geben Sie an, ob Sie laufende Kredite haben, z.B. Kleinkredite, Anschaffungsdarlehen, Ratenkäufe etc.")}
+                  overlay={renderTooltip("Bitte geben Sie an, ob Sie laufende Kredite haben, z.B. Kleinkredite, Anschaffungsdarlehen, Ratenkäufe etc. Das Datum der Laufzeit muss sich in der Zukunft befinden.")}
                 >
                   <Button
                     variant="outline-secondary"
@@ -1910,7 +1910,12 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                   Haben Sie einen laufenden Zwischenkredit für Bauspardarlehen?
                 <OverlayTrigger
                   placement="right"
-                  overlay={renderTooltip("Bitte gebne Sie an ob Sie einen laufenden Zwischenkredit für Bauspardarlehen haben.")}
+                  overlay={renderTooltip(
+                    <div>
+                      <div>Wählen Sie Ja, wenn Sie aktuell einen Zwischenkredit zur Überbrückung bis zur Bauspar-Zuteilung bedienen.</div>
+                      <div>Wählen Sie Nein, wenn Sie keinen solchen Kredit haben.</div>
+                    </div>
+                  )}
                 >
                   <Button
                     variant="outline-secondary"
@@ -2064,7 +2069,12 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                   Zahlen Sie Unterhalt?
                 <OverlayTrigger
                   placement="right"
-                  overlay={renderTooltip("Bitte geben Sie an, ob Sie Unterhalt zahlen.")}
+                  overlay={renderTooltip(
+                    <div>
+                      <div>Ja, wenn Sie aktuell regelmäßigen (monatlichen) Unterhalt zahlen (z. B. für Kinder/Ex-Partner).</div>
+                      <div>Nein, wenn keine laufenden Unterhaltszahlungen bestehen.</div>
+                    </div>
+                  )}
                 >
                   <Button
                     variant="outline-secondary"
@@ -2218,7 +2228,7 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                   Möchten Sie sonstige Zahlungsverpflichtung angeben?
                 <OverlayTrigger
                   placement="right"
-                  overlay={renderTooltip("Bitte geben Sie an, ob Sie sonstige Zahlungsverpflichtungen haben.")}
+                  overlay={renderTooltip("Bitte geben Sie an, ob Sie sonstige regelmäßige Zahlungsverpflichtungen haben welche nicht in den vorangegangenen Feldern erfasst sind.")}
                 >
                   <Button
                     variant="outline-secondary"
@@ -2462,7 +2472,12 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                   Zahlen Sie monatlich Sparraten für Bausparverträge?
                 <OverlayTrigger
                   placement="right"
-                  overlay={renderTooltip("Bitte geben Sie an ob Sie monatlich Sparraten für Bausparverträge zahlen.")}
+                  overlay={renderTooltip(
+                    <div>
+                      <div>Ja, wenn Sie aktuell monatliche Sparraten in einen Bausparvertrag einzahlen.</div>
+                      <div>Nein, wenn keine laufenden monatlichen Einzahlungen bestehen.</div>
+                    </div>
+                  )}
                 >
                   <Button
                     variant="outline-secondary"
@@ -2584,7 +2599,12 @@ const SelbstauskunftForm: React.FC<Props> = ({ data, onChange, showValidation, e
                   Zahlen Sie monatlich Prämien für Kapitallebens- und Rentenversicherungen?
                 <OverlayTrigger
                   placement="right"
-                  overlay={renderTooltip("Bitte geben Sie an ob Sie monatlich Prämien für Kapitallebens- und Rentenversicherungen zahlen.")}
+                  overlay={renderTooltip(
+                    <div>
+                      <div>Ja, wenn Sie laufende Beiträge für Kapitallebens- oder private Rentenversicherungen zahlen.</div>
+                      <div>Nein, wenn keine regelmäßigen Beitragszahlungen bestehen.</div>
+                    </div>
+                  )}
                 >
                   <Button
                     variant="outline-secondary"

@@ -826,7 +826,8 @@ const FormsDocsPanel: React.FC<FormsDocsPanelProps> = ({
             </h4>
             {availableForms.map(form => {
               const isSelected = openForms.includes(form.id);
-              const showMenu = form.id === 'haushaltsauskunft';
+              //const showMenu = form.id === 'haushaltsauskunft';
+              const showMenu = false;
               const isDownloading = isDownloadingForm === form.id;
               
               return (

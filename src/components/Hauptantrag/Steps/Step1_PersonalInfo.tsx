@@ -914,7 +914,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
           <h3 className="mb-0 text-[#000000] font-semibold italic">Angaben zur Person</h3>
           <OverlayTrigger
             placement="right"
-            overlay={renderTooltip("Bitte geben Sie Ihre persönlichen Daten ein")}
+            overlay={renderTooltip("Bitte geben Sie Ihre persönlichen Daten ein.")}
           >
             <Button
               variant="outline-secondary"
@@ -1062,7 +1062,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
           <h3 className="mb-0 text-[#000000] font-semibold italic">Aktuelle Adresse</h3>
           <OverlayTrigger
             placement="right"
-            overlay={renderTooltip("Bitte geben Sie Ihre aktuelle Adresse ein")}
+            overlay={renderTooltip("Bitte geben Sie Ihre aktuelle Adresse ein. Die Adresse bezieht sich auf ihren aktuellen Wohnsitz nicht zwangsläufig auf die Adresse des Förderobjekts.")}
           >
             <Button
               variant="outline-secondary"
@@ -1122,7 +1122,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
           <h3 className="mb-0 text-[#000000] font-semibold italic">Kontakt</h3>
           <OverlayTrigger
             placement="right"
-            overlay={renderTooltip("Bitte geben Sie Ihre Kontaktdaten ein")}
+            overlay={renderTooltip("Bitte geben Sie Ihre Kontaktdaten ein. Bitte achten Sie darauf die korrekte Email-Adresse einzugeben, da diese zur Unterschrift und weiteren Kontaktaufnahme verwendet wird.")}
           >
             <Button
               variant="outline-secondary"
@@ -1424,7 +1424,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
             Möchten Sie einen Bevollmächtigten angeben?
             <OverlayTrigger
               placement="right"
-              overlay={renderTooltip("Geben Sie an, ob Sie einen Bevollmächtigten haben")}
+              overlay={renderTooltip("Geben Sie an, ob dieser Antrag durch einen Bevollmächtigten gestellt wird.") }
             >
               <Button
                 variant="outline-secondary"
@@ -1478,7 +1478,7 @@ const Step1_PersonalInfo: React.FC<Step1Props> = ({
               Bevollmächtigte ist eine Firma
               <OverlayTrigger
                 placement="right"
-                overlay={renderTooltip("Geben Sie an, ob der Bevollmächtigte eine Firma ist")}
+                overlay={renderTooltip("Geben Sie an, ob der Bevollmächtigte eine Firma und nicht eine Privatperson ist")}
               >
                 <Button
                   variant="outline-secondary"

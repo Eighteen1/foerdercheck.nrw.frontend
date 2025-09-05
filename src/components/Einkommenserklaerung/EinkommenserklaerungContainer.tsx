@@ -2499,7 +2499,7 @@ const EinkommenserklaerungContainer: React.FC<EinkommenserklaerungContainerProps
             Speichern
           </Button>
 
-          <PDFDownloadButton formType="einkommenserklarung" /> 
+          {/*<PDFDownloadButton formType="einkommenserklarung" /> */}
           
           <div className="border-start border-white/20" style={{ margin: '0.5rem 0' }}></div>
           

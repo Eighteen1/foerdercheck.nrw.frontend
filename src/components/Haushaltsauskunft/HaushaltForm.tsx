@@ -870,7 +870,7 @@ const HaushaltForm: React.FC<Props> = ({ data, onChange, showValidation, isReadO
             </span>
             <OverlayTrigger
               placement="left"
-              overlay={renderTooltip("Wählen Sie Personen aus, die kein eigenes Einkommen haben")}
+              overlay={renderTooltip("Wählen Sie die Personen aus, die kein eigenes Einkommen haben. Zum Einkommen zählen neben Lohn, Gehalt, Rente, Unterhalt, selbstständigen Einkünften und Vermietungseinkünften auch Leistungen wie Arbeitslosengeld, Pflegegeld oder Elterngeld. Für alle übrigen Personen sind eine Einkommenserklärung und Selbstauskunft erforderlich.")}
             >
               <Button
                 variant="outline-secondary"
@@ -944,7 +944,7 @@ const HaushaltForm: React.FC<Props> = ({ data, onChange, showValidation, isReadO
           Die Geburt eines Kindes wird erwartet (eine Bestätigung der Ärztin/des Arztes oder eine Kopie des Mutterpasses ist beigefügt).
             <OverlayTrigger
               placement="right"
-              overlay={renderTooltip("Geben Sie an, ob die Geburt eines Kindes erwartet wird")}
+              overlay={renderTooltip("Geben Sie an, ob die Geburt eines Kindes erwartet wird. Eine ärztliche Bestätigung oder eine Kopie des Mutterpasses können Sie im Persönlichen Bereich unter „Dokumente Hochladen“ (Schritt 4) im Feld „Schwangerschafts Nachweis“ einreichen.")}
             >
               <Button
                 variant="outline-secondary"

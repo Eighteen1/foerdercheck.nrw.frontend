@@ -79,16 +79,16 @@ const typeLabels: Record<string, string> = {
   arbeitslosengeld: 'Arbeitslosengeld',
 };
 const typeTooltips: Record<string, string> = {
-  renten: 'Alters-, Erwerbsunfähigkeits-, Berufsunfähigkeitsrenten, Renten an Witwen, Witwer und Waisen, Betriebs-/Werksrenten, Zusatzversorgung',
-  vermietung: 'Einkünfte aus Vermietung und Verpachtung von Immobilien oder Grundstücken.',
-  gewerbe: 'Gewinne aus selbstständiger Tätigkeit oder Gewerbebetrieb.',
-  landforst: 'Gewinne aus Land- und Forstwirtschaft.',
+  renten: 'Brutto-Einkommen aus Alters-, Erwerbsunfähigkeits-, Berufsunfähigkeitsrenten, Renten an Witwen, Witwer und Waisen, Betriebs-/Werksrenten, Zusatzversorgung',
+  vermietung: 'Brutto-Einkünfte aus Vermietung und Verpachtung von Immobilien oder Grundstücken.',
+  gewerbe: 'Brutto-Gewinne aus selbstständiger Tätigkeit oder Gewerbebetrieb.',
+  landforst: 'Brutto-Gewinne aus Land- und Forstwirtschaft.',
   sonstige: 'Sonstige Einkünfte gemäß § 22 EStG sowie Unterhaltsvorschuss.',
   unterhaltsteuerfrei: 'Steuerfreie Unterhaltsleistungen.',
-  unterhaltsteuerpflichtig: 'Steuerpflichtige Unterhaltsleistungen.',
-  ausland: 'Einkünfte aus ausländischen Quellen.',
+  unterhaltsteuerpflichtig: 'Brutto-Steuerpflichtige Unterhaltsleistungen.',
+  ausland: 'Brutto-Einkünfte aus ausländischen Quellen.',
   pauschal: 'Vom Arbeitgeber pauschal besteuerter Arbeitslohn (z. B. Minijob).',
-  arbeitslosengeld: 'Leistungen wie Arbeitslosengeld, ggf. Zeitraum angeben.',
+  arbeitslosengeld: 'Brutto-Leistungen wie Arbeitslosengeld, ggf. Zeitraum angeben.',
 };
 
 // Add below typeTooltips:
@@ -620,7 +620,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
               <h3 className="mb-0 text-[#000000] font-semibold italic" style={{ fontSize: '1rem' }}>Angaben zur Person</h3>
               <OverlayTrigger
                 placement="right"
-                overlay={renderTooltip("Bitte geben Sie Ihre persönlichen Daten ein")}
+                overlay={renderTooltip("Bitte geben Sie Ihre persönlichen Daten ein. Ihre Angaben aus dem Hauptantrag bzw. der Haushaltsauskunft werden hier übernommen.") }
               >
                 <Button
                   variant="outline-secondary"
@@ -708,7 +708,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
               <h3 className="mb-0 text-[#000000] font-semibold italic" style={{ fontSize: '1rem' }}>Adresse</h3>
               <OverlayTrigger
                 placement="right"
-                overlay={renderTooltip("Bitte geben Sie Ihre vollständige Adresse ein")}
+                overlay={renderTooltip("Bitte geben Sie Ihre vollständige Adresse ein. Die Adresse bezieht sich auf ihren aktuellen Wohnsitz nicht zwangsläufig auf die Adresse des Förderobjekts.")}
               >
                 <Button
                   variant="outline-secondary"
@@ -801,7 +801,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                     <h3 className="mb-0 text-[#000000] font-semibold italic">Steuerpflichtige Einkünfte im Kalenderjahr vor Antragstellung (inklusive Sonderzuwendungen)</h3>
                     <OverlayTrigger
                       placement="right"
-                      overlay={renderTooltip("Wählen Sie das Jahr und geben Sie den Jahresbetrag an.")}
+                      overlay={renderTooltip("Wählen Sie das Jahr und geben Sie den Jahresbetrag an. Der Betrag bezeiht sich auf das Brutto-Jahreseinkommen aus nicht selbstständiger Arbeit/Versorgungsbezügen inklusive aller Sonderzuwendungen wie Weihnachtsgeld, Urlaubsgeld etc. Damit der Betrag gewertet werden kann, muss das Jahr dem letzten Kalenderjahr vor Antragstellung ensprechen.") }
                     >
                       <Button
                         variant="outline-secondary"
@@ -860,7 +860,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                     <h3 className="mb-0 text-[#000000] font-semibold italic">Einkünfte der letzten 12 Monate (ohne Sonderzuwendungen und steuerfreie Einnahmen)</h3>
                     <OverlayTrigger
                       placement="right"
-                      overlay={renderTooltip("Wählen Sie den letzten Monat des Betrachtungszeitraums. Die 12 Monate werden automatisch generiert.")}
+                      overlay={renderTooltip("Wählen Sie den letzten vergangenen Monat des Betrachtungszeitraums. Die 12 Monate werden automatisch generiert. Wenn Sie den Antrag beispielsweise am 15. September stellen, wählen Sie August als letzten Monat. Geben Sie bitte ihr Brutto-Einkommen aus nicht selbstständiger Arbeit/Versorgungsbezügen für jeden Monat des Betrachtungszeitraums ein (exklusive Sonderzuwendungen).") }
                     >
                       <Button
                         variant="outline-secondary"
@@ -995,7 +995,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                     <h3 className="mt-0 text-[#000000] font-semibold italic">Steuerpflichtige Sonderzuwendungen</h3>
                     <OverlayTrigger
                       placement="right"
-                      overlay={renderTooltip("Tragen Sie hier Sonderzahlungen wie Weihnachtsgeld, Urlaubsgeld oder sonstige Leistungen ein. Jeweils für die vergangenen und kommenden 12 Monate.")}
+                      overlay={renderTooltip("Tragen Sie hier die Brutto Beträge der Sonderzahlungen wie Weihnachtsgeld, Urlaubsgeld oder sonstige Leistungen ein, welche Sie neben ihrem Lohn/Gehalt von ihrem Arbeitgeber erhalten. Jeweils für die vergangenen und kommenden 12 Monate.")}
                     >
                       <Button
                         variant="outline-secondary"
@@ -1183,7 +1183,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                     <h3 className="mb-0 text-[#000000] font-semibold italic">Änderung der Einkünfte</h3>
                     <OverlayTrigger
                       placement="right"
-                      overlay={renderTooltip("Geben Sie an, ob sich Ihr Einkommen in den nächsten 12 Monaten ändert. Falls ja, machen Sie bitte genaue Angaben.")}
+                      overlay={renderTooltip("Geben Sie an, ob sich Ihr Einkommen in den nächsten bzw. den letzten 12 Monaten ändert/geändert hat. Falls ja, machen Sie bitte genaue Angaben.")}
                     >
                       <Button
                         variant="outline-secondary"
@@ -1988,7 +1988,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                   <h3 className="mb-0 text-[#000000] font-semibold italic">Werbungskosten</h3>
                   <OverlayTrigger
                     placement="right"
-                    overlay={renderTooltip("Geben Sie hier Ihre Werbungskosten an, die im Zusammenhang mit Ihrer Erwerbstätigkeit stehen.")}
+                    overlay={renderTooltip("Geben Sie hier Ihre Werbungskosten an, die im Zusammenhang mit Ihrer Erwerbstätigkeit stehen. Vergessen Sie nicht entsprechende Nachweise unter „Dokumente Hochladen“ (Schritt 4) einzureichen.")}
                   >
                     <Button
                       variant="outline-secondary"
@@ -2019,7 +2019,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                 <h3 className="mb-0 text-[#000000] font-semibold italic">Kinderbetreuungskosten (falls vorhanden)</h3>
                 <OverlayTrigger
                   placement="right"
-                  overlay={renderTooltip("Geben Sie hier die Kosten für die Betreuung Ihrer Kinder an.")}
+                  overlay={renderTooltip("Geben Sie hier die Kosten für die Betreuung Ihrer Kinder an. Vergessen Sie nicht entsprechende Nachweise unter „Dokumente Hochladen“ (Schritt 4) einzureichen.")}
                 >
                   <Button
                     variant="outline-secondary"
@@ -2045,7 +2045,7 @@ const EinkommenserklaerungForm: React.FC<Props> = ({
                 <h3 className="mb-0 text-[#000000] font-semibold italic">Steuern, Kranken- und Rentenversicherung</h3>
                 <OverlayTrigger
                   placement="right"
-                  overlay={renderTooltip("Geben Sie an, ob Sie Steuern und Versicherungsbeiträge zahlen.")}
+                  overlay={renderTooltip("Geben Sie an, ob Sie Steuern und Versicherungsbeiträge zahlen. Für jede der drei Checkboxen wird ein pauschalierter Betrag von 12% von ihrem Brutto-Jahreseinkommen abgezogen.")}
                 >
                   <Button
                     variant="outline-secondary"
