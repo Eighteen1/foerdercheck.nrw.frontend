@@ -186,7 +186,10 @@ const GovernmentDashboard: React.FC = () => {
     }
     
     setSelectedMenu(menuKey);
-    setSelectedApplicationId(null); // Reset review if switching menu
+    // Reset review only if switching to a different menu
+    if (menuKey !== selectedMenu) {
+      setSelectedApplicationId(null);
+    }
     // Only clear deep link state when switching away from applications menu
     if (menuKey !== "applications") {
       setOpenChecklistItemId(null);
@@ -366,13 +369,17 @@ const GovernmentDashboard: React.FC = () => {
       const urlParams = new URLSearchParams(location.search);
       const pageFromURL = urlParams.get('page');
       const appFromURL = urlParams.get('app');
+      const hasDeepLinkParams = urlParams.has('applicationId') || urlParams.has('openChecklistItemId');
       
       if (pageFromURL && pageFromURL !== selectedMenu) {
         console.log('Initial restore from URL:', pageFromURL);
         setSelectedMenu(pageFromURL);
-      } else if (!pageFromURL) {
+      } else if (!pageFromURL && !hasDeepLinkParams) {
         console.log('Initial URL setup for page:', selectedMenu);
         updateURL(selectedMenu, true);
+      } else if (!pageFromURL && hasDeepLinkParams) {
+        // Preserve deep-link parameters for processing in the other effect
+        console.log('Deep link detected on initial load; preserving query params');
       }
       
       // Handle application ID from URL
@@ -443,12 +450,17 @@ const GovernmentDashboard: React.FC = () => {
       // Set the application and checklist item to open
       setSelectedApplicationId(applicationId);
       setOpenChecklistItemId(checklistItemId);
-      navigateToMenu("applications", false); // Don't add to history for deep links
+      // Ensure we are on the applications menu without clearing current selection
+      setSelectedMenu("applications");
       
-      // Clear the URL query parameters to avoid repeated processing
+      // Normalize URL to applications page and selected application (remove deep link params)
+      const params = new URLSearchParams();
+      params.set('page', 'applications');
+      params.set('app', applicationId);
+      navigate(`${location.pathname}?${params.toString()}`, { replace: true });
+
       // Use a flag to prevent re-processing
-      setProcessingDeepLink(false); // Set to false before navigation to prevent re-triggering
-      navigate(location.pathname, { replace: true });
+      setProcessingDeepLink(false);
       
       //console.log(`Deep link processed: opened application ${applicationId} with checklist item ${checklistItemId}`);
       

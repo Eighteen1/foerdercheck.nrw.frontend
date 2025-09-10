@@ -293,8 +293,8 @@ const RoutingProtection: React.FC<RoutingProtectionProps> = ({
   }, [currentPath]);
 
   // Check if we're in development environment
-  const isDevelopment = process.env.NODE_ENV === 'development';
-  //const isDevelopment = false;
+  //const isDevelopment = process.env.NODE_ENV === 'development';
+  const isDevelopment = false;
   // Block government users (with city metadata) from resident pages
   if (user && user.user_metadata?.city && !isDevelopment) {
     // If government user is trying to access the government landing page, redirect to dashboard
