@@ -7,7 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 const loanSchema = z.object({
   fullName: z.string().min(2, "Name must be at least 2 characters"),
   income: z.number().min(0, "Income must be positive"),
-  loanAmount: z.number().min(1000, "Minimum loan amount is $1000")
+  loanAmount: z.number().min(1000, "Minimum loan amount is $100")
 }); 
 
 type LoanFormData = z.infer<typeof loanSchema>;
