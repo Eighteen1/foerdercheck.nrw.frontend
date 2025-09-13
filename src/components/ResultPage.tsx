@@ -66,7 +66,7 @@ const ResultPage: React.FC = () => {
 
         console.log('Sending request to backend:', requestData);
 
-        const response = await fetch('https://foerdercheck-backend.onrender.com/api/check-eligibility', {
+        const response = await fetch(`${process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000'}/api/check-eligibility`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

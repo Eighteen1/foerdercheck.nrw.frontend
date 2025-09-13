@@ -497,7 +497,7 @@ const PersonalSpace: React.FC = () => {
     setIsLoading(true);
     try {
       // Create user through backend
-      const createUserResponse = await fetch('https://foerdercheck-backend.onrender.com/api/user/create', {
+      const createUserResponse = await fetch(`${process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000'}/api/user/create`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -551,7 +551,7 @@ const PersonalSpace: React.FC = () => {
         };
 
         // Store eligibility data through backend
-        const storeDataResponse = await fetch('https://foerdercheck-backend.onrender.com/api/user/store-eligibility', {
+        const storeDataResponse = await fetch(`${process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000'}/api/user/store-eligibility`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

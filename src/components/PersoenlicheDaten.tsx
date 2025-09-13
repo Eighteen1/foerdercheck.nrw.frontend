@@ -86,7 +86,7 @@ const PersoenlicheDaten: React.FC = () => {
       }
 
       // Call the backend API to delete the user account
-      const response = await fetch('https://foerdercheck-backend.onrender.com/api/user/delete', {
+      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000'}/api/user/delete`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,

@@ -48,7 +48,7 @@ const LoginPage: React.FC = () => {
     
     try {
       // Check if user exists first
-      const checkUserResponse = await fetch('https://foerdercheck-backend.onrender.com/api/user/check', {
+      const checkUserResponse = await fetch(`${process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000'}/api/user/check`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -94,7 +94,7 @@ const LoginPage: React.FC = () => {
     
     try {
       // Check if user already exists
-      const checkUserResponse = await fetch('https://foerdercheck-backend.onrender.com/api/user/check', {
+      const checkUserResponse = await fetch(`${process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000'}/api/user/check`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -118,7 +118,7 @@ const LoginPage: React.FC = () => {
       }
 
       // Create user through backend
-      const createUserResponse = await fetch('https://foerdercheck-backend.onrender.com/api/user/create', {
+      const createUserResponse = await fetch(`${process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000'}/api/user/create`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -148,7 +148,7 @@ const LoginPage: React.FC = () => {
       
       if (user?.id) {
         // Store user data in user_data table
-        const storeUserDataResponse = await fetch('https://foerdercheck-backend.onrender.com/api/user/store-user-data', {
+        const storeUserDataResponse = await fetch(`${process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000'}/api/user/store-user-data`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
