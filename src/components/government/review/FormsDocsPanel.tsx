@@ -107,8 +107,8 @@ export const availableForms = [
   { id: 'einkommenserklaerung', label: 'Einkommenserklärung' },
   { id: 'selbstauskunft', label: 'Selbstauskunft' },
   { id: 'haushaltsauskunft', label: 'Anlage zur Einkommenserklärung' },
-  { id: 'berechnungwofiv', label: 'Berechnung der Wohn- und Nutzfläche nach WoFIV' },
-  { id: 'berechnungrauminhalt', label: 'Berechnung des Brutto-Rauminhalts des Gebäudes' },
+  { id: 'wofiv', label: 'Berechnung der Wohn- und Nutzfläche nach WoFIV' },
+  { id: 'din277', label: 'Berechnung des Brutto-Rauminhalts des Gebäudes' },
   { id: 'selbsthilfeleistungen', label: 'Selbsthilfeleistungen Eigentumsmaßnahmen' },
 ];
 
@@ -117,8 +117,8 @@ const FORM_COMPONENTS: Record<string, React.FC<{ residentId: string }>> = {
   'hauptantrag': HauptantragReviewContainer,
   'selbstauskunft': SelbstauskunftReviewContainer,
   'haushaltsauskunft': HaushaltReviewContainer,
-  'berechnungwofiv': WoFIVReviewContainer,
-  'berechnungrauminhalt': Din277ReviewContainer,
+  'wofiv': WoFIVReviewContainer,
+  'din277': Din277ReviewContainer,
   'selbsthilfeleistungen': SelbsthilfeReviewContainer,
 };
 

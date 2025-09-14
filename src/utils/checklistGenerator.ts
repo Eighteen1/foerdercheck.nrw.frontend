@@ -631,6 +631,43 @@ export async function determineRequiredDocuments(residentId: string): Promise<{
 
       }
 
+      // First, process all additional applicants for disability and care level documents
+      // This ensures we check all persons regardless of whether they have financial data
+      const weiterePersonenData = userData?.weitere_antragstellende_personen || {};
+      let weiterePersonenObj: Record<string, any> = {};
+      
+      // Handle backwards compatibility: convert array to UUID-based object if needed
+      if (Array.isArray(weiterePersonenData)) {
+        weiterePersonenData.forEach((person: any, index: number) => {
+          const personUuid = person.id || `legacy_${index}`;
+          weiterePersonenObj[personUuid] = { ...person, id: personUuid };
+        });
+      } else {
+        weiterePersonenObj = weiterePersonenData;
+      }
+
+      // Process all additional applicants for disability and care level documents
+      Object.entries(weiterePersonenObj).forEach(([uuid, additionalApplicant]: [string, any]) => {
+        // Skip if not part of household
+        if (additionalApplicant?.notHousehold === true) {
+          return;
+        }
+
+        // Initialize the array for this person if it doesn't exist
+        if (!result.additionalApplicants[uuid]) {
+          result.additionalApplicants[uuid] = [];
+        }
+        
+        // Disability and care level documents (regardless of income status)
+        if (additionalApplicant?.behinderungsgrad && parseFloat(additionalApplicant.behinderungsgrad) > 0) {
+          result.additionalApplicants[uuid].push('nachweis_disability');
+        }
+        
+        if (additionalApplicant?.pflegegrad && parseFloat(additionalApplicant.pflegegrad) > 0) {
+          result.additionalApplicants[uuid].push('pflegegrad_nachweis');
+        }
+      });
+
       // Additional applicants financial documents - UUID-based structure
       if (financialData.additional_applicants_financials) {
         const additionalFinancialsData = financialData.additional_applicants_financials;
@@ -652,22 +689,11 @@ export async function determineRequiredDocuments(residentId: string): Promise<{
           additionalFinancialsObj = additionalFinancialsData;
         }
 
-        // Process each additional applicant
+        // Process each additional applicant for income-related documents
         Object.entries(additionalFinancialsObj).forEach(([uuid, applicantFinancials]: [string, any]) => {
-          result.additionalApplicants[uuid] = [];
-
-          // Check employment type from weitere_antragstellende_personen
-          const weiterePersonenData = userData?.weitere_antragstellende_personen || {};
-          let weiterePersonenObj: Record<string, any> = {};
-          
-          // Handle backwards compatibility: convert array to UUID-based object if needed
-          if (Array.isArray(weiterePersonenData)) {
-            weiterePersonenData.forEach((person: any, index: number) => {
-              const personUuid = person.id || `legacy_${index}`;
-              weiterePersonenObj[personUuid] = { ...person, id: personUuid };
-            });
-          } else {
-            weiterePersonenObj = weiterePersonenData;
+          // Ensure the array exists for this person
+          if (!result.additionalApplicants[uuid]) {
+            result.additionalApplicants[uuid] = [];
           }
 
           const additionalApplicant = weiterePersonenObj[uuid];
@@ -723,15 +749,6 @@ export async function determineRequiredDocuments(residentId: string): Promise<{
             if (applicantFinancials.hasbusinessincome === true || applicantFinancials.hasagricultureincome === true) {
               result.additionalApplicants[uuid].push('guv_euer_nachweis');
             }
-          }
-
-          // Disability and care level documents (regardless of income status)
-          if (additionalApplicant?.behinderungsgrad && parseFloat(additionalApplicant.behinderungsgrad) > 0) {
-            result.additionalApplicants[uuid].push('nachweis_disability');
-          }
-          
-          if (additionalApplicant?.pflegegrad && parseFloat(additionalApplicant.pflegegrad) > 0) {
-            result.additionalApplicants[uuid].push('pflegegrad_nachweis');
           }
         });
       }
@@ -2325,14 +2342,14 @@ const GENERAL_DOCUMENT_VALIDATION_RULES: DocumentValidationRule[] = [
     displayTitle: 'Bauzeichnung stimmt mit den Angaben überein',
     condition: (userData: any, objectData: any, financeStructureData: any, costStructureData: any) => objectData?.foerderVariante?.includes('neubau'),
     reasonComment: (userData: any, objectData: any, financeStructureData: any, costStructureData: any) => 'Der Antragsteller hat angegeben, ein Neubauvorhaben zu planen. Zu prüfen: Bauzeichnung stimmt mit den Angaben im Hauptantrag (Schritt 3), sowie der WoFIV und BRI Berechnung überein.',
-    linkedForm: ['hauptantrag', 'berechnungwofiv', 'berechnungrauminhalt']
+    linkedForm: ['hauptantrag', 'wofiv', 'din277']
   },
   {
     documentId: 'lageplan',
     displayTitle: 'Lageplan stimmt mit den Angaben überein',
     condition: (userData: any, objectData: any, financeStructureData: any, costStructureData: any) => objectData?.foerderVariante?.includes('neubau'),
     reasonComment: (userData: any, objectData: any, financeStructureData: any, costStructureData: any) => 'Der Antragsteller hat angegeben, ein Neubauvorhaben zu planen. Zu prüfen: Lageplan stimmt mit den Angaben im Hauptantrag (Schritt 3), sowie der WoFIV und BRI Berechnung überein.',
-    linkedForm: ['hauptantrag', 'berechnungwofiv', 'berechnungrauminhalt']
+    linkedForm: ['hauptantrag', 'wofiv', 'din277']
   },
   {
     documentId: 'baugenehmigung_vorbescheid',

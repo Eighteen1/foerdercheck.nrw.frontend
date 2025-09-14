@@ -231,7 +231,7 @@ const helpData: HelpCategory[] = [
       {
         id: 'change-password',
         title: 'Passwort Ändern',
-        content: 'Sie können Ihr Passwort ändern, indem Sie in der Seitenleiste \"Profil\" auswählen.\nUnter \"Sicherheit\" finden Sie den Punkt \"Passwort ändern\". Klicken Sie dort auf \"Ändern\" und geben Sie Ihr altes sowie Ihr neues Passwort ein.\n\nFalls Sie Ihr Passwort vergessen haben, kontaktieren Sie bitte unseren Support unter support@foerdercheck.nrw',
+        content: 'Sie können Ihr Passwort ändern, indem Sie in der Seitenleiste \"Profil\" auswählen.\nUnter \"Sicherheit\" finden Sie den Punkt \"Passwort ändern\". Klicken Sie dort auf \"Ändern\" und geben Sie Ihr altes sowie Ihr neues Passwort ein.\n\nFalls Sie Ihr Passwort vergessen haben, kontaktieren Sie bitte unseren Support unter support@fördercheck.nrw',
         linkedPage: 'profile'
       },
       {
@@ -293,7 +293,7 @@ const helpData: HelpCategory[] = [
       {
         id: 'login-issues',
         title: 'Anmelde-Probleme',
-        content: 'Überprüfen Sie zunächst Ihre E-Mail-Adresse und Ihr Passwort. Achten Sie außerdem darauf, dass Sie sich bei der korrekten Stadtverwaltung anmelden.\n\nFalls Sie Ihr Passwort vergessen haben, wenden Sie sich bitte an unseren Support unter support@foerdercheck.nrw.\n\nBei Problemen mit der Zwei-Faktor-Authentifizierung (MFA) stellen Sie sicher, dass Sie einen aktiven 6-stelligen Code aus Ihrer Authenticator-App verwenden.\n\nSollten E-Mail-Adresse und Passwort korrekt sein und die Anmeldung dennoch nicht möglich sein, kontaktieren Sie bitte unseren Support, um mögliche Systemprobleme zu melden.',
+        content: 'Überprüfen Sie zunächst Ihre E-Mail-Adresse und Ihr Passwort. Achten Sie außerdem darauf, dass Sie sich bei der korrekten Stadtverwaltung anmelden.\n\nFalls Sie Ihr Passwort vergessen haben, wenden Sie sich bitte an unseren Support unter support@fördercheck.nrw.\n\nBei Problemen mit der Zwei-Faktor-Authentifizierung (MFA) stellen Sie sicher, dass Sie einen aktiven 6-stelligen Code aus Ihrer Authenticator-App verwenden.\n\nSollten E-Mail-Adresse und Passwort korrekt sein und die Anmeldung dennoch nicht möglich sein, kontaktieren Sie bitte unseren Support, um mögliche Systemprobleme zu melden.',
         linkedPage: ''
       },
       {
@@ -311,7 +311,7 @@ const helpData: HelpCategory[] = [
       {
         id: 'contact-support',
         title: 'Support kontaktieren',
-        content: 'Bei technischen Problemen oder Fragen wenden Sie sich an support@foerdercheck.nrw. Beschreiben Sie Ihr Problem detailliert und fügen Sie Screenshots bei, falls möglich.',
+        content: 'Bei technischen Problemen oder Fragen wenden Sie sich an support@fördercheck.nrw. Beschreiben Sie Ihr Problem detailliert und fügen Sie Screenshots bei, falls möglich.',
         linkedPage: ''
       }
     ]
@@ -649,7 +649,7 @@ const GovernmentHelpPage: React.FC<GovernmentHelpPageProps> = ({ onNavigate }) =
           Falls Sie hier keine Antwort auf Ihre Frage finden, kontaktieren Sie unseren Support.
         </p>
         <a
-          href="mailto:support@foerdercheck.nrw"
+          href="mailto:support@fördercheck.nrw"
           style={{
             background: '#064497',
             color: '#fff',
@@ -664,7 +664,7 @@ const GovernmentHelpPage: React.FC<GovernmentHelpPageProps> = ({ onNavigate }) =
           onMouseOver={(e) => e.currentTarget.style.background = '#053a7a'}
           onMouseOut={(e) => e.currentTarget.style.background = '#064497'}
         >
-          support@foerdercheck.nrw
+          support@fördercheck.nrw
         </a>
       </div>
 

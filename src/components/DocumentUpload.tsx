@@ -870,6 +870,46 @@ const DocumentUpload: React.FC = () => {
           }*/
        }
 
+        // First, process all additional applicants for disability and care level documents
+        // This ensures we check all persons regardless of whether they have financial data
+        const weiterePersonenData = userData?.weitere_antragstellende_personen || {};
+        let weiterePersonenObj: Record<string, any> = {};
+        
+        // Handle backwards compatibility: convert array to UUID-based object if needed
+        if (Array.isArray(weiterePersonenData)) {
+          weiterePersonenData.forEach((person: any, index: number) => {
+            const personUuid = person.id || `legacy_${index}`;
+            weiterePersonenObj[personUuid] = { ...person, id: personUuid };
+          });
+        } else {
+          weiterePersonenObj = weiterePersonenData;
+        }
+
+        // Process all additional applicants for disability and care level documents
+        Object.entries(weiterePersonenObj).forEach(([uuid, additionalApplicant]: [string, any]) => {
+          // Initialize the array for this person if it doesn't exist
+          if (!result.additionalApplicants[uuid]) {
+            result.additionalApplicants[uuid] = [];
+          }
+
+          console.log(`Checking disability for ${uuid}:`, {
+            additionalApplicant,
+            behinderungsgrad: additionalApplicant?.behinderungsgrad,
+            parsedValue: additionalApplicant?.behinderungsgrad ? parseFloat(additionalApplicant.behinderungsgrad) : null,
+            condition: additionalApplicant?.behinderungsgrad && parseFloat(additionalApplicant.behinderungsgrad) > 0
+          });
+          
+          // Additional applicant disability and care level documents
+          if (additionalApplicant?.behinderungsgrad && parseFloat(additionalApplicant.behinderungsgrad) > 0) {
+            console.log(`Adding nachweis_disability for ${uuid}`);
+            result.additionalApplicants[uuid].push('nachweis_disability');
+          }
+          
+          if (additionalApplicant?.pflegegrad && parseFloat(additionalApplicant.pflegegrad) > 0) {
+            result.additionalApplicants[uuid].push('pflegegrad_nachweis');
+          }
+        });
+
         // Additional applicants financial documents - UUID-based structure
         if (financialData.additional_applicants_financials) {
           const additionalFinancialsData = financialData.additional_applicants_financials;
@@ -891,27 +931,21 @@ const DocumentUpload: React.FC = () => {
             additionalFinancialsObj = additionalFinancialsData;
           }
 
-          // Process each additional applicant
+          // Process each additional applicant for income-related documents
           Object.entries(additionalFinancialsObj).forEach(([uuid, applicantFinancials]: [string, any]) => {
-            result.additionalApplicants[uuid] = [];
-
-            // Check employment type from weitere_antragstellende_personen
-            const weiterePersonenData = userData?.weitere_antragstellende_personen || {};
-            let weiterePersonenObj: Record<string, any> = {};
-            
-            // Handle backwards compatibility: convert array to UUID-based object if needed
-            if (Array.isArray(weiterePersonenData)) {
-              weiterePersonenData.forEach((person: any, index: number) => {
-                const personUuid = person.id || `legacy_${index}`;
-                weiterePersonenObj[personUuid] = { ...person, id: personUuid };
-              });
-            } else {
-              weiterePersonenObj = weiterePersonenData;
+            // Ensure the array exists for this person
+            if (!result.additionalApplicants[uuid]) {
+              result.additionalApplicants[uuid] = [];
             }
 
             const additionalApplicant = weiterePersonenObj[uuid];
-
             
+            console.log(`Processing financial data for additional applicant ${uuid}:`, {
+              additionalApplicant,
+              uuid,
+              applicantFinancials
+            });
+
             if(additionalApplicant?.noIncome !== true && additionalApplicant?.notHousehold !== true){
               
             if (applicantFinancials.hasSalaryIncome === true || applicantFinancials.isEarningRegularIncome === true) {
@@ -962,14 +996,6 @@ const DocumentUpload: React.FC = () => {
             /*if (additionalApplicant?.employment?.type && ['apprentice', 'student', 'pupil'].includes(additionalApplicant.employment.type)) {
               result.additionalApplicants[uuid].push('ausbildungsfoerderung_nachweis');
             }*/
-            }
-            // Additional applicant disability and care level documents
-            if (additionalApplicant?.behinderungsgrad && parseFloat(additionalApplicant.behinderungsgrad) > 0) {
-              result.additionalApplicants[uuid].push('nachweis_disability');
-            }
-            
-            if (additionalApplicant?.pflegegrad && parseFloat(additionalApplicant.pflegegrad) > 0) {
-              result.additionalApplicants[uuid].push('pflegegrad_nachweis');
             }
           });
         }
