@@ -851,6 +851,33 @@ const PersonalSpace: React.FC = () => {
 
       console.log('Successfully inserted application:', data);
 
+      // Create registry entry for the new application
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.access_token) {
+          const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
+          const registryResponse = await fetch(`${BACKEND_URL}/api/registry/create-entry`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`
+            },
+            body: JSON.stringify({
+              application_id: data[0].id
+            })
+          });
+          
+          if (!registryResponse.ok) {
+            console.warn('Failed to create registry entry:', await registryResponse.text());
+          } else {
+            console.log('Successfully created registry entry');
+          }
+        }
+      } catch (registryError) {
+        console.warn('Error creating registry entry:', registryError);
+        // Don't fail the submission if registry creation fails
+      }
+
       // Update user_data status to submitted
       const { error: updateError } = await supabase
         .from('user_data')

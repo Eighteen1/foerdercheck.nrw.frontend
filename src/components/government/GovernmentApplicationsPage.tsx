@@ -104,6 +104,14 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
   const [shareMessage, setShareMessage] = useState("");
   const [isSharing, setIsSharing] = useState(false);
   
+  // Export registry state
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportFormat, setExportFormat] = useState<'excel' | 'csv'>('excel');
+  const [availableColumns, setAvailableColumns] = useState<{key: string, label: string}[]>([]);
+  const [selectedColumns, setSelectedColumns] = useState<string[]>([]);
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportError, setExportError] = useState<string>('');
+  
   // Sorting state
   const [sortConfig, setSortConfig] = useState<{
     field: string;
@@ -487,6 +495,34 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
     fetchUserRole();
   }, []);
 
+  // Fetch available columns for export
+  useEffect(() => {
+    const fetchAvailableColumns = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user) return;
+
+        const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || '';
+        const response = await fetch(`${BACKEND_URL}/api/registry/available-columns`, {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setAvailableColumns(data.columns || []);
+          // Select all columns by default
+          setSelectedColumns(data.columns?.map((col: any) => col.key) || []);
+        }
+      } catch (error) {
+        console.error('Error fetching available columns:', error);
+      }
+    };
+
+    fetchAvailableColumns();
+  }, []);
+
   // Add this function to check for existing assignments
   const checkExistingAssignments = () => {
     const appsWithAssignments = filteredApplications
@@ -566,6 +602,85 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
       return `Ein Team-Mitglied hat den Antrag "${appIds[0]}" mit folgender Nachricht an Sie geteilt:`;
     } else {
       return `Ein Team-Mitglied hat die Anträge ${appIds.map(id => `"${id}"`).join(", ")} mit folgender Nachricht an Sie geteilt:`;
+    }
+  };
+
+  // Export handler
+  const handleExport = async () => {
+    if (selectedColumns.length === 0) {
+      setExportError('Bitte wählen Sie mindestens eine Spalte aus.');
+      return;
+    }
+
+    setIsExporting(true);
+    setExportError('');
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) throw new Error('Keine Authentifizierung gefunden.');
+
+      const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || '';
+      const response = await fetch(`${BACKEND_URL}/api/registry/export`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          columns: selectedColumns,
+          format: exportFormat,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.detail || 'Fehler beim Exportieren der Daten.');
+      }
+
+      // Get the file as blob
+      const blob = await response.blob();
+      
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      
+      // Extract filename from Content-Disposition header or use default
+      const disposition = response.headers.get('Content-Disposition');
+      let filename = `eingangsbestaetigung_${new Date().toISOString().split('T')[0]}.${exportFormat === 'excel' ? 'xlsx' : 'csv'}`;
+      if (disposition && disposition.includes('filename=')) {
+        filename = disposition.split('filename=')[1].replace(/['"]/g, '');
+      }
+      
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      setShowExportModal(false);
+    } catch (err: any) {
+      setExportError(err.message || 'Fehler beim Exportieren der Daten.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  // Toggle column selection
+  const toggleColumn = (columnKey: string) => {
+    setSelectedColumns(prev => 
+      prev.includes(columnKey) 
+        ? prev.filter(k => k !== columnKey)
+        : [...prev, columnKey]
+    );
+  };
+
+  // Select/Deselect all columns
+  const toggleAllColumns = () => {
+    if (selectedColumns.length === availableColumns.length) {
+      setSelectedColumns([]);
+    } else {
+      setSelectedColumns(availableColumns.map(col => col.key));
     }
   };
 
@@ -717,6 +832,14 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
             onClick={() => setShowSearchModal(true)}
           >
             <span className="material-icons">search</span>
+          </Button>
+          <Button 
+            variant="link" 
+            style={{ color: "#064497", fontSize: 22 }}
+            onClick={() => setShowExportModal(true)}
+            title="Eingangsbestätigung Liste exportieren"
+          >
+            <span className="material-icons">download</span>
           </Button>
           <Button 
             variant="link" 
@@ -1380,6 +1503,110 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
             style={{ background: '#064497', border: 'none' }}
           >
             {selectedAgent === 'unassign' ? 'Zuweisung aufheben' : 'Zuweisen'}
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Export Registry Modal */}
+      <Modal show={showExportModal} onHide={() => !isExporting && setShowExportModal(false)} centered size="lg">
+        <Modal.Header closeButton={!isExporting}>
+          <Modal.Title>Eingangsbestätigung Liste exportieren</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {isExporting ? (
+            <div style={{ 
+              position: 'absolute', 
+              top: 0, 
+              left: 0, 
+              right: 0, 
+              bottom: 0, 
+              background: 'rgba(255, 255, 255, 0.8)', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              zIndex: 1
+            }}>
+              <div style={{ textAlign: 'center' }}>
+                <Spinner animation="border" style={{ color: '#064497', marginBottom: 16 }} />
+                <div style={{ color: '#064497' }}>Exportiere Daten...</div>
+              </div>
+            </div>
+          ) : null}
+          
+          <Form>
+            <Form.Group className="mb-3">
+              <Form.Label>Export-Format</Form.Label>
+              <Form.Select
+                value={exportFormat}
+                onChange={(e) => setExportFormat(e.target.value as 'excel' | 'csv')}
+                disabled={isExporting}
+              >
+                <option value="excel">Excel (.xlsx)</option>
+                <option value="csv">CSV (.csv)</option>
+              </Form.Select>
+            </Form.Group>
+
+            <Form.Group className="mb-3">
+              <div className="d-flex justify-content-between align-items-center mb-2">
+                <Form.Label className="mb-0">Spalten auswählen</Form.Label>
+                <Button 
+                  variant="link" 
+                  size="sm" 
+                  onClick={toggleAllColumns}
+                  disabled={isExporting}
+                  style={{ color: '#064497', fontSize: 14 }}
+                >
+                  {selectedColumns.length === availableColumns.length ? 'Alle abwählen' : 'Alle auswählen'}
+                </Button>
+              </div>
+              
+              <div style={{ 
+                maxHeight: 300, 
+                overflowY: 'auto', 
+                border: '1px solid #dee2e6', 
+                borderRadius: 4, 
+                padding: 12 
+              }}>
+                {availableColumns.map((column) => (
+                  <Form.Check
+                    key={column.key}
+                    type="checkbox"
+                    id={`col-${column.key}`}
+                    label={column.label}
+                    checked={selectedColumns.includes(column.key)}
+                    onChange={() => toggleColumn(column.key)}
+                    disabled={isExporting}
+                    className="mb-2"
+                  />
+                ))}
+              </div>
+              <Form.Text className="text-muted">
+                {selectedColumns.length} von {availableColumns.length} Spalten ausgewählt
+              </Form.Text>
+            </Form.Group>
+
+            {exportError && (
+              <Alert variant="danger" className="mb-3">
+                {exportError}
+              </Alert>
+            )}
+          </Form>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button 
+            variant="secondary" 
+            onClick={() => setShowExportModal(false)}
+            disabled={isExporting}
+          >
+            Abbrechen
+          </Button>
+          <Button 
+            variant="primary" 
+            onClick={handleExport}
+            disabled={selectedColumns.length === 0 || isExporting}
+            style={{ background: '#064497', border: 'none' }}
+          >
+            {exportFormat === 'excel' ? 'Excel exportieren' : 'CSV exportieren'}
           </Button>
         </Modal.Footer>
       </Modal>
