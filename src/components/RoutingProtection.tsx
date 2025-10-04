@@ -464,7 +464,8 @@ const RoutingProtection: React.FC<RoutingProtectionProps> = ({
     console.log('Government dashboard access check:', {
       isAuthenticated,
       userMetadata: user?.user_metadata,
-      hasCity: !!user?.user_metadata?.city
+      hasCity: !!user?.user_metadata?.city,
+      from: location.state?.from
     });
     
     // Only allow access if user has city metadata (government user) or in development
@@ -476,6 +477,32 @@ const RoutingProtection: React.FC<RoutingProtectionProps> = ({
 
   // Handle specific routes based on authentication and navigation source
   switch (currentPath) {
+    case '/government/dashboard':
+      console.log('Government dashboard switch case:', {
+        isAuthenticated,
+        from: location.state?.from,
+        isDirectAccess: isDirectAccess(),
+        currentPath,
+        locationState: location.state
+      });
+      
+      // Allow navigation from government messages page
+      const dashboardFromPage = location.state?.from;
+      if (dashboardFromPage === '/government/messages') {
+        console.log('Allowing navigation from government messages to dashboard');
+        break;
+      }
+      
+      // Allow direct access to government dashboard for government users
+      if (user?.user_metadata?.city || isDevelopment) {
+        console.log('Allowing government dashboard access');
+        break;
+      }
+      
+      // Redirect non-government users
+      console.log('Redirecting non-government user from dashboard');
+      return <Navigate to="/government/login" replace state={{ from: currentPath }} />;
+
     case '/document-check':
     case '/document-upload':
     case '/hauptantrag':

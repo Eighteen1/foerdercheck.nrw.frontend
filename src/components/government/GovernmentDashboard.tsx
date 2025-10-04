@@ -491,17 +491,50 @@ const GovernmentDashboard: React.FC = () => {
 
 
 
+  // Handle navigation state for application selection - separate effect for better control
   useEffect(() => {
-    // Handle navigation state for application selection (only on mount)
-    if (location.state?.selectedApplicationId) {
-      setSelectedApplicationId(location.state.selectedApplicationId);
+    const navigationState = location.state;
+    console.log('*** DASHBOARD: Processing navigation state:', navigationState, '***');
+    
+    if (!navigationState) {
+      console.log('*** DASHBOARD: No navigation state to process ***');
+      return;
     }
-    if (location.state?.openChecklistItemId) {
-      setOpenChecklistItemId(location.state.openChecklistItemId);
-      // Reset state after use to avoid repeated opening
-      navigate(location.pathname, { replace: true, state: { ...location.state, openChecklistItemId: null } });
+    
+    let stateChanged = false;
+    
+    // Process selectedMenu
+    if (navigationState.selectedMenu && navigationState.selectedMenu !== selectedMenu) {
+      console.log('*** DASHBOARD: Setting selectedMenu to:', navigationState.selectedMenu, '***');
+      setSelectedMenu(navigationState.selectedMenu);
+      stateChanged = true;
     }
-  }, []); // Remove all dependencies to run only on mount
+    
+    // Process selectedApplicationId
+    if (navigationState.selectedApplicationId && navigationState.selectedApplicationId !== selectedApplicationId) {
+      console.log('*** DASHBOARD: Setting selectedApplicationId to:', navigationState.selectedApplicationId, '***');
+      setSelectedApplicationId(navigationState.selectedApplicationId);
+      stateChanged = true;
+    }
+    
+    // Process openChecklistItemId
+    if (navigationState.openChecklistItemId && navigationState.openChecklistItemId !== openChecklistItemId) {
+      console.log('*** DASHBOARD: Setting openChecklistItemId to:', navigationState.openChecklistItemId, '***');
+      setOpenChecklistItemId(navigationState.openChecklistItemId);
+      stateChanged = true;
+    }
+    
+    // Clear navigation state after processing to prevent re-processing
+    if (stateChanged && navigationState.openChecklistItemId) {
+      console.log('*** DASHBOARD: Clearing navigation state after processing ***');
+      const newState = { ...navigationState };
+      delete newState.openChecklistItemId;
+      // Use requestAnimationFrame to ensure state updates have been processed
+      requestAnimationFrame(() => {
+        navigate(location.pathname, { replace: true, state: newState });
+      });
+    }
+  }, [location.state]); // Only depend on location.state
 
   // Handle URL query parameters for deep linking
   useEffect(() => {

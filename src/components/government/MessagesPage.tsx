@@ -26,6 +26,7 @@ interface Message {
   metadata: {
     application_id?: string | string[];
     checklist_items?: {id: string, title: string}[];
+    checklist_item?: {id: string, title: string}; // Backward compatibility for old messages
   };
   sender?: {
     name: string | null;
@@ -142,18 +143,30 @@ const MessagesPage: React.FC = () => {
   };
 
   const handleOpenApplication = (applicationId: string, checklistItemId?: string) => {
+    console.log('*** MESSAGES PAGE: handleOpenApplication called ***');
+    console.log('*** Application ID:', applicationId, '***');
+    console.log('*** Checklist Item ID:', checklistItemId, '***');
+    
     // Close the modal
     setShowModal(false);
     setSelectedMessage(null);
     
+    const navigationState = { 
+      selectedMenu: 'applications',
+      selectedApplicationId: applicationId,
+      openChecklistItemId: checklistItemId,
+      from: '/government/messages'
+    };
+    
+    console.log('*** MESSAGES PAGE: Navigating with state:', navigationState, '***');
+    
     // Navigate to applications and set the selected application
-    navigate('/government/dashboard', { 
-      state: { 
-        selectedMenu: 'applications',
-        selectedApplicationId: applicationId,
-        openChecklistItemId: checklistItemId
-      }
-    });
+    navigate('/government/dashboard', { state: navigationState });
+    
+    // Force a small delay to ensure navigation is processed
+    setTimeout(() => {
+      console.log('*** MESSAGES PAGE: Navigation completed ***');
+    }, 100);
   };
 
   // Filter messages by activeType
@@ -346,7 +359,12 @@ const MessagesPage: React.FC = () => {
                   selectedMessage.metadata.application_id.map((id) => (
                     <Button
                       key={id}
-                      onClick={() => handleOpenApplication(id)}
+                      onClick={(e) => {
+                        console.log('*** BUTTON CLICKED: Application ID', id, '***');
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleOpenApplication(id);
+                      }}
                       style={{ 
                         width: 'fit-content',
                         backgroundColor: 'white',
@@ -361,7 +379,12 @@ const MessagesPage: React.FC = () => {
                   ))
                 ) : (
                   <Button
-                    onClick={() => handleOpenApplication(selectedMessage.metadata.application_id as string)}
+                    onClick={(e) => {
+                      console.log('*** BUTTON CLICKED: Single Application ID', selectedMessage.metadata.application_id, '***');
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleOpenApplication(selectedMessage.metadata.application_id as string);
+                    }}
                     style={{ 
                       width: 'fit-content',
                       backgroundColor: 'white',
@@ -375,42 +398,63 @@ const MessagesPage: React.FC = () => {
                   </Button>
                 )}
                 {/* Checklist Item Buttons */}
-                {selectedMessage?.metadata?.checklist_items && Array.isArray(selectedMessage.metadata.checklist_items) && selectedMessage.metadata.checklist_items.length > 0 && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
-                    {selectedMessage.metadata.checklist_items.map((item: {id: string, title: string}) => (
-                      <Button
-                        key={item.id}
-                        onClick={() => handleOpenApplication(selectedMessage.metadata.application_id as string, item.id)}
-                        style={{
-                          width: 'fit-content',
-                          maxWidth: 340,
-                          backgroundColor: 'white',
-                          color: '#064497',
-                          border: 'none',
-                          boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-                          fontWeight: 500,
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 8,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                          paddingRight: 16
-                        }}
-                        title={item.title}
-                      >
-                        <span className="material-icons" style={{ fontSize: 18, color: '#064497', flex: '0 0 auto' }}>checklist</span>
-                        <span style={{
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                          display: 'inline-block',
-                          maxWidth: 260
-                        }}>{item.title}</span>
-                      </Button>
-                    ))}
-                  </div>
-                )}
+                {(() => {
+                  // Handle both old format (checklist_item) and new format (checklist_items array)
+                  const checklistItems = selectedMessage?.metadata?.checklist_items 
+                    ? (Array.isArray(selectedMessage.metadata.checklist_items) ? selectedMessage.metadata.checklist_items : [selectedMessage.metadata.checklist_items])
+                    : (selectedMessage?.metadata?.checklist_item ? [selectedMessage.metadata.checklist_item] : []);
+                  
+                  if (checklistItems.length === 0) return null;
+                  
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
+                      {checklistItems.map((item: {id: string, title: string}) => {
+                        // Get application ID - handle both array and string formats
+                        const appId = Array.isArray(selectedMessage.metadata.application_id) 
+                          ? selectedMessage.metadata.application_id[0] 
+                          : selectedMessage.metadata.application_id;
+                        
+                        return (
+                          <Button
+                            key={item.id}
+                            onClick={(e) => {
+                              console.log('*** BUTTON CLICKED: Checklist Item', item.id, 'for Application', appId, '***');
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleOpenApplication(appId as string, item.id);
+                            }}
+                            style={{
+                              width: 'fit-content',
+                              maxWidth: 340,
+                              backgroundColor: 'white',
+                              color: '#064497',
+                              border: 'none',
+                              boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                              fontWeight: 500,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 8,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                              paddingRight: 16
+                            }}
+                            title={item.title}
+                          >
+                            <span className="material-icons" style={{ fontSize: 18, color: '#064497', flex: '0 0 auto' }}>checklist</span>
+                            <span style={{
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                              display: 'inline-block',
+                              maxWidth: 260
+                            }}>{item.title}</span>
+                          </Button>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </div>

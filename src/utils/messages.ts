@@ -970,8 +970,8 @@ export const sendSecondReviewerAssignedMessage = async (
       title: 'Zweitprüfung zugewiesen',
       content: messageContent,
       metadata: { 
-        application_id: applicationId,
-        checklist_item: checklistItem
+        application_id: [applicationId],
+        checklist_items: [checklistItem]
       }
     });
 
@@ -1061,8 +1061,8 @@ export const sendSecondReviewerUnassignedMessage = async (
       title: 'Zweitprüfung nicht mehr zugewiesen',
       content: messageContent,
       metadata: { 
-        application_id: applicationId,
-        checklist_item: checklistItem
+        application_id: [applicationId],
+        checklist_items: [checklistItem]
       }
     });
 
