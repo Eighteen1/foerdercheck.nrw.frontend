@@ -268,6 +268,9 @@ export async function generateChecklistItems(applicationId: string, residentId: 
     const generalItems = await generateGeneralChecklistItems(userData, applicationData?.type, financeStructureData, residentId);
     checklistItems.push(...generalItems);
 
+    // Note: Automatic extraction items are now handled separately by ExtractionChecklistGenerator
+    // and should be generated and saved before calling this function
+
     return checklistItems;
   } catch (error) {
     console.error('Error generating checklist items:', error);
@@ -3616,4 +3619,5 @@ function rephraseApplicantMessage(message: string): string {
   // For other messages, replace "Ihr" with "Das" where appropriate
   return message.replace(/^Ihr\s/, 'Das ');
 }
+
 

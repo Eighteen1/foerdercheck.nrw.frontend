@@ -928,4 +928,186 @@ export const processDocumentSubmissionEmailNotifications = async () => {
   } catch (err) {
     console.error('Error in processDocumentSubmissionEmailNotifications:', err);
   }
+};
+
+export const sendSecondReviewerAssignedMessage = async (
+  recipientId: string,
+  senderId: string,
+  applicationId: string,
+  checklistItem: { id: string; title: string }
+) => {
+  try {
+    // Don't send message if assigning to self
+    if (recipientId === senderId) return true;
+
+    // Get recipient's settings and info
+    const { data: recipientData, error: recipientError } = await supabase
+      .from('agents')
+      .select('name, email, settings')
+      .eq('id', recipientId)
+      .single();
+
+    if (recipientError) throw recipientError;
+
+    // Get sender's info
+    const { data: senderData, error: senderError } = await supabase
+      .from('agents')
+      .select('name, email')
+      .eq('id', senderId)
+      .single();
+
+    if (senderError) throw senderError;
+
+    const senderName = senderData.name ? `${senderData.name} (${senderData.email})` : senderData.email;
+    const messageContent = `${senderName} hat Sie zur Zweitprüfung des Prüfpunktes "${checklistItem.title}" im Antrag ${applicationId} zugewiesen.`;
+
+    // Send internal message
+    const messageSent = await sendMessage({
+      recipient_id: recipientId,
+      sender_id: senderId,
+      type: 'team',
+      category: 'second_reviewer_assigned',
+      title: 'Zweitprüfung zugewiesen',
+      content: messageContent,
+      metadata: { 
+        application_id: applicationId,
+        checklist_item: checklistItem
+      }
+    });
+
+    // Check if email notifications are enabled for application assignments
+    const shouldSendEmail = recipientData.settings?.notifications?.emailNotifications?.applicationAssigned === true;
+
+    // Send email if enabled
+    if (shouldSendEmail) {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        console.error('No access token available in session');
+        throw new Error('No access token available');
+      }
+
+      const jwtToken = session.access_token;
+
+      const response = await fetch(`${BACKEND_URL}/api/send-second-reviewer-assigned-message`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${jwtToken}`
+        },
+        body: JSON.stringify({
+          to_email: recipientData.email,
+          to_name: recipientData.name,
+          from_email: senderData.email,
+          from_name: senderData.name,
+          title: 'Zweitprüfung zugewiesen',
+          content: messageContent,
+          application_id: applicationId,
+          checklist_item: checklistItem
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Failed to send email notification:', errorData);
+        throw new Error(errorData.detail || 'Failed to send email notification');
+      }
+    }
+
+    return messageSent;
+  } catch (err) {
+    console.error('Error in sendSecondReviewerAssignedMessage:', err);
+    return false;
+  }
+};
+
+export const sendSecondReviewerUnassignedMessage = async (
+  recipientId: string,
+  senderId: string,
+  applicationId: string,
+  checklistItem: { id: string; title: string }
+) => {
+  try {
+    // Don't send message if unassigning from self
+    if (recipientId === senderId) return true;
+
+    // Get recipient's settings and info
+    const { data: recipientData, error: recipientError } = await supabase
+      .from('agents')
+      .select('name, email, settings')
+      .eq('id', recipientId)
+      .single();
+
+    if (recipientError) throw recipientError;
+
+    // Get sender's info
+    const { data: senderData, error: senderError } = await supabase
+      .from('agents')
+      .select('name, email')
+      .eq('id', senderId)
+      .single();
+
+    if (senderError) throw senderError;
+
+    const senderName = senderData.name ? `${senderData.name} (${senderData.email})` : senderData.email;
+    const messageContent = `${senderName} hat die Zweitprüfung des Prüfpunktes "${checklistItem.title}" im Antrag ${applicationId} aufgehoben. Sie sind nicht mehr für diese Prüfung zuständig.`;
+
+    // Send internal message
+    const messageSent = await sendMessage({
+      recipient_id: recipientId,
+      sender_id: senderId,
+      type: 'team',
+      category: 'second_reviewer_unassigned',
+      title: 'Zweitprüfung nicht mehr zugewiesen',
+      content: messageContent,
+      metadata: { 
+        application_id: applicationId,
+        checklist_item: checklistItem
+      }
+    });
+
+    // Check if email notifications are enabled for application assignments
+    const shouldSendEmail = recipientData.settings?.notifications?.emailNotifications?.applicationAssigned === true;
+
+    // Send email if enabled
+    if (shouldSendEmail) {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        console.error('No access token available in session');
+        throw new Error('No access token available');
+      }
+
+      const jwtToken = session.access_token;
+
+      const response = await fetch(`${BACKEND_URL}/api/send-second-reviewer-unassigned-message`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${jwtToken}`
+        },
+        body: JSON.stringify({
+          to_email: recipientData.email,
+          to_name: recipientData.name,
+          from_email: senderData.email,
+          from_name: senderData.name,
+          title: 'Zweitprüfung nicht mehr zugewiesen',
+          content: messageContent,
+          application_id: applicationId,
+          checklist_item: checklistItem
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Failed to send email notification:', errorData);
+        throw new Error(errorData.detail || 'Failed to send email notification');
+      }
+    }
+
+    return messageSent;
+  } catch (err) {
+    console.error('Error in sendSecondReviewerUnassignedMessage:', err);
+    return false;
+  }
 }; 

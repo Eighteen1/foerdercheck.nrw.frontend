@@ -67,3 +67,7 @@ code {
   background: #eaf1fd !important;
   color: #064497 !important;
 }
+
+.custom-bordered-button {
+  border: 1px solid #9e9e9e !important;
+}

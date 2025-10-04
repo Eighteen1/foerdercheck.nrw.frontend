@@ -1330,6 +1330,9 @@ const ReviewActionsPanel: React.FC<ReviewActionsPanelProps> = ({
               <div style={{ marginBottom: 20, color: '#333', fontSize: 18, fontWeight: 500 }}>
                 Bitte überprüfen Sie die Ergebnisse der Checkliste, bevor Sie eine Entscheidung treffen.
               </div>
+              <div style={{ marginBottom: 20, color: '#666', fontSize: 14, fontStyle: 'italic' }}>
+                Hinweis: Diese Übersicht zeigt nur die primäre Prüfung. Zweite Prüfungen werden hier nicht berücksichtigt.
+              </div>
               {/* Checklist groups as cards with badges */}
               {(() => {
                 const groups = groupChecklistItems(finishChecklist);

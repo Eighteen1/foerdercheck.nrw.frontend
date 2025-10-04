@@ -27,6 +27,7 @@ import GovernmentLanding from './components/government/GovernmentLanding';
 import GovernmentLogin from './components/government/GovernmentLogin';
 import GovernmentDashboard from './components/government/GovernmentDashboard';
 import ApplicationReviewContainer from './components/government/review/ApplicationReviewContainer';
+import GovernmentExtractionTest from './components/government/GovernmentExtractionTest';
 import SelbstauskunftContainer from './components/Selbstauskunft/SelbstauskunftContainer';
 import WoFIVContainer from './components/WoFIV/WoFIVContainer';
 import Din277Container from './components/DIN277/Din277Container';
@@ -36,6 +37,7 @@ import ValidationPage from './components/ValidationPage';
 import UserApplicationReview from './components/UserApplicationReview';
 import PersoenlicheDaten from './components/PersoenlicheDaten';
 import AutoLogoutActivator from './components/common/AutoLogoutActivator';
+import OCRTestComponent from './components/OCRTestComponent';
 
 function App() {
   return (
@@ -53,6 +55,11 @@ function App() {
                 <Route path="/government/dashboard" element={
                   <RoutingProtection>
                     <GovernmentDashboard />
+                  </RoutingProtection>
+                } />
+                <Route path="/government/extractTest" element={
+                  <RoutingProtection>
+                    <GovernmentExtractionTest />
                   </RoutingProtection>
                 } />
                 <Route path="/password-protection" element={<PasswordProtection />} />
@@ -133,6 +140,11 @@ function App() {
                 <Route path="/view-application" element={
                   <RoutingProtection requireAuth>
                     <UserApplicationReview />
+                  </RoutingProtection>
+                } />
+                <Route path="/ocr-test" element={
+                  <RoutingProtection requireAuth>
+                    <OCRTestComponent />
                   </RoutingProtection>
                 } />
               </Routes>

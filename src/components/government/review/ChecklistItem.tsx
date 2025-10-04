@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { ChecklistItemProps, ChecklistStatus } from '../../../types/checklist';
 import { availableForms } from './FormsDocsPanel';
 import { DOCUMENT_LABELS } from './FormsDocsPanel';
@@ -9,6 +10,8 @@ import {
   checkDocumentCompletenessWithRequiredDocs,
   generateUploadedDocumentsList
 } from '../../../utils/checklistGenerator';
+import { supabase, getCurrentUser } from '../../../lib/supabase';
+import AssignSecondReviewerModal from './AssignSecondReviewerModal';
 
 const STATUS_LABELS: Record<ChecklistStatus, string> = {
   correct: 'Gültig',
@@ -25,6 +28,9 @@ interface DynamicChecklistItemProps extends ChecklistItemProps {
   applicationId?: string; // Application ID for navigation
   onRefreshData?: () => Promise<void>; // Function to refresh data from database
   isReadOnly?: boolean; // Whether the component should be read-only for completed applications
+  onAssignSecondReviewer?: (itemId: string, assignedAgentId: string) => Promise<void>;
+  onSecondAgentStatusChange?: (itemId: string, newStatus: string) => Promise<void>;
+  onRemoveSecondReviewer?: (itemId: string) => Promise<void>;
 }
 
 const ChecklistItem: React.FC<DynamicChecklistItemProps> = ({
@@ -40,6 +46,9 @@ const ChecklistItem: React.FC<DynamicChecklistItemProps> = ({
   applicationId,
   onRefreshData,
   isReadOnly = false,
+  onAssignSecondReviewer,
+  onSecondAgentStatusChange,
+  onRemoveSecondReviewer,
 }) => {
   const [tempNotes, setTempNotes] = useState(item.agentNotes || '');
   const [notesChanged, setNotesChanged] = useState(false);
@@ -58,6 +67,10 @@ const ChecklistItem: React.FC<DynamicChecklistItemProps> = ({
   const [refreshMessage, setRefreshMessage] = useState('');
   const [refreshMessageType, setRefreshMessageType] = useState<'success' | 'error'>('success');
   const containerRef = useRef<HTMLDivElement>(null);
+  const [statusSetByAgent, setStatusSetByAgent] = useState<{ name: string; email: string } | null>(null);
+  const [showSecondReviewerModal, setShowSecondReviewerModal] = useState(false);
+  const [secondReviewerAgent, setSecondReviewerAgent] = useState<{ name: string; email: string } | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   // Function to determine applicant key from checklist item ID
   const getApplicantKeyFromItemId = (itemId: string): string => {
@@ -693,6 +706,67 @@ const ChecklistItem: React.FC<DynamicChecklistItemProps> = ({
     return () => observer.disconnect();
   }, []);
 
+  // Fetch current user ID
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      const user = await getCurrentUser();
+      if (user) {
+        setCurrentUserId(user.id);
+      }
+    };
+    fetchCurrentUser();
+  }, []);
+
+  // Fetch agent information if statusSetBy is present
+  useEffect(() => {
+    const fetchAgentInfo = async () => {
+      if (item.statusSetBy) {
+        try {
+          const { data, error } = await supabase
+            .from('agents')
+            .select('name, email')
+            .eq('id', item.statusSetBy)
+            .single();
+          
+          if (!error && data) {
+            setStatusSetByAgent(data);
+          }
+        } catch (error) {
+          console.error('Error fetching agent info:', error);
+        }
+      } else {
+        setStatusSetByAgent(null);
+      }
+    };
+    
+    fetchAgentInfo();
+  }, [item.statusSetBy]);
+
+  // Fetch second reviewer agent information if secondAgentStatus is present
+  useEffect(() => {
+    const fetchSecondReviewerInfo = async () => {
+      if (item.secondAgentStatus?.assignedAgent) {
+        try {
+          const { data, error } = await supabase
+            .from('agents')
+            .select('name, email')
+            .eq('id', item.secondAgentStatus.assignedAgent)
+            .single();
+          
+          if (!error && data) {
+            setSecondReviewerAgent(data);
+          }
+        } catch (error) {
+          console.error('Error fetching second reviewer info:', error);
+        }
+      } else {
+        setSecondReviewerAgent(null);
+      }
+    };
+    
+    fetchSecondReviewerInfo();
+  }, [item.secondAgentStatus]);
+
   const getStatusStyle = (status: ChecklistStatus) => {
     switch (status) {
       case 'correct':
@@ -701,6 +775,27 @@ const ChecklistItem: React.FC<DynamicChecklistItemProps> = ({
         return { background: '#fdeaea', color: '#d32f2f', border: '1px solid #d32f2f' };
       default:
         return { background: '#f2f2f2', color: '#757575', border: '1px solid #bdbdbd' };
+    }
+  };
+
+  // Handler to assign second reviewer
+  const handleLocalAssignSecondReviewer = async (assignedAgentId: string) => {
+    if (onAssignSecondReviewer) {
+      await onAssignSecondReviewer(item.id, assignedAgentId);
+    }
+  };
+
+  // Handler to change second agent status
+  const handleLocalSecondAgentStatusChange = async (newStatus: ChecklistStatus) => {
+    if (onSecondAgentStatusChange) {
+      await onSecondAgentStatusChange(item.id, newStatus);
+    }
+  };
+
+  // Handler to remove second reviewer
+  const handleLocalRemoveSecondReviewer = async () => {
+    if (onRemoveSecondReviewer) {
+      await onRemoveSecondReviewer(item.id);
     }
   };
 
@@ -749,6 +844,7 @@ const ChecklistItem: React.FC<DynamicChecklistItemProps> = ({
           gap: isSmall ? 8 : 32,
           marginBottom: 20,
           alignItems: isSmall ? 'flex-start' : 'center',
+          flexWrap: 'wrap',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: isSmall ? '100%' : 'auto' }}>
@@ -770,68 +866,218 @@ const ChecklistItem: React.FC<DynamicChecklistItemProps> = ({
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: isSmall ? '100%' : 'auto', marginTop: isSmall ? 8 : 0 }}>
           <span style={{ color: '#666', fontWeight: 500 }}>Prüfung:</span>
-          <div style={{ position: 'relative', display: 'inline-block' }}>
-            {isReadOnly ? (
-              <span
-                style={{
-                  ...getStatusStyle(item.agentStatus),
-                  borderRadius: 16,
-                  padding: '4px 16px',
-                  fontWeight: 600,
-                  fontSize: 15,
-                  minWidth: 90,
-                  display: 'inline-block',
-                  textAlign: 'center',
-                }}
-              >
-                {STATUS_LABELS[item.agentStatus] || 'Ungeprüft'}
-              </span>
-            ) : (
-              <>
-                <select
-                  value={item.agentStatus}
-                  onChange={(e) => onStatusChange(item.id, e.target.value as ChecklistStatus)}
+          <OverlayTrigger
+            placement="top"
+            overlay={
+              statusSetByAgent ? (
+                <Tooltip id={`tooltip-status-${item.id}`}>
+                  Geprüft von: {statusSetByAgent.name || 'Unbekannt'}<br />
+                  {statusSetByAgent.email}
+                </Tooltip>
+              ) : <span />
+            }
+          >
+            <div style={{ position: 'relative', display: 'inline-block' }}>
+              {isReadOnly ? (
+                <span
                   style={{
                     ...getStatusStyle(item.agentStatus),
                     borderRadius: 16,
-                    padding: '4px 16px 4px 16px',
-                    paddingRight: 40,
+                    padding: '4px 16px',
                     fontWeight: 600,
                     fontSize: 15,
-                    outline: 'none',
                     minWidth: 90,
-                    cursor: 'pointer',
-                    width: isSmall ? 'auto' : undefined,
-                    maxWidth: isSmall ? 220 : undefined,
-                    boxSizing: 'border-box',
-                    appearance: 'none',
-                    WebkitAppearance: 'none',
-                    MozAppearance: 'none',
-                    background: 'none',
+                    display: 'inline-block',
+                    textAlign: 'center',
                   }}
                 >
-                  <option value="undefined">Ungeprüft</option>
-                  <option value="correct">Gültig</option>
-                  <option value="wrong">Ungültig</option>
-                </select>
-                <span
-                  className="material-icons"
-                  style={{
-                    position: 'absolute',
-                    right: 14,
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    pointerEvents: 'none',
-                    color: '#757575',
-                    fontSize: 22,
-                  }}
-                >
-                  expand_more
+                  {STATUS_LABELS[item.agentStatus] || 'Ungeprüft'}
                 </span>
-              </>
-            )}
-          </div>
+              ) : (
+                <>
+                  <select
+                    value={item.agentStatus}
+                    onChange={(e) => onStatusChange(item.id, e.target.value as ChecklistStatus)}
+                    style={{
+                      ...getStatusStyle(item.agentStatus),
+                      borderRadius: 16,
+                      padding: '4px 16px 4px 16px',
+                      paddingRight: 40,
+                      fontWeight: 600,
+                      fontSize: 15,
+                      outline: 'none',
+                      minWidth: 90,
+                      cursor: 'pointer',
+                      width: isSmall ? 'auto' : undefined,
+                      maxWidth: isSmall ? 220 : undefined,
+                      boxSizing: 'border-box',
+                      appearance: 'none',
+                      WebkitAppearance: 'none',
+                      MozAppearance: 'none',
+                      background: 'none',
+                    }}
+                  >
+                    <option value="undefined">Ungeprüft</option>
+                    <option value="correct">Gültig</option>
+                    <option value="wrong">Ungültig</option>
+                  </select>
+                  <span
+                    className="material-icons"
+                    style={{
+                      position: 'absolute',
+                      right: 14,
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      pointerEvents: 'none',
+                      color: '#757575',
+                      fontSize: 22,
+                    }}
+                  >
+                    expand_more
+                  </span>
+                </>
+              )}
+            </div>
+          </OverlayTrigger>
+          {!isReadOnly && !item.secondAgentStatus && (
+            <button
+              onClick={() => setShowSecondReviewerModal(true)}
+              style={{
+                background: '#ffffff',
+                borderRadius: 16,
+                border: '1px solid #9e9e9e',
+                padding: '6px 12px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'background 0.2s',
+              } as React.CSSProperties}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = '#f2f2f2';
+                e.currentTarget.style.setProperty('border', '1px solid #9e9e9e', 'important');
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = '#ffffff';
+                e.currentTarget.style.setProperty('border', '1px solid #9e9e9e', 'important');
+              }}
+              className="custom-bordered-button"
+              title="Zweiten Prüfer hinzufügen"
+            >
+              <span className="material-icons" style={{ fontSize: 18, color: '#757575' }}>
+                add
+              </span>
+            </button>
+          )}
         </div>
+        {item.secondAgentStatus && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: isSmall ? '100%' : 'auto', marginTop: isSmall ? 8 : 0 }}>
+            <span style={{ color: '#666', fontWeight: 500 }}>2. Prüfung:</span>
+            <OverlayTrigger
+              placement="top"
+              overlay={
+                secondReviewerAgent ? (
+                  <Tooltip id={`tooltip-second-status-${item.id}`}>
+                    {currentUserId === item.secondAgentStatus.assignedAgent ? 'Sie sind der zugewiesene Prüfer' : `Zugewiesen an: ${secondReviewerAgent.name || 'Unbekannt'}`}<br />
+                    {secondReviewerAgent.email}
+                  </Tooltip>
+                ) : <span />
+              }
+            >
+              <div style={{ position: 'relative', display: 'inline-block' }}>
+                {isReadOnly || currentUserId !== item.secondAgentStatus.assignedAgent ? (
+                  <span
+                    style={{
+                      ...getStatusStyle(item.secondAgentStatus.status),
+                      borderRadius: 16,
+                      padding: '4px 16px',
+                      fontWeight: 600,
+                      fontSize: 15,
+                      minWidth: 90,
+                      display: 'inline-block',
+                      textAlign: 'center',
+                    }}
+                  >
+                    {STATUS_LABELS[item.secondAgentStatus.status] || 'Ungeprüft'}
+                  </span>
+                ) : (
+                  <>
+                    <select
+                      value={item.secondAgentStatus.status}
+                      onChange={(e) => handleLocalSecondAgentStatusChange(e.target.value as ChecklistStatus)}
+                      style={{
+                        ...getStatusStyle(item.secondAgentStatus.status),
+                        borderRadius: 16,
+                        padding: '4px 16px 4px 16px',
+                        paddingRight: 40,
+                        fontWeight: 600,
+                        fontSize: 15,
+                        outline: 'none',
+                        minWidth: 90,
+                        cursor: 'pointer',
+                        width: isSmall ? 'auto' : undefined,
+                        maxWidth: isSmall ? 220 : undefined,
+                        boxSizing: 'border-box',
+                        appearance: 'none',
+                        WebkitAppearance: 'none',
+                        MozAppearance: 'none',
+                        background: 'none',
+                      }}
+                    >
+                      <option value="undefined">Ungeprüft</option>
+                      <option value="correct">Gültig</option>
+                      <option value="wrong">Ungültig</option>
+                    </select>
+                    <span
+                      className="material-icons"
+                      style={{
+                        position: 'absolute',
+                        right: 14,
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        pointerEvents: 'none',
+                        color: '#757575',
+                        fontSize: 22,
+                      }}
+                    >
+                      expand_more
+                    </span>
+                  </>
+                )}
+              </div>
+            </OverlayTrigger>
+          {!isReadOnly && item.secondAgentStatus && item.secondAgentStatus.status === 'undefined' && currentUserId === item.secondAgentStatus.createdBy && (
+            <button
+              onClick={handleLocalRemoveSecondReviewer}
+              style={{
+                background: '#ffffff',
+                borderRadius: 16,
+                border: '1px solid #9e9e9e',
+                padding: '6px 12px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'background 0.2s',
+              } as React.CSSProperties}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = '#f2f2f2';
+                e.currentTarget.style.setProperty('border', '1px solid #9e9e9e', 'important');
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = '#ffffff';
+                e.currentTarget.style.setProperty('border', '1px solid #9e9e9e', 'important');
+              }}
+              className="custom-bordered-button"
+              title="Zweiten Prüfer entfernen"
+            >
+              <span className="material-icons" style={{ fontSize: 18, color: '#757575' }}>
+                delete
+              </span>
+            </button>
+          )}
+          </div>
+        )}
       </div>
 
       {/* Systemkommentar */}
@@ -1326,6 +1572,14 @@ const ChecklistItem: React.FC<DynamicChecklistItemProps> = ({
           <div style={{ marginTop: 8, color: '#333', fontSize: 15, background: '#f7f7f7', borderRadius: 5, padding: '8px 12px', border: '1px solid #e0e0e0' }}>{item.agentNotes}</div>
         )}
       </div>
+
+      {/* Second Reviewer Modal */}
+      <AssignSecondReviewerModal
+        show={showSecondReviewerModal}
+        onHide={() => setShowSecondReviewerModal(false)}
+        onAssign={handleLocalAssignSecondReviewer}
+        checklistItemTitle={item.title}
+      />
     </div>
   );
 };

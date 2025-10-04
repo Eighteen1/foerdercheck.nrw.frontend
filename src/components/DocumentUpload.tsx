@@ -3,6 +3,7 @@ import { Container, Row, Col, Button, OverlayTrigger, Tooltip, Modal, Spinner } 
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+import OCRDocumentProcessor from './OCRDocumentProcessor';
 
 interface DocumentType {
   id: string;

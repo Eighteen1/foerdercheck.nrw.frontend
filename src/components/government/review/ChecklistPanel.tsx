@@ -3,8 +3,14 @@ import { supabase, getCurrentUser } from '../../../lib/supabase';
 import { ChecklistItem, ReviewData } from '../../../types/checklist';
 import ChecklistItemComponent from './ChecklistItem';
 import CustomChecklistItem from './CustomChecklistItem';
+import AutomaticChecklistItem from './AutomaticChecklistItem';
 import AddChecklistItem from './AddChecklistItem';
 import { generateChecklistItems, DOCUMENT_CATEGORY_MAPPING } from '../../../utils/checklistGenerator';
+import { DocumentValueExtractionService } from '../../../services/documentValueExtractionService';
+import { DocumentExtractionProcessor } from '../../../services/documentExtractionProcessor';
+import { ExtractionChecklistGenerator } from '../../../services/extractionChecklistGenerator';
+import { DebugExtractionService } from '../../../services/debugExtractionService';
+import { sendSecondReviewerAssignedMessage, sendSecondReviewerUnassignedMessage } from '../../../utils/messages';
 
 type ChecklistPanelProps = {
   applicationId: string;
@@ -68,6 +74,9 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
   onRefreshApplication
 }) => {
   const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
+  const [automaticItems, setAutomaticItems] = useState<ChecklistItem[]>([]);
+  const [extractionData, setExtractionData] = useState<any>(null);
+  const [formData, setFormData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
@@ -75,6 +84,7 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
   const [showAddItem, setShowAddItem] = useState(false);
   const [toast, setToast] = useState<{ message: string; visible: boolean }>({ message: '', visible: false });
   const [userData, setUserData] = useState<any>(null);
+  const [financialData, setFinancialData] = useState<any>(null);
   const [residentId, setResidentId] = useState<string | null>(null);
   const [expandedSection, setExpandedSection] = useState<string | null>('formular-vollstaendigkeit');
 
@@ -96,6 +106,108 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
     ));
   };
 
+  // Function to separate automatic items from regular checklist items
+  const separateAutomaticItems = (allItems: ChecklistItem[]) => {
+    const automatic = allItems.filter(item => item.id.startsWith('automatic-'));
+    const regular = allItems.filter(item => !item.id.startsWith('automatic-'));
+    setAutomaticItems(automatic);
+    return { automatic, regular };
+  };
+
+  // Debug function to recalculate automatic extraction items
+  const debugRecalculateAutomaticItems = async () => {
+    if (!residentId) return;
+
+    try {
+      const debugService = new DebugExtractionService(applicationId, residentId);
+      if (debugService.shouldRecalculate()) {
+        await debugService.debugRecalculateAndSave();
+        // Reload the checklist data to get the updated items
+        await refreshChecklistData();
+        showToast('Automatische Berechnungen wurden neu berechnet (Debug-Modus)');
+      }
+    } catch (error) {
+      console.error('Error in debug recalculation:', error);
+      showToast('Fehler beim Neuberechnen der automatischen Berechnungen');
+    }
+  };
+
+  // Function to execute document mapping logic and print JSON output
+  const executeDocumentMappingLogic = async (residentId: string) => {
+    try {
+      console.log('🔍 Document Value Extraction Service starting...');
+      
+      const extractionService = new DocumentValueExtractionService(residentId, applicationId);
+      
+      // Generate extraction plan
+      const extractionPlan = await extractionService.createExtractionPlan();
+      console.log('📊 Extraction Plan created:', {
+        totalPersons: extractionPlan.totalPersons,
+        totalDocuments: extractionPlan.totalDocumentsToScan,
+        totalValues: extractionPlan.totalValuesToExtract
+      });
+      
+      // Generate JSON structures for OCR/AI processing
+      const jsonStructures = await extractionService.generateExtractionSummary();
+      
+      // Generate new document-centric extraction structure
+      const documentExtractionStructure = await extractionService.generateDocumentExtractionStructure();
+      
+      console.log('📄 Document Extraction Structure created:', {
+        persons: Object.keys(documentExtractionStructure).length,
+        totalDocuments: Object.values(documentExtractionStructure).reduce((total, person) => 
+          total + Object.keys(person).length, 0)
+      });
+      
+      // Save extraction structure to database
+      await extractionService.saveExtractionStructureToDatabase(documentExtractionStructure);
+      
+      // Document mapping logic completed successfully
+      
+    } catch (error) {
+      console.error('❌ Error executing document mapping logic:', error);
+    }
+  };
+
+  // Function to execute document extraction processing
+  const executeDocumentExtractionProcessing = async (residentId: string) => {
+    try {
+      console.log('🔄 Document Extraction Processing starting...');
+      
+      const extractionProcessor = new DocumentExtractionProcessor(residentId, applicationId);
+      
+      // Process the extraction structure and extract all values
+      const result = await extractionProcessor.processExtractionStructure();
+      
+      console.log('📊 Extraction Processing Results:', {
+        success: result.success,
+        processedFiles: `${result.processedFiles}/${result.totalFiles}`,
+        errors: result.errors.length
+      });
+      
+      if (result.errors.length > 0) {
+        console.log('🚨 Processing Errors:', result.errors);
+      }
+      
+      // Show progress summary
+      const progress = await extractionProcessor.getExtractionProgress();
+      console.log('📈 Extraction Progress:', {
+        files: `${progress.processedFiles}/${progress.totalFiles}`,
+        documents: `${progress.completedDocuments}/${progress.totalDocuments}`,
+        percentage: `${progress.progressPercentage}%`
+      });
+      
+      // Document extraction processing completed
+      
+      // Show success message to user
+      showToast(`Extraction completed: ${result.processedFiles}/${result.totalFiles} files processed`);
+      
+    } catch (error) {
+      console.error('❌ Error executing document extraction processing:', error);
+      showToast('Error during extraction processing. Check console for details.');
+    }
+  };
+
   // Function to refresh checklist data from database
   const refreshChecklistData = async () => {
     try {
@@ -112,7 +224,11 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
 
       // Update checklist items with fresh data
       if (data?.review_data && data.review_data.checklistItems && Array.isArray(data.review_data.checklistItems)) {
-        setChecklistItems(data.review_data.checklistItems);
+        // Separate automatic items from regular items (same as initial load)
+        const allItems = data.review_data.checklistItems;
+        separateAutomaticItems(allItems);
+        // Store only regular items in checklistItems
+        setChecklistItems(allItems.filter((item: ChecklistItem) => !item.id.startsWith('automatic-')));
       }
 
       // Also refresh user data if needed
@@ -146,7 +262,7 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
         // Fetch the application's review data
         const { data, error } = await supabase
           .from('applications')
-          .select('review_data, resident_id, status')
+          .select('review_data, resident_id, status, extraction_structure')
           .eq('id', applicationId)
           .single();
 
@@ -157,22 +273,45 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
 
         // Fetch user data for dynamic document checking
         if (data.resident_id) {
-            const { data: userDataResult, error: userError } = await supabase
-              .from('user_data')
-              .select('*')
-            .eq('id', data.resident_id)
-              .single();
+            const [
+              { data: userDataResult, error: userError },
+              { data: financialDataResult, error: financialError }
+            ] = await Promise.all([
+              supabase
+                .from('user_data')
+                .select('*')
+                .eq('id', data.resident_id)
+                .single(),
+              supabase
+                .from('user_financials')
+                .select('*')
+                .eq('user_id', data.resident_id)
+                .single()
+            ]);
 
             if (!userError) {
               setUserData(userDataResult);
-          } else {
-            console.warn('Failed to fetch user data:', userError);
+              setFormData(userDataResult);
+            } else {
+              console.warn('Failed to fetch user data:', userError);
+            }
+
+            if (!financialError) {
+              setFinancialData(financialDataResult);
+            } else {
+              console.warn('Failed to fetch financial data:', financialError);
             }
           }
 
+        // Set extraction data
+        setExtractionData(data.extraction_structure || null);
+
         if (data?.review_data && data.review_data.checklistItems && Array.isArray(data.review_data.checklistItems)) {
-          // If review data exists, use it
-          setChecklistItems(data.review_data.checklistItems);
+          // If review data exists, separate automatic items from regular items
+          const allItems = data.review_data.checklistItems;
+          separateAutomaticItems(allItems);
+          // Store only regular items in checklistItems
+          setChecklistItems(allItems.filter((item: ChecklistItem) => !item.id.startsWith('automatic-')));
         } else {
           // If no review data exists, generate initial checklist
           setGeneratingChecklist(true);
@@ -190,6 +329,17 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
 
           console.log('Checklist save response:', updateError, updateData);
           setGeneratingChecklist(false);
+        }
+
+
+        // Execute document mapping logic for testing (both when checklist exists and when generated)
+        // Only execute if extraction_structure is empty or null
+        if (data.resident_id && (!data.extraction_structure || Object.keys(data.extraction_structure).length === 0)) {
+
+          await executeDocumentMappingLogic(data.resident_id);
+          
+          // After mapping is complete, execute extraction processing
+          await executeDocumentExtractionProcessing(data.resident_id);
         }
       } catch (error) {
         console.error('Error loading review data:', error);
@@ -223,34 +373,85 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
 
 
 
+
   const handleStatusChange = async (itemId: string, newStatus: string) => {
     try {
-      const updatedItems = checklistItems.map(item =>
-        item.id === itemId ? { ...item, agentStatus: newStatus as any } : item
-      );
-      setChecklistItems(updatedItems);
+      // Get current user to store who changed the status
+      const user = await getCurrentUser();
+      const currentUserId = user?.id || undefined;
       
-      // Calculate progress
-      const totalItems = updatedItems.length;
-      const reviewedItems = updatedItems.filter(item => 
-        item.agentStatus === 'correct' || item.agentStatus === 'wrong'
-      ).length;
-      const progress = Math.round((reviewedItems / totalItems) * 100);
+      let updatedChecklistItems = checklistItems;
+      let updatedAutomaticItems = automaticItems;
+      
+      // Update the appropriate items array based on item type
+      if (itemId.startsWith('automatic-')) {
+        updatedAutomaticItems = automaticItems.map(item =>
+          item.id === itemId ? { ...item, agentStatus: newStatus as any, statusSetBy: currentUserId } : item
+        );
+        setAutomaticItems(updatedAutomaticItems);
+      } else {
+        updatedChecklistItems = checklistItems.map(item =>
+          item.id === itemId ? { ...item, agentStatus: newStatus as any, statusSetBy: currentUserId } : item
+        );
+        setChecklistItems(updatedChecklistItems);
+      }
+      
+      // Merge all items for progress calculation and saving
+      const allItems = [...updatedChecklistItems, ...updatedAutomaticItems];
+      
+      // Calculate progress with split contributions for items with second agent status
+      // Each item normally contributes 1 unit to total
+      // But if it has a secondAgentStatus, the contribution is split:
+      // - First agent status: 0.5 units
+      // - Second agent status: 0.5 units
+      let totalUnits = 0;
+      let completedUnits = 0;
+      
+      allItems.forEach(item => {
+        if (item.secondAgentStatus) {
+          // Item has a second reviewer, so split contribution
+          totalUnits += 1; // Total is still 1 unit per item
+          
+          // Count first agent status (0.5 units if set)
+          if (item.agentStatus === 'correct' || item.agentStatus === 'wrong') {
+            completedUnits += 0.5;
+          }
+          
+          // Count second agent status (0.5 units if set)
+          if (item.secondAgentStatus.status === 'correct' || item.secondAgentStatus.status === 'wrong') {
+            completedUnits += 0.5;
+          }
+        } else {
+          // Item doesn't have a second reviewer, full contribution
+          totalUnits += 1;
+          if (item.agentStatus === 'correct' || item.agentStatus === 'wrong') {
+            completedUnits += 1;
+          }
+        }
+      });
+      
+      const progress = totalUnits > 0 ? Math.round((completedUnits / totalUnits) * 100) : 0;
       
       console.log('Updating progress:', progress);
       
-      // Get current application status to check if we need to change it back to in_progress
+      // Get current application data to preserve review_data structure
       const { data: currentApp, error: fetchError } = await supabase
         .from('applications')
-        .select('status')
+        .select('status, review_data')
         .eq('id', applicationId)
         .single();
 
       if (fetchError) throw fetchError;
 
+      // Preserve existing review_data structure and only update checklistItems
+      const updatedReviewData = {
+        ...currentApp.review_data,
+        checklistItems: allItems
+      };
+
       // Prepare the update object
       const updateData: any = {
-        review_data: { checklistItems: updatedItems },
+        review_data: updatedReviewData,
         review_progress: progress,
         updated_at: new Date().toISOString(),
       };
@@ -261,8 +462,7 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
       }
 
       // Save to database with updated_at and last_edit_agent
-      const user = await getCurrentUser();
-      updateData.last_edit_agent = user?.id || null;
+      updateData.last_edit_agent = currentUserId;
 
       const { error: updateError, data } = await supabase
         .from('applications')
@@ -283,17 +483,51 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
 
   const handleNotesChange = async (itemId: string, notes: string) => {
     try {
-      const updatedItems = checklistItems.map(item =>
-        item.id === itemId ? { ...item, agentNotes: notes } : item
-      );
-      setChecklistItems(updatedItems);
+      // First, get the current review_data to preserve its structure
+      const { data: currentData, error: fetchError } = await supabase
+        .from('applications')
+        .select('review_data')
+        .eq('id', applicationId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Get current items from database to avoid state synchronization issues
+      const currentItems = currentData.review_data?.checklistItems || [];
+      const currentAutomaticItems = currentItems.filter((item: any) => item.id.startsWith('automatic-'));
+      const currentRegularItems = currentItems.filter((item: any) => !item.id.startsWith('automatic-'));
+
+      let updatedChecklistItems = currentRegularItems;
+      let updatedAutomaticItems = currentAutomaticItems;
+      
+      // Update the appropriate items array based on item type
+      if (itemId.startsWith('automatic-')) {
+        updatedAutomaticItems = currentAutomaticItems.map((item: any) =>
+          item.id === itemId ? { ...item, agentNotes: notes } : item
+        );
+        setAutomaticItems(updatedAutomaticItems);
+      } else {
+        updatedChecklistItems = currentRegularItems.map((item: any) =>
+          item.id === itemId ? { ...item, agentNotes: notes } : item
+        );
+        setChecklistItems(updatedChecklistItems);
+      }
+      
+      // Merge all items for saving
+      const allItems = [...updatedChecklistItems, ...updatedAutomaticItems];
+
+      // Preserve existing review_data structure and only update checklistItems
+      const updatedReviewData = {
+        ...currentData.review_data,
+        checklistItems: allItems
+      };
 
       // Save to database with updated_at and last_edit_agent
       const user = await getCurrentUser();
       const { error: updateError } = await supabase
         .from('applications')
         .update({
-          review_data: { checklistItems: updatedItems },
+          review_data: updatedReviewData,
           updated_at: new Date().toISOString(),
           last_edit_agent: user?.id || null
         })
@@ -306,20 +540,463 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
     }
   };
 
+  // Handler to assign second reviewer
+  const handleAssignSecondReviewer = async (itemId: string, assignedAgentId: string) => {
+    try {
+      const user = await getCurrentUser();
+      if (!user) return;
+
+      // Create the secondAgentStatus object
+      const secondAgentStatus = {
+        createdBy: user.id,
+        assignedAgent: assignedAgentId,
+        status: 'undefined' as any,
+      };
+
+      // Get current data
+      const { data: currentData, error: fetchError } = await supabase
+        .from('applications')
+        .select('review_data, status')
+        .eq('id', applicationId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Get current items
+      const currentItems = currentData.review_data?.checklistItems || [];
+      const currentAutomaticItems = currentItems.filter((item: any) => item.id.startsWith('automatic-'));
+      const currentRegularItems = currentItems.filter((item: any) => !item.id.startsWith('automatic-'));
+
+      let updatedChecklistItems = currentRegularItems;
+      let updatedAutomaticItems = currentAutomaticItems;
+      let targetItem: any = null;
+
+      // Update the appropriate items array
+      if (itemId.startsWith('automatic-')) {
+        updatedAutomaticItems = currentAutomaticItems.map((item: any) => {
+          if (item.id === itemId) {
+            targetItem = { ...item, secondAgentStatus };
+            return targetItem;
+          }
+          return item;
+        });
+        setAutomaticItems(updatedAutomaticItems);
+      } else {
+        updatedChecklistItems = currentRegularItems.map((item: any) => {
+          if (item.id === itemId) {
+            targetItem = { ...item, secondAgentStatus };
+            return targetItem;
+          }
+          return item;
+        });
+        setChecklistItems(updatedChecklistItems);
+      }
+
+      // Merge all items
+      const allItems = [...updatedChecklistItems, ...updatedAutomaticItems];
+
+      // Recalculate progress with new split contribution
+      let totalUnits = 0;
+      let completedUnits = 0;
+      
+      allItems.forEach(item => {
+        if (item.secondAgentStatus) {
+          totalUnits += 1;
+          if (item.agentStatus === 'correct' || item.agentStatus === 'wrong') {
+            completedUnits += 0.5;
+          }
+          if (item.secondAgentStatus.status === 'correct' || item.secondAgentStatus.status === 'wrong') {
+            completedUnits += 0.5;
+          }
+        } else {
+          totalUnits += 1;
+          if (item.agentStatus === 'correct' || item.agentStatus === 'wrong') {
+            completedUnits += 1;
+          }
+        }
+      });
+      
+      const progress = totalUnits > 0 ? Math.round((completedUnits / totalUnits) * 100) : 0;
+
+      // Preserve existing review_data structure
+      const updatedReviewData = {
+        ...currentData.review_data,
+        checklistItems: allItems,
+      };
+
+      // Prepare update
+      const updateData: any = {
+        review_data: updatedReviewData,
+        review_progress: progress,
+        updated_at: new Date().toISOString(),
+        last_edit_agent: user.id,
+      };
+
+      if (currentData.status === 'document_received') {
+        updateData.status = 'in_progress';
+      }
+
+      // Save to database
+      const { error: updateError } = await supabase
+        .from('applications')
+        .update(updateData)
+        .eq('id', applicationId);
+
+      if (updateError) throw updateError;
+
+      // Send message to assigned reviewer
+      if (targetItem) {
+        await sendSecondReviewerAssignedMessage(
+          assignedAgentId,
+          user.id,
+          applicationId,
+          { id: targetItem.id, title: targetItem.title || targetItem.label || 'Prüfpunkt' }
+        );
+      }
+
+      // Update progress
+      onProgressUpdate(progress);
+    } catch (error) {
+      console.error('Error assigning second reviewer:', error);
+      showToast('Fehler beim Zuweisen des zweiten Prüfers. Bitte versuchen Sie es erneut.');
+    }
+  };
+
+  // Handler to update second agent status
+  const handleSecondAgentStatusChange = async (itemId: string, newStatus: string) => {
+    try {
+      const user = await getCurrentUser();
+      if (!user) return;
+
+      // Get current data
+      const { data: currentData, error: fetchError } = await supabase
+        .from('applications')
+        .select('review_data, status')
+        .eq('id', applicationId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Get current items
+      const currentItems = currentData.review_data?.checklistItems || [];
+      const currentAutomaticItems = currentItems.filter((item: any) => item.id.startsWith('automatic-'));
+      const currentRegularItems = currentItems.filter((item: any) => !item.id.startsWith('automatic-'));
+
+      let updatedChecklistItems = currentRegularItems;
+      let updatedAutomaticItems = currentAutomaticItems;
+
+      // Update the appropriate items array
+      if (itemId.startsWith('automatic-')) {
+        updatedAutomaticItems = currentAutomaticItems.map((item: any) =>
+          item.id === itemId && item.secondAgentStatus
+            ? { ...item, secondAgentStatus: { ...item.secondAgentStatus, status: newStatus } }
+            : item
+        );
+        setAutomaticItems(updatedAutomaticItems);
+      } else {
+        updatedChecklistItems = currentRegularItems.map((item: any) =>
+          item.id === itemId && item.secondAgentStatus
+            ? { ...item, secondAgentStatus: { ...item.secondAgentStatus, status: newStatus } }
+            : item
+        );
+        setChecklistItems(updatedChecklistItems);
+      }
+
+      // Merge all items
+      const allItems = [...updatedChecklistItems, ...updatedAutomaticItems];
+
+      // Recalculate progress
+      let totalUnits = 0;
+      let completedUnits = 0;
+      
+      allItems.forEach(item => {
+        if (item.secondAgentStatus) {
+          totalUnits += 1;
+          if (item.agentStatus === 'correct' || item.agentStatus === 'wrong') {
+            completedUnits += 0.5;
+          }
+          if (item.secondAgentStatus.status === 'correct' || item.secondAgentStatus.status === 'wrong') {
+            completedUnits += 0.5;
+          }
+        } else {
+          totalUnits += 1;
+          if (item.agentStatus === 'correct' || item.agentStatus === 'wrong') {
+            completedUnits += 1;
+          }
+        }
+      });
+      
+      const progress = totalUnits > 0 ? Math.round((completedUnits / totalUnits) * 100) : 0;
+
+      // Preserve existing review_data structure
+      const updatedReviewData = {
+        ...currentData.review_data,
+        checklistItems: allItems,
+      };
+
+      // Prepare update
+      const updateData: any = {
+        review_data: updatedReviewData,
+        review_progress: progress,
+        updated_at: new Date().toISOString(),
+        last_edit_agent: user.id,
+      };
+
+      if (currentData.status === 'document_received') {
+        updateData.status = 'in_progress';
+      }
+
+      // Save to database
+      const { error: updateError } = await supabase
+        .from('applications')
+        .update(updateData)
+        .eq('id', applicationId);
+
+      if (updateError) throw updateError;
+
+      // Update progress
+      onProgressUpdate(progress);
+    } catch (error) {
+      console.error('Error updating second agent status:', error);
+      showToast('Fehler beim Speichern des Status. Bitte versuchen Sie es erneut.');
+    }
+  };
+
+  // Handler to remove second reviewer
+  const handleRemoveSecondReviewer = async (itemId: string) => {
+    try {
+      const user = await getCurrentUser();
+      if (!user) return;
+
+      // Get current data
+      const { data: currentData, error: fetchError } = await supabase
+        .from('applications')
+        .select('review_data, status')
+        .eq('id', applicationId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Get current items
+      const currentItems = currentData.review_data?.checklistItems || [];
+      const currentAutomaticItems = currentItems.filter((item: any) => item.id.startsWith('automatic-'));
+      const currentRegularItems = currentItems.filter((item: any) => !item.id.startsWith('automatic-'));
+
+      let updatedChecklistItems = currentRegularItems;
+      let updatedAutomaticItems = currentAutomaticItems;
+      let removedAgentId: string | null = null;
+      let targetItem: any = null;
+
+      // Remove secondAgentStatus from the appropriate item
+      if (itemId.startsWith('automatic-')) {
+        updatedAutomaticItems = currentAutomaticItems.map((item: any) => {
+          if (item.id === itemId && item.secondAgentStatus) {
+            removedAgentId = item.secondAgentStatus.assignedAgent;
+            targetItem = item;
+            const { secondAgentStatus, ...itemWithoutSecondStatus } = item;
+            return itemWithoutSecondStatus;
+          }
+          return item;
+        });
+        setAutomaticItems(updatedAutomaticItems);
+      } else {
+        updatedChecklistItems = currentRegularItems.map((item: any) => {
+          if (item.id === itemId && item.secondAgentStatus) {
+            removedAgentId = item.secondAgentStatus.assignedAgent;
+            targetItem = item;
+            const { secondAgentStatus, ...itemWithoutSecondStatus } = item;
+            return itemWithoutSecondStatus;
+          }
+          return item;
+        });
+        setChecklistItems(updatedChecklistItems);
+      }
+
+      // Merge all items
+      const allItems = [...updatedChecklistItems, ...updatedAutomaticItems];
+
+      // Recalculate progress - item now contributes full 1.0 unit again
+      let totalUnits = 0;
+      let completedUnits = 0;
+      
+      allItems.forEach(item => {
+        if (item.secondAgentStatus) {
+          totalUnits += 1;
+          if (item.agentStatus === 'correct' || item.agentStatus === 'wrong') {
+            completedUnits += 0.5;
+          }
+          if (item.secondAgentStatus.status === 'correct' || item.secondAgentStatus.status === 'wrong') {
+            completedUnits += 0.5;
+          }
+        } else {
+          totalUnits += 1;
+          if (item.agentStatus === 'correct' || item.agentStatus === 'wrong') {
+            completedUnits += 1;
+          }
+        }
+      });
+      
+      const progress = totalUnits > 0 ? Math.round((completedUnits / totalUnits) * 100) : 0;
+
+      // Preserve existing review_data structure
+      const updatedReviewData = {
+        ...currentData.review_data,
+        checklistItems: allItems,
+      };
+
+      // Prepare update
+      const updateData: any = {
+        review_data: updatedReviewData,
+        review_progress: progress,
+        updated_at: new Date().toISOString(),
+        last_edit_agent: user.id,
+      };
+
+      if (currentData.status === 'document_received') {
+        updateData.status = 'in_progress';
+      }
+
+      // Save to database
+      const { error: updateError } = await supabase
+        .from('applications')
+        .update(updateData)
+        .eq('id', applicationId);
+
+      if (updateError) throw updateError;
+
+      // Send message to removed reviewer
+      if (removedAgentId && targetItem) {
+        await sendSecondReviewerUnassignedMessage(
+          removedAgentId,
+          user.id,
+          applicationId,
+          { id: targetItem.id, title: targetItem.title || targetItem.label || 'Prüfpunkt' }
+        );
+      }
+
+      // Update progress
+      onProgressUpdate(progress);
+    } catch (error) {
+      console.error('Error removing second reviewer:', error);
+      showToast('Fehler beim Entfernen des zweiten Prüfers. Bitte versuchen Sie es erneut.');
+    }
+  };
+
+  const handleCalculationDataChange = async (itemId: string, newCalculationData: any) => {
+    try {
+      // First, get the current review_data to preserve its structure
+      const { data: currentData, error: fetchError } = await supabase
+        .from('applications')
+        .select('review_data')
+        .eq('id', applicationId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Get current items from database to avoid state synchronization issues
+      const currentItems = currentData.review_data?.checklistItems || [];
+      const currentAutomaticItems = currentItems.filter((item: any) => item.id.startsWith('automatic-'));
+      const currentRegularItems = currentItems.filter((item: any) => !item.id.startsWith('automatic-'));
+
+      // Update the automatic items if this is an automatic item
+      if (itemId.startsWith('automatic-')) {
+        const updatedAutomaticItems = currentAutomaticItems.map((item: any) =>
+          item.id === itemId ? { ...item, calculationData: newCalculationData } : item
+        );
+        
+        setAutomaticItems(updatedAutomaticItems);
+        
+        // Merge both checklist items and automatic items for saving
+        const allItemsForSave = [...currentRegularItems, ...updatedAutomaticItems];
+        
+        // Preserve existing review_data structure and only update checklistItems
+        const updatedReviewData = {
+          ...currentData.review_data,
+          checklistItems: allItemsForSave
+        };
+        
+        // Save to database with updated_at and last_edit_agent
+        const user = await getCurrentUser();
+        const { error: updateError } = await supabase
+          .from('applications')
+          .update({
+            review_data: updatedReviewData,
+            updated_at: new Date().toISOString(),
+            last_edit_agent: user?.id || null
+          })
+          .eq('id', applicationId);
+
+        if (updateError) throw updateError;
+      } else {
+        // Update regular checklist items
+        const updatedItems = currentRegularItems.map((item: any) =>
+          item.id === itemId ? { ...item, calculationData: newCalculationData } : item
+        );
+        
+        setChecklistItems(updatedItems);
+        
+        // Merge both checklist items and automatic items for saving
+        const allItemsForSave = [...updatedItems, ...currentAutomaticItems];
+        
+        // Preserve existing review_data structure and only update checklistItems
+        const updatedReviewData = {
+          ...currentData.review_data,
+          checklistItems: allItemsForSave
+        };
+        
+        // Save to database with updated_at and last_edit_agent
+        const user = await getCurrentUser();
+        const { error: updateError } = await supabase
+          .from('applications')
+          .update({
+            review_data: updatedReviewData,
+            updated_at: new Date().toISOString(),
+            last_edit_agent: user?.id || null
+          })
+          .eq('id', applicationId);
+
+        if (updateError) throw updateError;
+      }
+    } catch (error) {
+      console.error('Error updating calculation data:', error);
+      showToast('Fehler beim Speichern der Berechnungsdaten. Bitte versuchen Sie es erneut.');
+    }
+  };
+
   const handleDeleteItem = async (itemId: string) => {
     try {
       const updatedItems = checklistItems.filter(item => item.id !== itemId);
       setChecklistItems(updatedItems);
+      
+      // Get current review_data to preserve its structure
+      const { data: currentData, error: fetchError } = await supabase
+        .from('applications')
+        .select('review_data')
+        .eq('id', applicationId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Merge with automatic items for saving
+      const allItemsForSave = [...updatedItems, ...automaticItems];
+      
+      // Preserve existing review_data structure and only update checklistItems
+      const updatedReviewData = {
+        ...currentData.review_data,
+        checklistItems: allItemsForSave
+      };
+
       // Calculate progress
-      const totalItems = updatedItems.length;
-      const reviewedItems = updatedItems.filter(item => item.agentStatus === 'correct' || item.agentStatus === 'wrong').length;
+      const totalItems = allItemsForSave.length;
+      const reviewedItems = allItemsForSave.filter(item => item.agentStatus === 'correct' || item.agentStatus === 'wrong').length;
       const progress = totalItems === 0 ? 0 : Math.round((reviewedItems / totalItems) * 100);
+      
       // Save to database
       const user = await getCurrentUser();
       const { error: updateError } = await supabase
         .from('applications')
         .update({
-          review_data: { checklistItems: updatedItems },
+          review_data: updatedReviewData,
           review_progress: progress,
           updated_at: new Date().toISOString(),
           last_edit_agent: user?.id || null
@@ -340,12 +1017,31 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
         item.id === itemId ? { ...item, ...updates } : item
       );
       setChecklistItems(updatedItems);
+      
+      // Get current review_data to preserve its structure
+      const { data: currentData, error: fetchError } = await supabase
+        .from('applications')
+        .select('review_data')
+        .eq('id', applicationId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Merge with automatic items for saving
+      const allItemsForSave = [...updatedItems, ...automaticItems];
+      
+      // Preserve existing review_data structure and only update checklistItems
+      const updatedReviewData = {
+        ...currentData.review_data,
+        checklistItems: allItemsForSave
+      };
+
       // Save to database
       const user = await getCurrentUser();
       const { error: updateError } = await supabase
         .from('applications')
         .update({
-          review_data: { checklistItems: updatedItems },
+          review_data: updatedReviewData,
           updated_at: new Date().toISOString(),
           last_edit_agent: user?.id || null
         })
@@ -362,16 +1058,36 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
       const updatedItems = [...checklistItems, newItem];
       setChecklistItems(updatedItems);
       setShowAddItem(false);
+      
+      // Get current review_data to preserve its structure
+      const { data: currentData, error: fetchError } = await supabase
+        .from('applications')
+        .select('review_data')
+        .eq('id', applicationId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Merge with automatic items for saving
+      const allItemsForSave = [...updatedItems, ...automaticItems];
+      
+      // Preserve existing review_data structure and only update checklistItems
+      const updatedReviewData = {
+        ...currentData.review_data,
+        checklistItems: allItemsForSave
+      };
+
       // Calculate progress
-      const totalItems = updatedItems.length;
-      const reviewedItems = updatedItems.filter(item => item.agentStatus === 'correct' || item.agentStatus === 'wrong').length;
+      const totalItems = allItemsForSave.length;
+      const reviewedItems = allItemsForSave.filter(item => item.agentStatus === 'correct' || item.agentStatus === 'wrong').length;
       const progress = totalItems === 0 ? 0 : Math.round((reviewedItems / totalItems) * 100);
+      
       // Save to database
       const user = await getCurrentUser();
       const { error: updateError } = await supabase
         .from('applications')
         .update({
-          review_data: { checklistItems: updatedItems },
+          review_data: updatedReviewData,
           review_progress: progress,
           updated_at: new Date().toISOString(),
           last_edit_agent: user?.id || null
@@ -387,18 +1103,56 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
 
   // State indicator logic
   function getStateLabel(item: ChecklistItem): 'Unbearbeitet' | 'In Bearbeitung' | 'Bearbeitet' {
-    if ((item.agentStatus === 'undefined' || !item.agentStatus) && !item.agentNotes) return 'Unbearbeitet';
-    if ((item.agentStatus === 'undefined' || !item.agentStatus) && item.agentNotes) return 'In Bearbeitung';
-    if (item.agentStatus === 'correct' || item.agentStatus === 'wrong') return 'Bearbeitet';
-    return 'Unbearbeitet';
+    const firstAgentSet = item.agentStatus === 'correct' || item.agentStatus === 'wrong';
+    const secondAgentSet = item.secondAgentStatus && (item.secondAgentStatus.status === 'correct' || item.secondAgentStatus.status === 'wrong');
+    
+    if (item.secondAgentStatus) {
+      // Item has second reviewer
+      if (firstAgentSet && secondAgentSet) {
+        return 'Bearbeitet'; // Both statuses set
+      } else if (firstAgentSet || secondAgentSet || item.agentNotes) {
+        return 'In Bearbeitung'; // At least one status set or notes exist
+      } else {
+        return 'Unbearbeitet'; // Nothing set
+      }
+    } else {
+      // No second reviewer - original logic
+      if ((item.agentStatus === 'undefined' || !item.agentStatus) && !item.agentNotes) return 'Unbearbeitet';
+      if ((item.agentStatus === 'undefined' || !item.agentStatus) && item.agentNotes) return 'In Bearbeitung';
+      if (firstAgentSet) return 'Bearbeitet';
+      return 'Unbearbeitet';
+    }
   }
 
-  function getStateColor(label: string, agentStatus?: string) {
+  function getStateColor(label: string, item: ChecklistItem) {
     if (label === 'Bearbeitet') {
-      if (agentStatus === 'correct') {
-        return { background: '#e6f4ea', color: '#388e3c' }; // green
-      } else if (agentStatus === 'wrong') {
-        return { background: '#fdecea', color: '#d32f2f' }; // red
+      const firstAgentStatus = item.agentStatus;
+      const secondAgentStatus = item.secondAgentStatus?.status;
+      
+      if (item.secondAgentStatus) {
+        // Both statuses are set
+        const firstCorrect = firstAgentStatus === 'correct';
+        const secondCorrect = secondAgentStatus === 'correct';
+        const firstWrong = firstAgentStatus === 'wrong';
+        const secondWrong = secondAgentStatus === 'wrong';
+        
+        if (firstCorrect && secondCorrect) {
+          // Both correct: green background, green text
+          return { background: '#e6f4ea', color: '#388e3c' };
+        } else if (firstWrong && secondWrong) {
+          // Both wrong: red background, red text
+          return { background: '#fdecea', color: '#d32f2f' };
+        } else {
+          // Mixed (one correct, one wrong): green background, red text
+          return { background: '#F2F0EA', color: '#865F36' };
+        }
+      } else {
+        // No second reviewer - original logic
+        if (firstAgentStatus === 'correct') {
+          return { background: '#e6f4ea', color: '#388e3c' }; // green
+        } else if (firstAgentStatus === 'wrong') {
+          return { background: '#fdecea', color: '#d32f2f' }; // red
+        }
       }
     }
     switch (label) {
@@ -423,6 +1177,11 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
     }
 
     const id = item.id;
+
+    // Automatic extraction items
+    if (id.startsWith('automatic-')) {
+      return 'automatische-extraktion';
+    }
 
     // Form completeness items
     if (id.includes('-completeness')) {
@@ -465,6 +1224,8 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
     switch (sectionKey) {
       case 'formular-vollstaendigkeit':
         return 'Antrags Vollständigkeit';
+      case 'automatische-extraktion':
+        return 'Automatische Extraktion';
       case 'einkommens-berechnungen':
         return 'Einkommens-Berechnungen';
       case 'personenbezogene-nachweis-pruefungen':
@@ -482,16 +1243,20 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
     }
   };
 
-  // Sort items by section order
+  // Sort items by section order (includes both regular and automatic items)
   const sortItemsBySection = (items: ChecklistItem[]) => {
     // Safety check for input
     if (!Array.isArray(items)) {
       return [];
     }
 
+    // Merge automatic items into the array for sorting
+    const allItems = [...items, ...automaticItems];
+
     // Define section order
     const sectionOrder = [
       'formular-vollstaendigkeit',
+      'automatische-extraktion',
       'einkommens-berechnungen', 
       'personenbezogene-nachweis-pruefungen',
       'allgemeine-nachweis-pruefungen',
@@ -500,8 +1265,8 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
       'benutzerdefinierte-todos'
     ];
 
-    // Create a copy of items sorted by section
-    const sortedItems = [...items].sort((a, b) => {
+    // Create a copy of all items (regular + automatic) sorted by section
+    const sortedItems = [...allItems].sort((a, b) => {
       const sectionA = getSectionForItem(a);
       const sectionB = getSectionForItem(b);
       
@@ -532,6 +1297,7 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
     // Define section order
     const sectionOrder = [
       'formular-vollstaendigkeit',
+      'automatische-extraktion',
       'einkommens-berechnungen', 
       'personenbezogene-nachweis-pruefungen',
       'allgemeine-nachweis-pruefungen',
@@ -577,9 +1343,26 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
   // Get progress for a section
   const getSectionProgress = (sectionItems: ChecklistItem[]) => {
     const totalItems = sectionItems.length;
-    const completedItems = sectionItems.filter(item => 
-    item.agentStatus === 'correct' || item.agentStatus === 'wrong'
-  ).length;
+    
+    // Calculate completed items with split contributions for second agent status
+    let completedItems = 0;
+    sectionItems.forEach(item => {
+      if (item.secondAgentStatus) {
+        // Item has second reviewer, each status contributes 0.5
+        if (item.agentStatus === 'correct' || item.agentStatus === 'wrong') {
+          completedItems += 0.5;
+        }
+        if (item.secondAgentStatus.status === 'correct' || item.secondAgentStatus.status === 'wrong') {
+          completedItems += 0.5;
+        }
+      } else {
+        // No second reviewer, full contribution
+        if (item.agentStatus === 'correct' || item.agentStatus === 'wrong') {
+          completedItems += 1;
+        }
+      }
+    });
+    
     return { completed: completedItems, total: totalItems };
   };
 
@@ -631,11 +1414,25 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
     const sortedItems = sortItemsBySection(safeChecklistItems);
     const { sections, sectionOrder } = groupItemsBySection(sortedItems);
     
-    // Calculate overall progress
+    // Calculate overall progress with split contributions for second agent status
     const totalItems = sortedItems.length;
-    const completedItems = sortedItems.filter(item => 
-      item.agentStatus === 'correct' || item.agentStatus === 'wrong'
-    ).length;
+    let completedItems = 0;
+    sortedItems.forEach(item => {
+      if (item.secondAgentStatus) {
+        // Item has second reviewer, each status contributes 0.5
+        if (item.agentStatus === 'correct' || item.agentStatus === 'wrong') {
+          completedItems += 0.5;
+        }
+        if (item.secondAgentStatus.status === 'correct' || item.secondAgentStatus.status === 'wrong') {
+          completedItems += 0.5;
+        }
+      } else {
+        // No second reviewer, full contribution
+        if (item.agentStatus === 'correct' || item.agentStatus === 'wrong') {
+          completedItems += 1;
+        }
+      }
+    });
 
     return (
       <div style={{ width: '100%', background: 'none', padding: '0 0 24px 0' }}>
@@ -668,12 +1465,34 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
               {completedItems}/{totalItems} bearbeitet
             </span>
           </div>
-          {!isApplicationCompleted && (
+          <div style={{ display: 'flex', gap: 8 }}>
+            {!isApplicationCompleted && (
+              <button
+                onClick={() => setShowAddItem(true)}
+                style={{
+                  padding: '8px 16px',
+                  background: '#064497',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 5,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  fontSize: 15,
+                  fontWeight: 500,
+                }}
+              >
+                <span className="material-icons" style={{ fontSize: 20 }}>add</span>
+                Neues To-Do hinzufügen
+              </button>
+            )}
+            {/* Debug button for automatic extraction recalculation */}
             <button
-              onClick={() => setShowAddItem(true)}
+              onClick={debugRecalculateAutomaticItems}
               style={{
                 padding: '8px 16px',
-                background: '#064497',
+                background: '#ff9800',
                 color: '#fff',
                 border: 'none',
                 borderRadius: 5,
@@ -684,11 +1503,12 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
                 fontSize: 15,
                 fontWeight: 500,
               }}
+              title="Debug: Automatische Berechnungen neu berechnen"
             >
-              <span className="material-icons" style={{ fontSize: 20 }}>add</span>
-              Neues To-Do hinzufügen
+              <span className="material-icons" style={{ fontSize: 20 }}>bug_report</span>
+              Debug: Neu berechnen
             </button>
-          )}
+          </div>
         </div>
 
         {showAddItem && (
@@ -710,10 +1530,12 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
             <>
               {sectionOrder.filter(key => key && sections[key]).map(sectionKey => {
                 const sectionData = sections[sectionKey];
-                if (!sectionData || !Array.isArray(sectionData.items) || sectionData.items.length === 0) return null;
+                // For automatic extraction section, use automatic items
+                const items = sectionKey === 'automatische-extraktion' ? automaticItems : (sectionData?.items || []);
+                if (!Array.isArray(items) || items.length === 0) return null;
 
                 const sectionTitle = getSectionTitle(sectionKey);
-                const progress = getSectionProgress(sectionData.items);
+                const progress = getSectionProgress(items);
                 const isExpanded = expandedSection === sectionKey;
                 
                 return (
@@ -768,14 +1590,18 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
                     {/* Section Items */}
                     {isExpanded && (
                       <div style={{ paddingLeft: 0 }}>
-                        {sectionData.items.map((item, idx) => {
-                          const globalIndex = sectionData.startIndex + idx;
+                        {items.map((item, idx) => {
+                          // Find the actual index in the sorted array instead of calculating it
+                          const globalIndex = sortedItems.findIndex(sortedItem => sortedItem && sortedItem.id === item.id);
                         const stateLabel = getStateLabel(item);
-                        const stateColor = getStateColor(stateLabel, item.agentStatus);
+                        const stateColor = getStateColor(stateLabel, item);
                         return (
                           <button
                             key={item.id}
-                              onClick={() => { closeOpenFormDoc(); setSelectedIndex(globalIndex); }}
+                              onClick={() => { 
+                                closeOpenFormDoc(); 
+                                setSelectedIndex(globalIndex);
+                              }}
                             style={{
                                 width: 'calc(100% - 32px)',
                               display: 'flex',
@@ -832,8 +1658,163 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
     
     const item = sortedItems[selectedIndex];
     const isCustomItem = item && item.systemStatus === 'created';
+    const isAutomaticItem = item && item.id.startsWith('automatic-');
 
     if (!item) return null;
+
+    // If this is an automatic item, render it with AutomaticChecklistItem
+    if (isAutomaticItem) {
+      return (
+        <div style={{ width: '100%', background: 'none', padding: '0 0 24px 0', position: 'relative' }}>
+          {toast.visible && (
+            <div style={{
+              position: 'fixed',
+              top: 24,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              background: '#d32f2f',
+              color: 'white',
+              padding: '12px 24px',
+              borderRadius: 8,
+              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+              zIndex: 1000,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              animation: 'slideIn 0.3s ease-out'
+            }}>
+              <span className="material-icons" style={{ fontSize: 20 }}>error</span>
+              {toast.message}
+            </div>
+          )}
+
+          <div style={{ width: '100%', background: 'none', padding: 0, marginTop: 8 }}>
+            <div style={{ padding: 0 }}>
+              <AutomaticChecklistItem
+                item={item}
+                onStatusChange={async (itemId, newStatus) => {
+                  await handleStatusChange(itemId, newStatus);
+                  setChecklistItems((prev) => prev.map(i => i.id === itemId ? { ...i, agentStatus: newStatus as any } : i));
+                }}
+                onNotesChange={async (itemId, notes) => {
+                  await handleNotesChange(itemId, notes);
+                  setChecklistItems((prev) => prev.map(i => i.id === itemId ? { ...i, agentNotes: notes } : i));
+                }}
+                onOpenForm={onOpenForm}
+                onOpenDocument={onOpenDocument}
+                onRecalculate={async () => {
+                  await debugRecalculateAutomaticItems();
+                }}
+                isReadOnly={isApplicationCompleted}
+                userData={userData}
+                onCalculationDataChange={handleCalculationDataChange}
+                applicationId={applicationId}
+                onRefreshData={refreshChecklistData}
+                onAssignSecondReviewer={handleAssignSecondReviewer}
+                onSecondAgentStatusChange={handleSecondAgentStatusChange}
+                onRemoveSecondReviewer={handleRemoveSecondReviewer}
+              />
+            </div>
+          </div>
+
+          {!openChecklistItemId && (
+            <div style={{ display: 'flex', width: '100%', marginTop: 0, gap: 16, justifyContent: 'center', background: 'none', position: 'relative', minHeight: 64, padding: '0px 0 0 0' }}>
+              <button
+                style={{
+                  flex: 1,
+                  padding: '12px 0',
+                  background: '#fff',
+                  color: '#064497',
+                  border: 'none',
+                  borderRadius: 10,
+                  fontWeight: 600,
+                  fontSize: 17,
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  transition: 'background 0.2s, color 0.2s',
+                  outline: 'none',
+                  minWidth: 0
+                }}
+                onClick={() => { 
+                  closeOpenFormDoc(); 
+                  setSelectedIndex(null); 
+                  if (onClearDeepLink) onClearDeepLink();
+                }}
+              >
+                <span className="material-icons" style={{ color: '#064497', fontSize: 22 }}>list</span>
+                Zur Liste
+              </button>
+              <button
+                style={{
+                  flex: 1,
+                  padding: '12px 0',
+                  background: '#fff',
+                  color: selectedIndex === 0 ? '#bdbdbd' : '#064497',
+                  border: 'none',
+                  borderRadius: 10,
+                  fontWeight: 600,
+                  fontSize: 17,
+                  cursor: selectedIndex === 0 ? 'not-allowed' : 'pointer',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  transition: 'background 0.2s, color 0.2s',
+                  outline: 'none',
+                  minWidth: 0
+                }}
+                onClick={() => {
+                  if (selectedIndex > 0) { 
+                    closeOpenFormDoc(); 
+                    setSelectedIndex(selectedIndex - 1); 
+                  } 
+                }}
+                disabled={selectedIndex === 0}
+              >
+                <span className="material-icons" style={{ color: selectedIndex === 0 ? '#bdbdbd' : '#064497', fontSize: 22 }}>chevron_left</span>
+                Letzter
+              </button>
+              <button
+                style={{
+                  flex: 1,
+                  padding: '12px 0',
+                  background: '#fff',
+                  color: selectedIndex === sortedItems.length - 1 ? '#bdbdbd' : '#064497',
+                  border: 'none',
+                  borderRadius: 10,
+                  fontWeight: 600,
+                  fontSize: 17,
+                  cursor: selectedIndex === sortedItems.length - 1 ? 'not-allowed' : 'pointer',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  transition: 'background 0.2s, color 0.2s',
+                  outline: 'none',
+                  minWidth: 0
+                }}
+                onClick={() => { 
+                  if (selectedIndex < sortedItems.length - 1) { 
+                    closeOpenFormDoc(); 
+                    setSelectedIndex(selectedIndex + 1); 
+                  } 
+                }}
+                disabled={selectedIndex === sortedItems.length - 1}
+              >
+                <span className="material-icons" style={{ color: selectedIndex === sortedItems.length - 1 ? '#bdbdbd' : '#064497', fontSize: 22 }}>chevron_right</span>
+                Nächster
+              </button>
+            </div>
+          )}
+        </div>
+      );
+    }
 
     return (
       <div style={{ width: '100%', background: 'none', padding: '0 0 24px 0', position: 'relative' }}>
@@ -879,6 +1860,11 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
               onEdit={handleEditCustomItem}
               userData={userData}
               isReadOnly={isApplicationCompleted}
+              applicationId={applicationId}
+              onRefreshData={refreshChecklistData}
+              onAssignSecondReviewer={handleAssignSecondReviewer}
+              onSecondAgentStatusChange={handleSecondAgentStatusChange}
+              onRemoveSecondReviewer={handleRemoveSecondReviewer}
           />
         ) : (
           <ChecklistItemComponent
@@ -900,6 +1886,9 @@ const ChecklistPanel: React.FC<ChecklistPanelProps> = ({
               applicationId={applicationId}
               onRefreshData={refreshChecklistData}
               isReadOnly={isApplicationCompleted}
+              onAssignSecondReviewer={handleAssignSecondReviewer}
+              onSecondAgentStatusChange={handleSecondAgentStatusChange}
+              onRemoveSecondReviewer={handleRemoveSecondReviewer}
           />
         )}
       </div>
