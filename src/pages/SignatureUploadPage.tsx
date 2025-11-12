@@ -597,7 +597,7 @@ const SignatureUploadPage: React.FC = () => {
                   }
                 });
                 if (!tokenResponse.ok) {
-                  throw new Error('Failed to get system token');
+                  throw new Error('Failed to get system tokenn');
                 }
                 const { token } = await tokenResponse.json();
 
