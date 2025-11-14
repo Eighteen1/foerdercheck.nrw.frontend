@@ -1,0 +1,19 @@
+{
+  "extends": [
+    "react-app",
+    "react-app/jest"
+  ],
+  "rules": {
+    "@typescript-eslint/no-unused-vars": "off",
+    "react-hooks/exhaustive-deps": "off",
+    "no-mixed-operators": "off",
+    "eqeqeq": "off",
+    "react/jsx-pascal-case": "off",
+    "jsx-a11y/anchor-is-valid": "off",
+    "no-useless-escape": "off",
+    "no-duplicate-case": "off",
+    "no-unreachable": "off",
+    "no-lone-blocks": "off"
+  }
+}
+

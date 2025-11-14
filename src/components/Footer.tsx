@@ -51,20 +51,20 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
             >
               Kontakt
             </a>
-            <a 
+            <button
               onClick={() => handleNavigation('/persoenliche-daten')}
-              className="text-white text-decoration-none"
+              className="text-white text-decoration-none border-0 bg-transparent p-0"
               style={{ cursor: 'pointer' }}
             >
               Persönliche Daten
-            </a>
-            <a 
+            </button>
+            <button
               onClick={() => handleNavigation('/government')}
-              className="text-white text-decoration-none"
+              className="text-white text-decoration-none border-0 bg-transparent p-0"
               style={{ cursor: 'pointer' }}
             >
               Zum Verwaltungsportal
-            </a>
+            </button>
           </div>
         </div>
       </Container>

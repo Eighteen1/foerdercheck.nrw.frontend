@@ -26,7 +26,6 @@ import EinkommenserklaerungContainer from './components/Einkommenserklaerung/Ein
 import GovernmentLanding from './components/government/GovernmentLanding';
 import GovernmentLogin from './components/government/GovernmentLogin';
 import GovernmentDashboard from './components/government/GovernmentDashboard';
-import ApplicationReviewContainer from './components/government/review/ApplicationReviewContainer';
 import GovernmentExtractionTest from './components/government/GovernmentExtractionTest';
 import SelbstauskunftContainer from './components/Selbstauskunft/SelbstauskunftContainer';
 import WoFIVContainer from './components/WoFIV/WoFIVContainer';

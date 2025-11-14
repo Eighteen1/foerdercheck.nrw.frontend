@@ -3,10 +3,9 @@ import { Container, Button, Modal, Spinner, Form } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase, ensureUserFinancialsExists } from '../../lib/supabase';
-import { formatCurrencyForDisplay, formatCurrencyForDatabase, safeFormatCurrencyForDatabase, safeNumericToString, safeFormatCurrencyForDisplay, safeNumericToDatabase, safeAreaToDatabase, safeAreaToString, isValidAreaValue } from '../../utils/currencyUtils';
+import { safeFormatCurrencyForDatabase, safeFormatCurrencyForDisplay } from '../../utils/currencyUtils';
 import EinkommenserklaerungForm from './Steps/EinkommenserklaerungForm';
 import './EinkommenserklaerungContainer.css';
-import PDFDownloadButton from '../PDFDownload/PDFDownloadButton';
 
 interface WeitereEinkuenfte {
   selectedTypes: string[];
@@ -220,7 +219,7 @@ const initialAdditionalIncomeChanges: AdditionalIncomeChange = {
 const generateUUID = (): string => {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
     const r = Math.random() * 16 | 0;
-    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    const v = c === 'x' ? r : ((r & 0x3) | 0x8);
     return v.toString(16);
   });
 };
