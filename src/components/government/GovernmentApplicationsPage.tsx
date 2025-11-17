@@ -502,8 +502,12 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.user) return;
 
-        const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || '';
-        const response = await fetch(`${BACKEND_URL}/api/registry/available-columns`, {
+        // Force HTTP for localhost to avoid SSL issues
+        let backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
+        if (backendUrl.includes('localhost')) {
+          backendUrl = backendUrl.replace('https://', 'http://');
+        }
+        const response = await fetch(`${backendUrl}/api/registry/available-columns`, {
           headers: {
             'Authorization': `Bearer ${session.access_token}`,
           },
@@ -619,8 +623,12 @@ const GovernmentApplicationsPage: React.FC<GovernmentApplicationsPageProps> = ({
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) throw new Error('Keine Authentifizierung gefunden.');
 
-      const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || '';
-      const response = await fetch(`${BACKEND_URL}/api/registry/export`, {
+      // Force HTTP for localhost to avoid SSL issues
+      let backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
+      if (backendUrl.includes('localhost')) {
+        backendUrl = backendUrl.replace('https://', 'http://');
+      }
+      const response = await fetch(`${backendUrl}/api/registry/export`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

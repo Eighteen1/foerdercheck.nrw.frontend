@@ -3472,8 +3472,6 @@ export class ValidationService {
     const additionalValidationSection = this.validateAdditionalFinancialCriteria(hauptantragData, einkommenserklarungData);
     sections.push(additionalValidationSection);
 
-
-
     return sections;
   }
 
@@ -4642,6 +4640,26 @@ export class ValidationService {
           }
         }
       };
+
+      // Persist the einkommensgruppe in Supabase if eligible
+      const einkommensgruppeValue = group === 'Gruppe A' ? 'A' : group === 'Gruppe B' ? 'B' : null;
+      if (einkommensgruppeValue) {
+        try {
+          const { error: einkommensgruppeError } = await supabase
+            .from('user_data')
+            .update({
+              einkommensgruppe: einkommensgruppeValue,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', this.residentId);
+
+          if (einkommensgruppeError) {
+            console.warn('Fehler beim Aktualisieren der Einkommensgruppe:', einkommensgruppeError);
+          }
+        } catch (dbError) {
+          console.warn('Unerwarteter Fehler beim Speichern der Einkommensgruppe:', dbError);
+        }
+      }
 
     } catch (error) {
       errors.push(`Fehler bei der Einkommensgruppen-Bestimmung: ${error}`);
